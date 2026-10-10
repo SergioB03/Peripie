@@ -2,45 +2,330 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Peripie</title>
+<meta name="description" content="A small shop you walk into. The clerk greets you out loud and checks the stock room before answering.">
+<meta name="theme-color" content="#1c1917">
+<link rel="icon" href="data:,">
 <style>
-  html,body{margin:0;height:100%;overflow:hidden;font-family:system-ui,sans-serif;background:#bfe3f5}
-  canvas{display:block;width:100%;height:100%}
+  /* Look: the AI Studio design (dark glass over the 3D street), rebuilt in plain CSS. Tailwind's
+     stone palette, radii and shadows are copied as values; the font is the system UI font. */
+  :root{
+    --s100:#f5f5f4;--s200:#e7e5e4;--s300:#d6d3d1;--s400:#a8a29e;--s500:#78716c;
+    --s700:#44403c;--s800:#292524;--s900:#1c1917;--s950:#0c0a09;
+    --accent:#d97706;
+    --sh-sm:0 1px 3px 0 rgb(0 0 0/.1),0 1px 2px -1px rgb(0 0 0/.1);
+    --sh-md:0 4px 6px -1px rgb(0 0 0/.1),0 2px 4px -2px rgb(0 0 0/.1);
+    --sh-lg:0 10px 15px -3px rgb(0 0 0/.1),0 4px 6px -4px rgb(0 0 0/.1);
+    --sh-xl:0 20px 25px -5px rgb(0 0 0/.1),0 8px 10px -6px rgb(0 0 0/.1);
+    --sh-2xl:0 25px 50px -12px rgb(0 0 0/.25);
+    --out:cubic-bezier(.16,1,.3,1);
+    --top:max(12px,env(safe-area-inset-top));
+    --bottom:max(12px,env(safe-area-inset-bottom));
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  [hidden]{display:none!important}
   #shops[hidden]{display:none}
-  #shops{position:fixed;top:16px;left:16px;display:flex;gap:8px;flex-wrap:wrap}
-  button{font:inherit;padding:10px 16px;border-radius:10px;border:1px solid #2223;background:#fff;cursor:pointer}
-  button.on{background:#222;color:#fff}
-  #enter{position:fixed;left:50%;bottom:32px;transform:translateX(-50%);font-size:18px;padding:14px 28px}
-  #panel{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);width:min(560px,calc(100% - 32px));
-    background:#fffffff2;border-radius:16px;padding:16px;box-sizing:border-box;box-shadow:0 6px 24px #0003}
-  #status{display:inline-block;font-size:13px;padding:4px 10px;border-radius:99px;background:#e8e8e8}
-  #status.checking{background:#ffe2a8}
-  #status.answering{background:#c9efd3}
-  #reply{font-size:18px;line-height:1.4;margin:12px 0;min-height:1.4em}
-  form{display:flex;gap:8px}
-  input{flex:1;font:inherit;padding:10px 12px;border-radius:10px;border:1px solid #2224;min-width:0}
-  #leave{margin-top:10px;border:none;background:none;text-decoration:underline;padding:4px 0}
+  html,body{margin:0;height:100%;overflow:hidden;background:#bae6fd;color:var(--s100);
+    font:14px/1.43 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+  #c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab;
+    -webkit-tap-highlight-color:transparent}
+  body.dragging #c{cursor:grabbing}
+  button{font:inherit;color:inherit;background:none;border:0;margin:0;cursor:pointer;
+    touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+  button:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
+  .i{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2;
+    stroke-linecap:round;stroke-linejoin:round}
+  /* Blur only on the three big cards; a blurred layer is redrawn with every 3D frame */
+  .glass{background:rgb(28 25 23/.8);border:1px solid rgb(255 255 255/.1);box-shadow:var(--sh-lg);
+    -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+  .solid{background:rgb(28 25 23/.88);border:1px solid rgb(255 255 255/.1);box-shadow:var(--sh-lg)}
+  @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+    .glass{background:rgb(28 25 23/.95)}}
+  .chip{font-size:10px;font-weight:600;line-height:14px;padding:0 6px;border-radius:9999px;
+    border:1px solid;white-space:nowrap}
+  .chip.amber{color:#fcd34d;background:rgb(69 26 3/.8);border-color:rgb(146 64 14/.6);text-transform:uppercase}
+  .chip.green{color:#34d399;background:rgb(2 44 34/.8);border-color:rgb(6 95 70/.6)}
+  .tile{width:32px;height:32px;border-radius:12px;background:var(--accent);color:#fff;display:grid;
+    place-items:center;flex:none;box-shadow:var(--sh-sm);transition:background-color .3s}
+  .tile.round{width:36px;height:36px;border-radius:9999px}
+  .ping{position:relative;width:8px;height:8px;border-radius:9999px;background:var(--accent);flex:none}
+  .ping::after{content:"";position:absolute;inset:0;border-radius:inherit;background:inherit;
+    animation:ping 1s cubic-bezier(0,0,.2,1) infinite}
+
+  /* Header: brand card, shop tabs, skyline and sound. Phones: two rows; 1024 px and up: one */
+  #top{position:fixed;top:0;left:0;right:0;z-index:20;display:grid;gap:8px;align-items:center;
+    grid-template-columns:minmax(0,auto) 1fr auto;grid-template-areas:"brand . actions" "tabs tabs tabs";
+    padding:var(--top) 12px 0;pointer-events:none}
+  #top>*{pointer-events:auto}
+  #brand{grid-area:brand;display:flex;align-items:center;gap:10px;min-width:0;padding:6px 14px 6px 6px;
+    border-radius:16px}
+  .brand-text{display:flex;flex-direction:column;min-width:0}
+  .brand-line{display:flex;align-items:center;gap:6px}
+  .brand-line b{font-size:14px;line-height:20px;font-weight:800;letter-spacing:-.025em}
+  .where{display:flex;align-items:center;gap:4px;font-size:11px;line-height:16px;font-weight:500;
+    color:var(--s400);white-space:nowrap}
+  .where .i{width:12px;height:12px;color:var(--s500)}
+  #actions{grid-area:actions;display:flex;gap:6px}
+  .pill-btn{height:40px;min-width:40px;padding:0 10px;border-radius:16px;display:inline-flex;
+    align-items:center;justify-content:center;gap:6px;font-size:12px;font-weight:600;color:var(--s300);
+    transition:color .15s,background-color .15s,border-color .15s}
+  .pill-btn:hover{color:#fff}
+  #skyline .i{color:#fbbf24}
+  #skyline span{display:none}
+  #skyline[aria-pressed=true]{color:#fcd34d;border-color:#fbbf24;background:rgb(69 26 3/.8);
+    box-shadow:0 0 0 2px rgb(251 191 36/.5),var(--sh-lg)}
+  #sound .i{color:#34d399}
+  #sound[aria-pressed=true] .i{color:var(--s500)}
+  #shops{grid-area:tabs;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;
+    border-radius:16px}
+  #shops button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px;
+    padding:4px 8px;border-radius:12px;font-size:12px;font-weight:600;line-height:1.2;color:var(--s400);
+    text-align:left;transition:color .2s,background-color .2s,box-shadow .2s}
+  #shops button:hover{color:var(--s200);background:rgb(41 37 36/.6)}
+  #shops button.on{background:var(--accent);color:#fff;box-shadow:var(--sh-md)}
+  #hint{display:none}
+  @media (max-width:379px){#event{display:none}}
+  @media (min-width:640px){
+    #top{padding:max(16px,env(safe-area-inset-top)) 16px 0}
+    #skyline{padding:0 12px}
+    #skyline span{display:inline}
+    #shops{display:flex;justify-self:center}
+    #shops button{min-height:34px;padding:6px 12px;white-space:nowrap}
+  }
+  @media (min-width:1024px){
+    #top{grid-template-columns:1fr auto 1fr;grid-template-areas:"brand tabs actions"}
+    #brand{justify-self:start}
+    #actions{justify-self:end}
+    #hint{display:block;position:fixed;top:84px;left:50%;transform:translateX(-50%);z-index:10;margin:0;
+      padding:4px 12px;border-radius:9999px;font-size:11px;font-weight:500;color:rgb(231 229 228/.9);
+      background:rgb(28 25 23/.5);border:1px solid rgb(255 255 255/.1);box-shadow:var(--sh-sm);
+      pointer-events:none;white-space:nowrap}
+  }
+
+  /* The cue sits on the doors: the render loop moves it to where the doors are on screen */
+  #door-cue{position:fixed;left:50%;top:50%;z-index:10;display:flex;align-items:center;gap:8px;
+    padding:6px 14px;border-radius:9999px;background:rgb(28 25 23/.75);border:1px solid rgb(255 255 255/.2);
+    color:#fff;font-size:12px;font-weight:600;letter-spacing:.025em;white-space:nowrap;box-shadow:var(--sh-xl);
+    transform:translate(-50%,-50%);transition:opacity .3s,border-color .3s,transform .3s}
+  #door-cue:hover{border-color:#fbbf24;transform:translate(-50%,-50%) scale(1.05)}
+  #door-cue .i{width:14px;height:14px}
+  #door-cue.off{opacity:0;pointer-events:none}
+  body:not([data-where=street]) :is(#dock,#door-cue,#skyline,#hint){display:none}
+
+  /* Street dock: the shop's card and the Enter button */
+  #dock{position:fixed;left:0;right:0;bottom:var(--bottom);z-index:20;display:flex;justify-content:center;
+    padding:0 12px;pointer-events:none}
+  .dock-card{pointer-events:auto;width:100%;max-width:672px;display:flex;flex-direction:column;gap:10px;
+    padding:10px;border-radius:16px;background:rgb(28 25 23/.85);box-shadow:var(--sh-2xl);
+    -webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);animation:slideUp .4s var(--out) both}
+  .dock-id{display:flex;align-items:center;gap:12px;min-width:0;padding:0 6px}
+  .dock-text{display:flex;flex-direction:column;min-width:0}
+  .dock-title{display:flex;align-items:center;gap:8px;min-width:0}
+  #shop-name{margin:0;font-size:14px;line-height:20px;font-weight:700;color:#fff;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .duty{font-size:11px;line-height:16px;font-weight:500;color:var(--s400);white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis}
+  #enter{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 20px;
+    border-radius:12px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;letter-spacing:.025em;
+    box-shadow:var(--sh-lg);transition:filter .15s,transform .15s,background-color .3s}
+  #enter:hover{filter:brightness(1.1)}
+  #enter:active{transform:scale(.98)}
+  @media (min-width:640px){
+    #dock{bottom:max(24px,env(safe-area-inset-bottom));padding:0 16px}
+    .dock-card{flex-direction:row;align-items:center;justify-content:space-between;padding:10px 10px 10px 12px;
+      border-radius:9999px}
+    #enter{flex:none;border-radius:9999px}
+  }
+
+  /* While the camera walks: a small pill at the bottom, clear of the doors */
+  #walking{position:fixed;left:50%;bottom:calc(var(--bottom) + 12px);transform:translateX(-50%);z-index:30;
+    display:none;align-items:center;gap:10px;padding:12px 20px;border-radius:16px;background:rgb(28 25 23/.85);
+    border:1px solid rgb(255 255 255/.1);color:var(--s200);font-size:12px;font-weight:600;white-space:nowrap;
+    box-shadow:var(--sh-xl);pointer-events:none;animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}
+  #walking .ping{background:#fbbf24}
+  #walking .out{display:none}
+  body[data-where=entering] #walking,body[data-where=leaving] #walking{display:flex}
+  body[data-where=leaving] #walking .in{display:none}
+  body[data-where=leaving] #walking .out{display:inline}
+
+  /* Counter panel. #status and #reply stay plain text: the page writes textContent into them */
+  #panel{position:fixed;left:0;right:0;bottom:var(--bottom);z-index:20;display:flex;justify-content:center;
+    padding:0 8px;pointer-events:none}
+  .panel-card{pointer-events:auto;width:100%;max-width:576px;display:flex;flex-direction:column;gap:10px;
+    padding:12px;border-radius:24px;background:rgb(28 25 23/.9);box-shadow:var(--sh-2xl);
+    -webkit-backdrop-filter:blur(40px);backdrop-filter:blur(40px);animation:slideUp .4s var(--out) both}
+  .panel-top{display:flex;align-items:center;justify-content:space-between;gap:6px;padding-bottom:8px;
+    border-bottom:1px solid var(--s800)}
+  .st{display:flex;align-items:center;gap:8px;min-width:0}
+  #status{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:9999px;border:1px solid;
+    font-size:11px;line-height:16px;font-weight:600;white-space:nowrap;
+    transition:background-color .2s,color .2s,border-color .2s}
+  #status::before{content:"";width:8px;height:8px;border-radius:9999px;background:currentColor;flex:none}
+  #status.listening{color:#6ee7b7;background:rgb(2 44 34/.8);border-color:rgb(6 95 70/.6)}
+  #status.listening::before{background:#34d399;animation:ring 1.6s cubic-bezier(0,0,.2,1) infinite}
+  #status.checking{color:#fcd34d;background:rgb(69 26 3/.8);border-color:rgb(146 64 14/.6)}
+  #status.checking::before{background:#fbbf24;animation:pulse 1s cubic-bezier(.4,0,.6,1) infinite}
+  #status.answering{color:#93c5fd;background:rgb(23 37 84/.8);border-color:rgb(30 64 175/.6)}
+  #status.answering::before{background:#60a5fa}
+  .bars{display:none;align-items:center;gap:2px;height:12px;color:#93c5fd}
+  .bars i{width:2px;height:12px;border-radius:1px;background:currentColor;animation:bar .9s ease-in-out infinite}
+  .bars i:nth-child(2){animation-delay:.15s}
+  .bars i:nth-child(3){animation-delay:.3s}
+  body[data-state=answering] .bars{display:flex}
+  #leave{display:inline-flex;align-items:center;gap:5px;flex:none;min-height:32px;padding:4px 8px;
+    border-radius:12px;background:rgb(41 37 36/.8);border:1px solid rgb(68 64 60/.6);color:var(--s300);
+    font-size:11px;font-weight:500;transition:background-color .15s,color .15s}
+  #leave:hover{background:var(--s800);color:#fff}
+  #leave .i{width:14px;height:14px}
+  .reply-card{display:flex;flex-direction:column;gap:6px;min-height:68px;padding:12px;border-radius:16px;
+    background:rgb(12 10 9/.75);border:1px solid rgb(41 37 36/.8)}
+  .who{display:flex;align-items:center;gap:8px;min-width:0;font-size:12px;line-height:16px;font-weight:700;
+    color:var(--s200)}
+  #who{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #avatar{width:24px;height:24px;border-radius:9999px;background:var(--accent);color:#fff;font-size:10px;
+    font-weight:700;display:grid;place-items:center;flex:none;box-shadow:var(--sh-sm)}
+  body[data-state=checking] #avatar{box-shadow:0 0 0 2px rgb(251 191 36/.5);
+    animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}
+  #reply{margin:0;padding-left:32px;font-size:14px;line-height:1.625;font-weight:500;color:var(--s100);
+    overflow-wrap:anywhere}
+  #reply:empty{display:none}
+  #reply::before{content:"\201C"}
+  #reply::after{content:"\201D"}
+  .typing{display:none;align-self:flex-start;align-items:center;gap:6px;margin-left:32px;padding:8px 14px;
+    border-radius:16px;background:rgb(28 25 23/.9);border:1px solid var(--s800);
+    box-shadow:inset 0 2px 4px 0 rgb(0 0 0/.05)}
+  .typing i{width:8px;height:8px;border-radius:9999px;background:var(--accent);animation:dot 1.2s ease-in-out infinite}
+  .typing i:nth-child(2){animation-delay:.2s}
+  .typing i:nth-child(3){animation-delay:.4s}
+  body[data-state=checking] .typing{display:inline-flex}
+  #chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -2px;padding:0 2px}
+  #chips::-webkit-scrollbar{display:none}
+  #chips button{flex:none;min-height:30px;padding:4px 10px;border-radius:12px;background:rgb(41 37 36/.7);
+    border:1px solid rgb(68 64 60/.5);color:var(--s300);font-size:11px;white-space:nowrap;
+    transition:background-color .15s,color .15s,opacity .15s}
+  #chips button:hover{background:rgb(68 64 60/.8);color:#fff}
+  body:not([data-state=listening]) #chips button{opacity:.5;pointer-events:none}
+  #f{display:flex;gap:8px;margin:0}
+  #q{flex:1;min-width:0;font:inherit;font-size:16px;line-height:24px;padding:8px 14px;border-radius:16px;
+    background:var(--s950);color:var(--s100);border:1px solid rgb(68 64 60/.8);outline:none;
+    -webkit-user-select:text;user-select:text;transition:border-color .15s,box-shadow .15s}
+  #q::placeholder{color:var(--s500)}
+  #q:focus{border-color:var(--s400);box-shadow:0 0 0 1px var(--s400)}
+  #f button{display:inline-flex;align-items:center;gap:6px;flex:none;padding:8px 16px;border-radius:16px;
+    background:var(--accent);color:#fff;font-size:14px;font-weight:600;box-shadow:var(--sh-md);
+    transition:filter .15s,opacity .15s}
+  #f button:hover{filter:brightness(1.1)}
+  #f button .i{width:14px;height:14px}
+  #f:has(#q:placeholder-shown) button,body:not([data-state=listening]) #f button{opacity:.4;cursor:default}
+  @media (min-width:400px){
+    #status{gap:8px;padding:4px 12px;font-size:12px;letter-spacing:.025em}
+    #leave{gap:6px;padding:4px 12px;font-size:12px}
+  }
+  @media (min-width:640px){
+    #panel{bottom:max(20px,env(safe-area-inset-bottom));padding:0 16px}
+    .panel-card{gap:12px;padding:16px}
+  }
+  @media (hover:hover) and (pointer:fine){#q{font-size:14px}}
+  @media (max-height:520px) and (orientation:landscape){
+    #chips,.who{display:none}
+    .panel-card{gap:8px;padding:10px}
+  }
+
+  @keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  @keyframes ping{75%,100%{transform:scale(2);opacity:0}}
+  @keyframes pulse{50%{opacity:.5}}
+  @keyframes ring{0%{box-shadow:0 0 0 0 rgb(52 211 153/.6)}80%,100%{box-shadow:0 0 0 6px rgb(52 211 153/0)}}
+  @keyframes dot{0%,80%,100%{transform:translateY(0) scale(.85);opacity:.45}40%{transform:translateY(-5px) scale(1.15);opacity:1}}
+  @keyframes bar{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/" } }
+</script>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js">
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.core.js">
 </head>
-<body>
-<canvas id="c"></canvas>
-<div id="shops"></div>
-<button id="enter">Enter shop</button>
+<body data-where="street" data-state="listening">
+<!-- Icons: Lucide (lucide-static 0.546.0, the version the AI Studio design used), ISC licence -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-croissant" viewBox="0 0 24 24"><path d="M10.2 18H4.774a1.5 1.5 0 0 1-1.352-.97 11 11 0 0 1 .132-6.487"/><path d="M18 10.2V4.774a1.5 1.5 0 0 0-.97-1.352 11 11 0 0 0-6.486.132"/><path d="M18 5a4 3 0 0 1 4 3 2 2 0 0 1-2 2 10 10 0 0 0-5.139 1.42"/><path d="M5 18a3 4 0 0 0 3 4 2 2 0 0 0 2-2 10 10 0 0 1 1.42-5.14"/><path d="M8.709 2.554a10 10 0 0 0-6.155 6.155 1.5 1.5 0 0 0 .676 1.626l9.807 5.42a2 2 0 0 0 2.718-2.718l-5.42-9.807a1.5 1.5 0 0 0-1.626-.676"/></symbol>
+  <symbol id="i-paint-bucket" viewBox="0 0 24 24"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z"/></symbol>
+  <symbol id="i-flower-2" viewBox="0 0 24 24"><path d="M12 5a3 3 0 1 1 3 3m-3-3a3 3 0 1 0-3 3m3-3v1M9 8a3 3 0 1 0 3 3M9 8h1m5 0a3 3 0 1 1-3 3m3-3h-1m-2 3v-1"/><circle cx="12" cy="8" r="2"/><path d="M12 10v12"/><path d="M12 22c4.2 0 7-1.667 7-5-4.2 0-7 1.667-7 5Z"/><path d="M12 22c-4.2 0-7-1.667-7-5 4.2 0 7 1.667 7 5Z"/></symbol>
+  <symbol id="i-map-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></symbol>
+  <symbol id="i-building-2" viewBox="0 0 24 24"><path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></symbol>
+  <symbol id="i-volume-2" viewBox="0 0 24 24"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></symbol>
+  <symbol id="i-volume-x" viewBox="0 0 24 24"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/></symbol>
+  <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+  <symbol id="i-corner-up-left" viewBox="0 0 24 24"><path d="M20 20v-7a4 4 0 0 0-4-4H4"/><path d="M9 14 4 9l5-5"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></symbol>
+</svg>
+
+<canvas id="c" role="img" aria-label="A shop front on a city street; inside, a clerk behind the counter"></canvas>
+
+<header id="top">
+  <div id="brand" class="glass">
+    <span class="tile"><svg class="i" data-shop-icon aria-hidden="true"><use href="#i-croissant"/></svg></span>
+    <span class="brand-text">
+      <span class="brand-line"><b>Peripie</b><span class="chip amber" id="event">HackLanta '26</span></span>
+      <span class="where"><svg class="i" aria-hidden="true"><use href="#i-map-pin"/></svg><span id="area"></span></span>
+    </span>
+  </div>
+  <nav id="shops" class="solid" aria-label="Shops"></nav>
+  <div id="actions">
+    <button id="skyline" class="solid pill-btn" type="button" aria-pressed="false" title="Look up at the skyline"><svg class="i" aria-hidden="true"><use href="#i-building-2"/></svg><span id="skyline-label">Skyline</span></button>
+    <button id="sound" class="solid pill-btn" type="button" aria-pressed="false" aria-label="Mute sound" title="Mute sound and voice"><svg class="i" aria-hidden="true"><use href="#i-volume-2"/></svg></button>
+  </div>
+</header>
+<p id="hint">Drag to look around</p>
+
+<button id="door-cue" type="button"><span class="ping"></span>Tap the doors to walk in<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
+
+<div id="dock">
+  <div class="dock-card glass">
+    <div class="dock-id">
+      <span class="tile round"><svg class="i" data-shop-icon aria-hidden="true"><use href="#i-croissant"/></svg></span>
+      <div class="dock-text">
+        <div class="dock-title"><h1 id="shop-name"></h1><span class="chip green">Open now</span></div>
+        <span class="duty">Clerk and stock room on duty</span>
+      </div>
+    </div>
+    <button id="enter" type="button">Enter shop<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
+  </div>
+</div>
+
+<div id="walking" aria-hidden="true"><span class="ping"></span><span class="in">Walking in…</span><span class="out">Stepping outside…</span></div>
+
 <div id="panel" hidden>
-  <span id="status">Listening</span>
-  <p id="reply"></p>
-  <form id="f">
-    <input id="q" placeholder="Ask for a product" autocomplete="off" maxlength="300" aria-label="Ask the clerk">
-    <button>Ask</button>
-  </form>
-  <button id="leave" type="button">Leave shop</button>
+  <div class="panel-card glass">
+    <div class="panel-top">
+      <span class="st"><span id="status" class="listening" role="status" aria-live="polite">Listening</span><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span></span>
+      <button id="leave" type="button"><svg class="i" aria-hidden="true"><use href="#i-corner-up-left"/></svg>Leave shop</button>
+    </div>
+    <div class="reply-card">
+      <div class="who"><span id="avatar" aria-hidden="true"></span><span id="who"></span></div>
+      <p id="reply"></p>
+      <span class="typing" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+    <div id="chips" role="group" aria-label="Questions to try"></div>
+    <form id="f">
+      <input id="q" placeholder="Ask for a product" autocomplete="off" maxlength="300" aria-label="Ask the clerk">
+      <button>Ask<svg class="i" aria-hidden="true"><use href="#i-send"/></svg></button>
+    </form>
+  </div>
 </div>
 
 <script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import * as THREE from 'three';
 
-/* ---------- 1. SHOP TEMPLATES: add a shop by adding an entry here ---------- */
+/* ---------- 1. SHOP TEMPLATES: add a shop by adding an entry here ----------
+   id, name and inventory are what the server and the database seed match. The rest is display
+   only: area labels the shop, asks are the question chips (each names a product it carries), and
+   look holds the AI Studio design's colours. wall, floor, accent and products are the first
+   scene's colours; nothing reads them since the design port. */
 const SHOPS = [
   { id:'bakery', name:'Rosa\'s Bakery', wall:0xf3e3c8, floor:0xb98a5e, accent:0xc2553d,
     products:[0xe8c07a,0xd99a4e,0xf5e1b5,0xa86a3a],
@@ -48,21 +333,33 @@ const SHOPS = [
       {name:'sourdough', inStock:true},
       {name:'croissant', inStock:false, restock:'Tuesday morning'},
       {name:'concha', inStock:true},
-      {name:'baguette', inStock:false, restock:'tomorrow at 7am'} ] },
+      {name:'baguette', inStock:false, restock:'tomorrow at 7am'} ],
+    area:'Atlanta, GA',
+    asks:['Do you have sourdough?', 'Do you have croissants?', 'Any conchas today?', 'Is there a baguette?'],
+    look:{ accent:'#d97706', wall:'#fdf6ec', floor:'#a16207', awning:['#b45309', '#fef3c7'], apron:'#b45309',
+           vest:'#78350f', signBg:'#78350f', signText:'#fef3c7', light:'#ffedd5' } },
   { id:'paint', name:'Southside Paint Supply', wall:0xe6ecf2, floor:0x8d949c, accent:0x2a6fb0,
     products:[0xd6453d,0x2a9d8f,0xf2c14e,0x3d5a80,0xffffff],
     inventory:[
       {name:'primer', inStock:true},
       {name:'eggshell white', inStock:true},
       {name:'roller', inStock:false, restock:'Friday'},
-      {name:'painter\'s tape', inStock:true} ] },
+      {name:'painter\'s tape', inStock:true} ],
+    area:'Atlanta, GA',
+    asks:['Do you have primer?', 'Do you have a roller?', 'Any painter\'s tape?', 'Eggshell white in stock?'],
+    look:{ accent:'#2563eb', wall:'#f1f5f9', floor:'#475569', awning:['#1d4ed8', '#dbeafe'], apron:'#1d4ed8',
+           vest:'#1e3a8a', signBg:'#1e3a8a', signText:'#93c5fd', light:'#f0f9ff' } },
   { id:'plants', name:'Fern & Pot', wall:0xe9f2e4, floor:0x9a8468, accent:0x3f7d4f,
     products:[0x4f9d5d,0x7cc48a,0xc47a4a,0x2f6b3f],
     inventory:[
       {name:'monstera', inStock:false, restock:'next Saturday'},
       {name:'pothos', inStock:true},
       {name:'snake plant', inStock:true},
-      {name:'terracotta pot', inStock:true} ] }
+      {name:'terracotta pot', inStock:true} ],
+    area:'Atlanta, GA',
+    asks:['Do you have a monstera?', 'Any pothos?', 'Do you have a snake plant?', 'Any terracotta pots?'],
+    look:{ accent:'#059669', wall:'#f7fee7', floor:'#78350f', awning:['#047857', '#d1fae5'], apron:'#047857',
+           vest:'#064e3b', signBg:'#064e3b', signText:'#a7f3d0', light:'#ecfdf5' } }
 ];
 
 /* ---------- 2. AGENT HAND-OFF (contract v2, PLAN.md section 3) ----------
@@ -113,126 +410,462 @@ async function askClerk(text){
     : 'We\'re out of ' + item.name + ' right now. It\'ll be back ' + item.restock + '.' };
 }
 
-/* ---------- 3. SCENE ---------- */
+/* ---------- 3. SCENE: the AI Studio street and shop (ShopScene.ts), in plain Three.js ----------
+   Metres; y is up, the street is toward +z, x = 0 is the doors' centre line. Kept as designed:
+   positions, sizes, colours, lights, ACES tone mapping and one sun shadow. Changed: no glass
+   (AI Studio's panes sat inside the walls and only cost an extra render pass each frame), no
+   point-light shadow, the oven light always exists so a shop switch never recompiles shaders,
+   the boards list this page's products, and the clerk's head nods from the neck. */
 const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, powerPreference:'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;      // what AI Studio drew: 0.186 has no PCFSoft
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xbfe3f5);
-const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
-scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a8a, 1.1));
-const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(6, 12, 10); scene.add(sun);
-const lamp = new THREE.PointLight(0xfff1d6, 40, 30); lamp.position.set(0, 4.2, -5); scene.add(lamp);
+scene.background = new THREE.Color('#bae6fd');
+scene.fog = new THREE.FogExp2('#c7d2fe', 0.015);
+const camera = new THREE.PerspectiveCamera(54, 1, 0.1, 180);
 
-const STREET = { pos:[0, 4, 20],    look:[0, 2.5, 0] };
-const DOOR   = { pos:[0, 1.7, 5],   look:[0, 1.7, -7] };
-const INSIDE = { pos:[0, 1.7, -2.5], look:[0, 1.6, -7.9] };
-const lookNow = new THREE.Vector3(...STREET.look);
-camera.position.set(...STREET.pos); camera.lookAt(lookNow);
+// Camera stations: AI Studio's street and counter views, plus a stop at the doors. A portrait
+// screen gets a wider lens from further back, so the storefront and the counter still fit.
+const POSES = {
+  wide: { fov:54, STREET:[[0, 1.95, 10.2], [0, 2.2, 0]], DOOR:[[0, 1.6, 6.0], [0, 1.5, 0]],
+          INSIDE:[[0, 1.48, 1.6], [0, 1.42, -0.6]] },
+  tall: { fov:70, STREET:[[0, 2.0, 13.8], [0, 2.3, 0]], DOOR:[[0, 1.6, 6.0], [0, 1.5, 0]],
+          INSIDE:[[0, 1.6, 2.6], [0, 0.95, -0.6]] } };
+const STREET = {}, DOOR = {}, INSIDE = {};
+function usePoses(kind){
+  const P = POSES[kind];
+  for (const [s, k] of [[STREET, 'STREET'], [DOOR, 'DOOR'], [INSIDE, 'INSIDE']]){ s.pos = P[k][0]; s.look = P[k][1]; }
+  camera.fov = P.fov;
+}
+usePoses('wide');
 
-let world, current, doorL, doorR, clerk, stocker;
+let current, doorL, doorR;
 let doorTarget = 0, doorValue = 0, state = 'listening', tween = null;
 
-const mat = c => new THREE.MeshLambertMaterial({ color:c });
-function box(w, h, d, color, x, y, z, parent){
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color));
-  m.position.set(x, y, z); (parent || world).add(m); return m;
+const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+const std = (color, o) => new THREE.MeshStandardMaterial({ color, ...o });
+const basic = color => new THREE.MeshBasicMaterial({ color });
+const Box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+const Cyl = (...a) => new THREE.CylinderGeometry(...a);
+const Sph = (...a) => new THREE.SphereGeometry(...a);
+function put(parent, geo, mat, x = 0, y = 0, z = 0, o = {}){
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x, y, z);
+  if (o.rx) m.rotation.x = o.rx;
+  if (o.ry) m.rotation.y = o.ry;
+  if (o.rz) m.rotation.z = o.rz;
+  if (o.s) m.scale.set(...o.s);
+  m.castShadow = !!o.cast; m.receiveShadow = !!o.receive;
+  parent.add(m); return m;
 }
-function person(color, x, z){
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 1.5, 16), mat(color)); body.position.y = 0.95;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 20, 16), mat(0xe9c4a1)); head.position.y = 1.98;
-  g.add(body, head); g.position.set(x, 0, z); world.add(g); return g;
+function group(parent, x = 0, y = 0, z = 0, ry = 0){
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; parent.add(g); return g;
 }
-function signTexture(text, color){
-  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 200;
-  const x = cv.getContext('2d');
-  x.fillStyle = '#' + new THREE.Color(color).getHexString(); x.fillRect(0, 0, 1024, 200);
-  x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  let size = 110; do { size -= 6; x.font = '600 ' + size + 'px system-ui, sans-serif'; } while (x.measureText(text).width > 940);
-  x.fillText(text, 512, 104);
-  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; return tex;
+// Canvas textures keep AI Studio's default colour space, so they read a little lighter than their hex.
+function canvasTexture(w, h, draw){
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  draw(cv.getContext('2d'));
+  return new THREE.CanvasTexture(cv);
 }
 
-function build(shop){
-  if (world) scene.remove(world);
-  world = new THREE.Group(); scene.add(world); current = shop;
+// Lights. Four point lights always, whatever the shop: the count is part of every shader.
+const sun = new THREE.DirectionalLight('#fff7ed', 1.85);
+sun.position.set(7, 13, 11); sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024); sun.shadow.bias = -0.0005;
+Object.assign(sun.shadow.camera, { near:0.5, far:40, left:-8, right:8, top:9, bottom:-4 });
+sun.shadow.camera.updateProjectionMatrix();
+const roomLight = new THREE.PointLight('#ffffff', 2.5, 9, 1.2); roomLight.position.set(0, 2.5, 0.5);
+const lampLight = new THREE.PointLight('#fef08a', 1.3, 8); lampLight.position.set(-3.2, 3.2, 6.2);
+const stockLight = new THREE.PointLight('#fde047', 0.8, 4); stockLight.position.set(1.9, 2.0, -4.3);
+const ovenLight = new THREE.PointLight('#ea580c', 0, 3.5); ovenLight.position.set(-1.7, 1.0, -2.8);
+scene.add(sun, new THREE.HemisphereLight('#fef3c7', '#94a3b8', 0.85), roomLight, lampLight, stockLight, ovenLight);
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), mat(0x6f7378));
-  ground.rotation.x = -Math.PI / 2; world.add(ground);
-  box(16, 0.12, 5, 0xc9c6bf, 0, 0.06, 2.6);                      // sidewalk
+// Skyline: Bank of America Plaza, the Westin, four towers and the tree line.
+const boa = group(scene, 5.2, 0, -7.5), granite = std('#78350f', { roughness:0.55, metalness:0.25 });
+put(boa, Box(3.6, 20, 3.6), granite, 0, 10, 0);
+put(boa, Box(3.4, 18, 3.65), std('#0f172a', { roughness:0.2, metalness:0.8 }), 0, 9.8, 0);
+for (const [y, w, h] of [[20.6, 3.1, 1.0], [21.6, 2.5, 0.9], [22.5, 1.9, 0.8]]) put(boa, Box(w, h, w), granite, 0, y, 0);
+const gold = std('#f59e0b', { metalness:0.95, roughness:0.15, emissive:'#78350f', emissiveIntensity:0.2 });
+put(boa, new THREE.ConeGeometry(1.4, 2.6, 4), gold, 0, 24.2, 0, { ry:Math.PI / 4 });
+put(boa, Cyl(0.06, 0.12, 3.8, 8), gold, 0, 26.8, 0);
+put(boa, Sph(0.18, 8, 8), basic('#fef08a'), 0, 28.8, 0);
+const westin = group(scene, -5.4, 0, -8);
+put(westin, Cyl(1.8, 1.8, 17.5, 20), std('#1e3a8a', { metalness:0.85, roughness:0.18 }), 0, 8.75, 0);
+put(westin, Cyl(2.1, 2.1, 1.0, 20), std('#38bdf8', { metalness:0.95, roughness:0.1, emissive:'#0284c7', emissiveIntensity:0.25 }), 0, 17, 0);
+put(westin, Cyl(0.04, 0.08, 2.8, 8), std('#94a3b8', { metalness:0.9 }), 0, 19, 0);
+const crown = basic('#fef08a'), spire = std('#cbd5e1', { metalness:0.8 });
+for (const [x, z, h, w, c, top] of [[-1.6, -11, 16.5, 2.8, '#334155', 1], [1.8, -12, 15, 2.6, '#475569', 0],
+                                     [-9.5, -9.5, 14, 3.2, '#1e293b', 0], [9.6, -9, 15.5, 3.0, '#475569', 1]]){
+  put(scene, Box(w, h, w), std(c, { roughness:0.45, metalness:0.4 }), x, h / 2, z);
+  put(scene, Box(w * 0.92, 0.4, w * 0.92), crown, x, h + 0.2, z);
+  if (top) put(scene, new THREE.ConeGeometry(0.4, 2.5, 4), spire, x, h + 1.5, z);
+}
+const canopy = std('#15803d', { roughness:0.9, flatShading:true });   // 0.5 m further back than AI Studio,
+for (let t = -18; t <= 18; t += 3)                                    // whose canopies grew through the shop's back wall
+  put(scene, new THREE.DodecahedronGeometry(2 + Math.sin(t) * 0.5, 1), canopy, t, 3.2 + Math.cos(t) * 0.4, -7.0);
 
-  box(4.8, 5, 0.3, shop.wall, -3.6, 2.5, 0);                     // front wall, left of door
-  box(4.8, 5, 0.3, shop.wall,  3.6, 2.5, 0);                     // front wall, right of door
-  box(2.4, 2, 0.3, shop.wall,  0,   4,   0);                     // above the door
-  box(0.3, 5, 10, shop.wall, -6, 2.5, -5);                       // side walls
-  box(0.3, 5, 10, shop.wall,  6, 2.5, -5);
-  box(12.3, 5, 0.3, shop.wall, 0, 2.5, -10);                     // back wall
-  box(12.6, 0.3, 10.6, 0x54585e, 0, 5.15, -5);                   // roof
-  box(12, 0.04, 10, shop.floor, 0, 0.02, -5);                    // floor
+// Street: road, centre line, sidewalk, curb, and ground past them (AI Studio had sky there).
+put(scene, new THREE.PlaneGeometry(120, 120), std('#4b5563'), 0, -0.07, 0, { rx:-Math.PI / 2 });
+put(scene, new THREE.PlaneGeometry(32, 12), std('#334155', { roughness:0.9 }), 0, -0.05, 10.5, { rx:-Math.PI / 2, receive:true });
+put(scene, new THREE.PlaneGeometry(30, 0.15), basic('#fef08a'), 0, -0.04, 11, { rx:-Math.PI / 2 });
+put(scene, Box(26, 0.2, 5.5), std('#cbd5e1', { roughness:0.85 }), 0, 0.1, 5.25, { receive:true });
+put(scene, Box(26, 0.25, 0.3), std('#94a3b8', { roughness:0.8 }), 0, 0.125, 8.0);
 
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(7, 1.35),
-    new THREE.MeshBasicMaterial({ map: signTexture(shop.name, shop.accent) }));
-  sign.position.set(0, 4.15, 0.17); world.add(sign);
-  const awning = box(4.4, 0.12, 1.6, shop.accent, 0, 3.15, 0.85); awning.rotation.x = 0.22;
+// Street lamp with the Peachtree street sign.
+const lamp = group(scene, -3.2, 0.2, 6.2), iron = std('#1e293b', { roughness:0.4, metalness:0.8 });
+put(lamp, Cyl(0.2, 0.25, 0.4, 8), iron, 0, 0.2, 0);
+put(lamp, Cyl(0.08, 0.1, 3.2, 8), iron, 0, 1.8, 0);
+put(lamp, new THREE.TorusGeometry(0.3, 0.05, 6, 8, Math.PI / 2), iron, 0.15, 3.3, 0, { rz:Math.PI / 2 });
+put(lamp, new THREE.ConeGeometry(0.35, 0.3, 6), iron, 0.3, 3.3, 0);
+put(lamp, Sph(0.16, 8, 8), basic('#fef08a'), 0.3, 3.1, 0);
+put(lamp, Box(0.04, 0.04, 0.9), iron, 0, 2.5, 0);
+const streetSign = canvasTexture(512, 128, x => {
+  x.fillStyle = '#065f46'; x.fillRect(0, 0, 512, 128);
+  x.strokeStyle = '#ffffff'; x.lineWidth = 8; x.strokeRect(8, 8, 496, 112);
+  x.fillStyle = '#ffffff'; x.font = 'bold 44px ' + FONT; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText('PEACHTREE ST NE', 256, 64);
+});
+put(lamp, Box(0.9, 0.22, 0.04), std('#ffffff', { map:streetSign, roughness:0.5 }), 0, 2.5, 0.45);
 
-  doorL = box(1.2, 3, 0.1, 0x3b3f45, -0.6, 1.5, -0.22);
-  doorR = box(1.2, 3, 0.1, 0x3b3f45,  0.6, 1.5, -0.22);
+// Street tree and the two neighbouring buildings.
+const tree = group(scene, 3.5, 0.2, 6.0);
+put(tree, Cyl(0.18, 0.26, 2.2, 7), std('#573312', { roughness:0.9 }), 0, 1.1, 0, { cast:true });
+for (const [y, r, c] of [[2.6, 1.1, '#22c55e'], [3.4, 0.9, '#16a34a'], [4.1, 0.65, '#15803d']])
+  put(tree, new THREE.DodecahedronGeometry(r, 1), std(c, { roughness:0.8, flatShading:true }), 0, y, 0, { cast:true });
+put(tree, Box(1.2, 0.15, 1.2), std('#64748b'), 0, 0.08, 0);
+for (const [x, c, rough, glass] of [[-5.8, '#9a3412', 0.85, '#bae6fd'], [5.8, '#475569', 0.9, '#fed7aa']]){
+  put(scene, Box(4.8, 3.8, 6.0), std(c, { roughness:rough }), x, 1.9, 0.5, { cast:true, receive:true });
+  const pane = std(glass, { roughness:0.2, metalness:0.8 });
+  for (const wx of [Math.sign(x) * 4.5, x]) put(scene, Box(0.8, 1.2, 0.1), pane, wx, 1.8, 3.52);
+}
 
-  for (const side of [-1, 1]){
-    for (const h of [0.9, 1.7, 2.5]){
-      box(0.8, 0.08, 6, 0xd9d2c5, side * 5.4, h, -5);
-      for (let i = 0; i < 9; i++){
-        const c = shop.products[(i + Math.round(h * 10) + (side > 0 ? 2 : 0)) % shop.products.length];
-        box(0.42, 0.42, 0.42, c, side * 5.4, h + 0.25, -2.4 - i * 0.65);
-      }
-    }
+// Storefront: the walls leave open bays beside the doors, which show the shop inside.
+const facade = std('#e2e8f0', { roughness:0.8 });
+put(scene, Box(1.6, 4, 0.4), facade, -2.2, 2.0, 3.8, { cast:true, receive:true });
+put(scene, Box(1.6, 4, 0.4), facade, 2.2, 2.0, 3.8, { cast:true, receive:true });
+put(scene, Box(2.8, 1.3, 0.4), facade, 0, 3.35, 3.8, { cast:true });
+const doorGeo = Box(0.7, 2.5, 0.08), doorMat = std('#334155', { roughness:0.5 });
+const handleGeo = Cyl(0.02, 0.02, 0.5, 8), brass = std('#f59e0b', { metalness:0.9, roughness:0.2 });
+doorL = put(scene, doorGeo, doorMat, -0.36, 1.35, 3.75, { cast:true });
+doorR = put(scene, doorGeo, doorMat, 0.36, 1.35, 3.75, { cast:true });
+put(doorL, handleGeo, brass, 0.28, 0, 0.06);
+put(doorR, handleGeo, brass, -0.28, 0, 0.06);
+put(scene, Box(1.4, 0.02, 0.8), std('#78350f', { roughness:0.9 }), 0, 0.21, 3.3);
+
+// Shop sign: one canvas, redrawn for each shop; the name shrinks to fit inside the border.
+const signCanvas = document.createElement('canvas'); signCanvas.width = 1024; signCanvas.height = 256;
+const signTex = new THREE.CanvasTexture(signCanvas);
+put(scene, Box(3.6, 0.7, 0.15), std('#ffffff', { map:signTex, roughness:0.4 }), 0, 3.5, 4.05, { cast:true });
+function drawSign(shop){
+  const x = signCanvas.getContext('2d'), L = shop.look || SHOPS[0].look, title = shop.name.toUpperCase();
+  x.fillStyle = L.signBg; x.fillRect(0, 0, 1024, 256);
+  x.lineWidth = 14; x.strokeStyle = L.signText; x.strokeRect(16, 16, 992, 224);
+  x.fillStyle = L.signText; x.textAlign = 'center'; x.textBaseline = 'middle';
+  let size = 66;
+  do { size -= 2; x.font = 'bold ' + size + 'px ' + FONT; } while (x.measureText(title).width > 920 && size > 24);
+  x.fillText(title, 512, 105);
+  x.globalAlpha = 0.85; x.font = '600 28px ' + FONT; x.fillText((shop.area || '').toUpperCase(), 512, 175);
+  x.globalAlpha = 1;
+  signTex.needsUpdate = true;
+}
+
+// Awning: 14 stripes in the shop's two colours, each with a short fringe.
+const awning = group(scene, 0, 2.9, 4.0), stripeW = 3.8 / 14;
+const stripeMats = [0, 1].map(() => std('#ffffff', { roughness:0.7, side:THREE.DoubleSide }));
+const stripeGeo = new THREE.PlaneGeometry(stripeW, 1.3), fringeGeo = new THREE.PlaneGeometry(stripeW, 0.22);
+for (let i = 0; i < 14; i++){
+  const x = -1.9 + stripeW * (i + 0.5);
+  put(awning, stripeGeo, stripeMats[i % 2], x, 0, 0.4875, { rx:-Math.PI / 3.8, cast:true });
+  put(awning, fringeGeo, stripeMats[i % 2], x, -0.5, 1.105);
+}
+
+// Inside: floor, a room seen from within (BackSide, so the street can look in), beams, pendant.
+const floorMat = std('#ffffff', { roughness:0.6 }), wallMat = std('#ffffff', { roughness:0.9, side:THREE.BackSide });
+put(scene, new THREE.PlaneGeometry(6.5, 8.5), floorMat, 0, 0.21, -0.4, { rx:-Math.PI / 2, receive:true });
+put(scene, Box(6.5, 4.0, 8.5), wallMat, 0, 2.2, -0.4, { receive:true });
+const beamGeo = Box(6.4, 0.2, 0.25), beamMat = std('#451a03', { roughness:0.8 });
+for (const z of [-2, 0, 2]) put(scene, beamGeo, beamMat, 0, 4.1, z);
+const pendant = group(scene, 0, 3.2, 0.5);
+put(pendant, Cyl(0.01, 0.01, 0.9, 6), basic('#1c1917'), 0, 0.45, 0);
+put(pendant, new THREE.ConeGeometry(0.35, 0.25, 12, 1, true), std('#f59e0b', { metalness:0.8, roughness:0.2, side:THREE.DoubleSide }), 0, 0, 0, { rx:Math.PI });
+put(pendant, Sph(0.08, 8, 8), basic('#fef08a'), 0, -0.05, 0);
+
+// The stock-room doorway on the back wall, now labelled: the clerk's helper comes out of it.
+put(scene, Box(1.2, 2.4, 0.1), std('#1c1917', { roughness:0.9 }), 1.9, 1.4, -4.6);
+put(scene, Box(0.8, 0.2, 0.04), std('#78350f'), 1.9, 2.7, -4.58);
+const stockLabel = canvasTexture(256, 64, x => {
+  x.fillStyle = '#78350f'; x.fillRect(0, 0, 256, 64);
+  x.fillStyle = '#fef3c7'; x.font = 'bold 30px ' + FONT; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText('STOCK ROOM', 128, 34);
+});
+put(scene, new THREE.PlaneGeometry(0.76, 0.18), std('#ffffff', { map:stockLabel }), 1.9, 2.7, -4.555);
+
+// Counter with register, bell and ledger pad; its top is at y 1.225.
+const counter = group(scene, 0, 0.2, 0.2);
+put(counter, Box(3.2, 0.95, 0.85), std('#78350f', { roughness:0.7 }), 0, 0.475, 0, { cast:true, receive:true });
+put(counter, Box(3.4, 0.1, 1.0), std('#451a03', { roughness:0.4 }), 0, 0.975, 0, { cast:true, receive:true });
+const register = group(counter, -0.85, 1.025, 0), regBrass = std('#d97706', { metalness:0.75, roughness:0.3 });
+put(register, Box(0.45, 0.25, 0.4), regBrass, 0, 0.125, 0, { cast:true });
+put(register, Box(0.35, 0.2, 0.3), regBrass, 0, 0.3, -0.04);
+put(register, Box(0.12, 0.1, 0.02), basic('#fef08a'), 0, 0.48, -0.04);
+put(counter, Sph(0.08, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), std('#f59e0b', { metalness:0.9, roughness:0.15 }), 0.65, 1.025, 0.15, { cast:true });
+put(counter, Cyl(0.015, 0.015, 0.04, 8), regBrass, 0.65, 1.105, 0.15);
+put(counter, Box(0.28, 0.02, 0.38), std('#fef9c3', { roughness:0.8 }), 0.1, 1.035, 0.1, { ry:0.12 });
+
+// The clerk faces the street; no legs, the counter hides them.
+const clerk = group(scene, 0, 0.2, -0.6);
+const shirt = std('#ffffff', { roughness:0.7 }), skin = std('#fed7aa', { roughness:0.6 });
+const apronMat = std('#ffffff', { roughness:0.6 });
+put(clerk, Cyl(0.22, 0.24, 0.7, 10), shirt, 0, 1.0, 0, { cast:true });
+put(clerk, Cyl(0.23, 0.25, 0.62, 10, 1, false, 0, Math.PI * 1.5), apronMat, 0, 0.98, 0, { ry:-Math.PI * 0.75 });
+const head = group(clerk, 0, 1.4, 0);
+put(head, Sph(0.18, 14, 14), skin, 0, 0.15, 0, { cast:true });
+put(head, Sph(0.19, 12, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), std('#451a03', { roughness:0.9 }), 0, 0.18, 0);
+const eyeGeo = Sph(0.025, 8, 8), eyeMat = basic('#1c1917');
+put(head, eyeGeo, eyeMat, -0.06, 0.16, 0.16);
+put(head, eyeGeo, eyeMat, 0.06, 0.16, 0.16);
+put(head, new THREE.TorusGeometry(0.04, 0.008, 6, 8, Math.PI), basic('#b91c1c'), 0, 0.08, 0.17, { rx:Math.PI / 2, rz:Math.PI });
+const armL = group(clerk, -0.28, 1.25, 0), armR = group(clerk, 0.28, 1.25, 0), armGeo = Cyl(0.06, 0.05, 0.45, 8);
+put(armL, armGeo, shirt, 0, -0.2, 0);
+put(armR, armGeo, shirt, 0, -0.2, 0);
+put(armR, Sph(0.06, 8, 8), skin, 0, -0.42, 0);
+
+// The stock agent, by the stock-room door; shown only while the clerk checks with it.
+const stocker = group(scene, 2.4, 0.2, -4.2), agentShirt = std('#f8fafc', { roughness:0.8 });
+const vestMat = std('#ffffff', { roughness:0.7 });
+put(stocker, Cyl(0.2, 0.22, 0.65, 8), agentShirt, 0, 0.95, 0, { cast:true });
+put(stocker, Cyl(0.21, 0.23, 0.58, 8), vestMat, 0, 0.95, 0);
+put(stocker, Sph(0.17, 10, 10), skin, 0, 1.48, 0);
+put(stocker, Cyl(0.18, 0.18, 0.1, 10), std('#334155'), 0, 1.58, 0);
+const agentArm = group(stocker, -0.25, 1.2, 0);
+put(agentArm, Cyl(0.05, 0.05, 0.4, 8), agentShirt, 0, -0.18, 0);
+put(agentArm, Box(0.25, 0.35, 0.02), std('#78350f'), -0.05, -0.28, 0.15, { rx:-Math.PI / 4 });
+put(agentArm, Box(0.21, 0.3, 0.01), std('#ffffff'), -0.05, -0.28, 0.165, { rx:-Math.PI / 4 });
+stocker.visible = false;
+
+// Each shop's own props: a shelf unit, a machine in the back-left corner, a board on the left
+// wall and something on the counter. Rebuilt on a shop switch; anims run every frame.
+const PAINT = ['#1d4ed8', '#059669', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#ea580c', '#65a30d'];
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+function board(g, shop, c, swatches){      // what the shop carries, from SHOPS: no stock, no names
+  const b = group(g, -3.2, 2.2, -0.6, Math.PI / 2);
+  put(b, Box(1.8, 1.2, 0.05), std(c.frame, { roughness:0.7 }));
+  const map = canvasTexture(512, 340, x => {
+    x.fillStyle = c.bg; x.fillRect(0, 0, 512, 340);
+    x.fillStyle = c.title; x.font = 'bold 28px ' + FONT; x.fillText('WHAT WE CARRY', 30, 52);
+    x.fillStyle = c.text; x.font = '26px ' + FONT;
+    shop.inventory.forEach((item, i) => x.fillText('•  ' + cap(item.name), 30, 110 + i * 46));
+    (swatches || []).forEach((col, i) => { x.fillStyle = col; x.fillRect(318 + (i % 4) * 44, 86 + Math.floor(i / 4) * 44, 32, 30); });
+    x.fillStyle = c.note; x.font = 'italic 18px ' + FONT; x.fillText('Ask the clerk what is in stock today', 30, 314);
+  });
+  put(b, new THREE.PlaneGeometry(1.7, 1.1), std('#ffffff', { map, roughness:c.rough ?? 1 }), 0, 0, 0.03);
+}
+
+function bakeryProps(g, shop, anims){
+  const shelf = group(g, -1.2, 0.2, -3.8), wood = std('#78350f', { roughness:0.8 });
+  for (const x of [-1.2, 1.2]) put(shelf, Box(0.08, 3.2, 0.5), wood, x, 1.6, 0);
+  const plank = Box(2.4, 0.06, 0.5);
+  for (const y of [0.7, 1.4, 2.1, 2.8]) put(shelf, plank, wood, 0, y, 0);
+  const sack = Cyl(0.24, 0.26, 0.55, 8), sackMat = std('#fef3c7', { roughness:0.95 });
+  for (const x of [-0.7, 0, 0.7]) put(shelf, sack, sackMat, x, 1.0, 0);
+  const basket = Cyl(0.24, 0.18, 0.14, 8), basketMat = std('#b45309', { roughness:0.9 });
+  const loaf = Sph(0.2, 10, 8), loafMat = std('#d97706', { roughness:0.85 });
+  for (const x of [-0.8, -0.2, 0.4, 0.9]){
+    put(shelf, basket, basketMat, x, 1.48, 0);
+    put(shelf, loaf, loafMat, x, 1.58, 0, { s:[1.1, 0.75, 0.9] });
   }
+  put(shelf, Cyl(0.22, 0.22, 0.4, 10), std('#e2e8f0', { roughness:0.3 }), -0.6, 2.3, 0);
+  const stick = Cyl(0.04, 0.04, 0.65, 8), crust = std('#f59e0b', { roughness:0.8 });
+  for (let b = 0; b < 4; b++) put(shelf, stick, crust, -0.6 + (b - 1.5) * 0.08, 2.52, (b % 2) * 0.06, { rz:(b - 1.5) * 0.15 });
+  put(shelf, Box(0.8, 0.03, 0.35), wood, 0.5, 2.12, 0);
+  const crescent = new THREE.TorusGeometry(0.09, 0.04, 6, 8, Math.PI * 1.2), pastry = std('#f59e0b', { roughness:0.7 });
+  for (const x of [0.3, 0.7]) put(shelf, crescent, pastry, x, 2.17, 0, { rx:Math.PI / 2 });
+  // The hearth oven. Its fire mouth stands 2 cm proud of the brick (AI Studio's shared a plane and flickered).
+  const oven = group(g, -2.4, 0.2, -2.8), brick = std('#7c2d12', { roughness:0.9 });
+  put(oven, Box(1.2, 1.8, 1.4), brick, 0, 0.9, 0);
+  put(oven, Cyl(0.6, 0.6, 1.4, 12, 1, false, 0, Math.PI), brick, 0, 1.8, 0, { ry:Math.PI / 2, rz:Math.PI / 2 });
+  put(oven, Box(0.6, 0.4, 0.1), basic('#f97316'), 0.62, 0.8, 0, { ry:Math.PI / 2 });
+  put(oven, Cyl(0.18, 0.18, 1.8, 8), std('#1c1917', { roughness:0.8 }), 0, 2.7, 0);
+  anims.push(t => { ovenLight.intensity = 1.6 + Math.sin(t * 8) * 0.3 + Math.cos(t * 13) * 0.15; });
+  board(g, shop, { frame:'#78350f', bg:'#1e293b', title:'#fef08a', text:'#ffffff', note:'#fdba74', rough:0.5 });
+  const plate = group(g, 0.9, 1.23, 0.2);
+  put(plate, Cyl(0.24, 0.22, 0.04, 12), std('#f1f5f9', { roughness:0.2 }));
+  put(plate, Cyl(0.18, 0.16, 0.08, 12), std('#ea580c', { roughness:0.6 }), 0, 0.06, 0);
+  put(plate, Sph(0.23, 12, 10, 0, Math.PI * 2, 0, Math.PI / 2), std('#ffffff', { roughness:0.05, transparent:true, opacity:0.3 }), 0, 0.02, 0);
+}
 
-  box(4.2, 1.1, 1, shop.accent, 0, 0.55, -7);                    // counter
-  box(4.4, 0.08, 1.2, 0xf4f1ea, 0, 1.14, -7);                    // counter top
-  box(0.55, 0.4, 0.45, 0x2b2e33, 1.3, 1.38, -7);                 // register
-  clerk = person(shop.accent, 0, -7.9);
-  stocker = person(0x5b6470, 3.6, -9.1); stocker.visible = false;
+function paintProps(g, shop, anims){
+  const shelf = group(g, -1.2, 0.2, -3.8), metal = std('#334155', { metalness:0.7, roughness:0.4 });
+  for (const x of [-1.2, 1.2]) put(shelf, Box(0.08, 3.2, 0.5), metal, x, 1.6, 0);
+  const plank = Box(2.4, 0.05, 0.5);
+  for (const y of [0.7, 1.4, 2.1, 2.8]) put(shelf, plank, metal, 0, y, 0);
+  const bucket = Cyl(0.25, 0.2, 0.5, 10), bucketMat = std('#f8fafc', { roughness:0.5 }), lid = Cyl(0.26, 0.26, 0.04, 10);
+  [-0.7, 0, 0.7].forEach((x, i) => { put(shelf, bucket, bucketMat, x, 0.96, 0); put(shelf, lid, std(PAINT[i]), x, 1.22, 0); });
+  const can = Cyl(0.14, 0.14, 0.32, 12), canMat = std('#94a3b8', { metalness:0.8, roughness:0.3 });
+  const band = Cyl(0.142, 0.142, 0.18, 12), bands = PAINT.map(c => std(c, { roughness:0.4 }));
+  [1.4, 2.1, 2.8].forEach((y, s) => { for (let c = 0; c < 5; c++){
+    const x = -0.9 + c * 0.45;
+    put(shelf, can, canMat, x, y + 0.17, 0);
+    put(shelf, band, bands[((s + 1) * 3 + c) % 8], x, y + 0.17, 0);
+  } });
+  const shaker = group(g, -2.4, 0.2, -2.8);
+  put(shaker, Box(0.9, 1.2, 0.9), std('#1e3a8a', { metalness:0.6, roughness:0.4 }), 0, 0.6, 0);
+  const clamp = group(shaker, 0, 1.3, 0);
+  put(clamp, Box(0.65, 0.1, 0.65), std('#334155', { metalness:0.9 }));
+  put(clamp, Cyl(0.18, 0.18, 0.4, 12), std('#0d9488', { metalness:0.5 }), 0, 0.25, 0);
+  anims.push((t, s) => {                     // the shaker runs while the stock room checks
+    const on = s === 'checking';
+    clamp.position.x = on ? Math.sin(t * 45) * 0.02 : 0;
+    clamp.position.z = on ? Math.cos(t * 40) * 0.02 : 0;
+    clamp.rotation.y = on ? Math.sin(t * 35) * 0.04 : 0;
+  });
+  board(g, shop, { frame:'#334155', bg:'#0f172a', title:'#38bdf8', text:'#f8fafc', note:'#94a3b8' }, PAINT);
+  const tools = group(g, 0.9, 1.23, 0.2);
+  put(tools, Cyl(0.04, 0.04, 0.45, 10), std('#2563eb', { roughness:0.6 }), 0, 0.04, 0.05, { rz:Math.PI / 2 });
+  put(tools, Box(0.35, 0.08, 0.45), std('#0284c7', { roughness:0.5 }), 0.42, 0.02, 0);   // clear of the bell
+}
 
+function plantsProps(g, shop, anims){
+  const stand = group(g, -1.2, 0.2, -3.8), wood = std('#78350f', { roughness:0.75 });
+  for (const x of [-1.2, 1.2]) put(stand, Box(0.08, 3.2, 0.5), wood, x, 1.6, 0);
+  const slat = Box(2.4, 0.05, 0.5);
+  for (const y of [0.7, 1.5, 2.3]) put(stand, slat, wood, 0, y, 0);
+  const pot = Cyl(0.24, 0.18, 0.35, 10), clay = std('#c2410c', { roughness:0.8 }), leaf = std('#15803d', { roughness:0.6 });
+  for (const px of [-0.8, -0.2]){
+    put(stand, pot, clay, px, 0.88, 0);
+    [-0.08, 0, 0.08].forEach((lx, li) => put(stand, Box(0.04, 0.45 + li * 0.08, 0.08), leaf, px + lx, 1.15, 0, { rz:(li - 1) * 0.15 }));
+  }
+  put(stand, Box(0.45, 0.22, 0.35), std('#15803d', { roughness:0.9 }), 0.65, 0.82, 0);
+  put(stand, Cyl(0.26, 0.2, 0.38, 12), std('#f8fafc', { roughness:0.3 }), -0.4, 1.7, 0);
+  const stem = Cyl(0.015, 0.015, 0.4, 6), stemMat = std('#16a34a'), blade = Sph(0.18, 6, 6), bladeMat = std('#15803d', { roughness:0.5 });
+  for (let l = 0; l < 5; l++){
+    const a = l / 5 * Math.PI * 2;
+    put(stand, stem, stemMat, -0.4 + Math.cos(a) * 0.1, 1.95, Math.sin(a) * 0.1, { rx:Math.sin(a) * 0.5, rz:Math.cos(a) * 0.5 });
+    put(stand, blade, bladeMat, -0.4 + Math.cos(a) * 0.25, 2.12, Math.sin(a) * 0.25, { ry:a, s:[1, 0.08, 1.4] });
+  }
+  const hanger = Cyl(0.15, 0.12, 0.16, 8), vine = Cyl(0.015, 0.015, 0.55, 6), vineMat = std('#4ade80');
+  for (const hx of [-0.7, 0.5]){
+    put(stand, hanger, wood, hx, 2.39, 0);
+    for (let v = 0; v < 3; v++) put(stand, vine, vineMat, hx + (v - 1) * 0.08, 2.15, 0.15);
+  }
+  const mister = group(g, -2.4, 0.2, -2.8);
+  put(mister, Cyl(0.35, 0.4, 1.0, 12), std('#78350f', { roughness:0.7 }), 0, 0.5, 0);
+  put(mister, Sph(0.32, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.6), std('#047857', { roughness:0.2 }), 0, 1.05, 0);
+  const ring = new THREE.RingGeometry(0.08, 0.18, 12), mist = [];
+  for (let r = 0; r < 4; r++) mist.push(put(mister, ring,
+    new THREE.MeshBasicMaterial({ color:'#e0f2fe', transparent:true, opacity:0.4, side:THREE.DoubleSide }), 0, 1.25 + r * 0.2, 0, { rx:-Math.PI / 2 }));
+  anims.push(t => mist.forEach((m, i) => {     // rings of mist rise, widen and fade
+    const o = (t * 0.8 + i * 0.4) % 1.2, s = 1 + o * 0.8;
+    m.position.y = 1.15 + o; m.scale.set(s, s, 1); m.material.opacity = Math.max(0, 0.45 * (1 - o / 1.2));
+  }));
+  board(g, shop, { frame:'#064e3b', bg:'#064e3b', title:'#a7f3d0', text:'#ffffff', note:'#6ee7b7' });
+  const can = group(g, 0.9, 1.23, 0.2), canBrass = std('#d97706', { metalness:0.85, roughness:0.2 });
+  put(can, Cyl(0.12, 0.14, 0.24, 10), canBrass, 0, 0.12, 0);
+  put(can, Cyl(0.02, 0.02, 0.32, 8), canBrass, -0.16, 0.24, 0, { rz:Math.PI / 3 });
+}
+
+const PROPS = { bakery:bakeryProps, paint:paintProps, plants:plantsProps };
+const props = group(scene);
+let propAnims = [];
+
+// Restyle the one shop building for a shop: colours, sign, props. The street is built once.
+function build(shop){
+  current = shop;
+  const L = shop.look || SHOPS[0].look;
+  apronMat.color.set(L.apron); vestMat.color.set(L.vest); roomLight.color.set(L.light);
+  wallMat.color.set(L.wall); floorMat.color.set(L.floor);
+  stripeMats[0].color.set(L.awning[0]); stripeMats[1].color.set(L.awning[1]);
+  drawSign(shop);
+  props.traverse(o => { if (o.isMesh){ o.geometry.dispose(); o.material.map?.dispose(); o.material.dispose(); } });
+  props.clear();
+  propAnims = []; ovenLight.intensity = 0;
+  PROPS[shop.id]?.(props, shop, propAnims);
+  targetYaw = targetPitch = 0;
   document.querySelectorAll('#shops button').forEach(b => b.classList.toggle('on', b.dataset.id === shop.id));
+  showShop(shop);
 }
 
 /* ---------- 4. MOTION ---------- */
 const wait = ms => new Promise(r => setTimeout(r, ms));
+const ease = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(2 - 2 * k, 3) / 2;   // easeInOutCubic, as in AI Studio
+const basePos = new THREE.Vector3(), lookNow = new THREE.Vector3();
+let rest = STREET;                     // the station the camera stands at between moves
+let yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0;   // drag to look around, on top of the station
 function moveCamera(to, ms){
+  targetYaw = targetPitch = 0;
   return new Promise(res => { tween = {
-    p0: camera.position.clone(), p1: new THREE.Vector3(...to.pos),
-    l0: lookNow.clone(), l1: new THREE.Vector3(...to.look), t0: performance.now(), ms, res }; });
+    p0: basePos.clone(), p1: new THREE.Vector3(...to.pos),
+    l0: lookNow.clone(), l1: new THREE.Vector3(...to.look), t0: performance.now(), ms, to, res }; });
 }
+// Portrait or landscape stations, picked again only when the width changes: the iOS address
+// bar and an on-screen keyboard change the height alone, and must not move the camera.
+let framedWidth = 0;
 function resize(){
   const w = innerWidth, h = innerHeight;
-  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h, false); camera.aspect = w / h;
+  if (w !== framedWidth){ framedWidth = w; usePoses(w < h ? 'tall' : 'wide'); }
+  camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize); resize();
 
+const UP = new THREE.Vector3(0, 1, 0), dir = new THREE.Vector3(), side = new THREE.Vector3();
+const aim = new THREE.Vector3(), doorMark = new THREE.Vector3(), cue = document.getElementById('door-cue');
+let last = 0, cueX = NaN, cueY = NaN;
 renderer.setAnimationLoop(now => {
+  const dt = last ? Math.min(0.1, (now - last) / 1000) : 0, t = now / 1000; last = now;
+  const damp = n => 1 - Math.pow(1 - n, dt * 60);       // AI Studio's per-frame easing, at any frame rate
   if (tween){
-    const k = Math.min(1, (now - tween.t0) / tween.ms), e = k * k * (3 - 2 * k);
-    camera.position.lerpVectors(tween.p0, tween.p1, e);
-    lookNow.lerpVectors(tween.l0, tween.l1, e); camera.lookAt(lookNow);
-    if (k === 1){ const done = tween.res; tween = null; done(); }
-  }
-  doorValue += (doorTarget - doorValue) * 0.08;
-  if (doorL){ doorL.position.x = -0.6 - 1.25 * doorValue; doorR.position.x = 0.6 + 1.25 * doorValue; }
-  if (clerk){
-    clerk.position.y = state === 'answering' ? Math.abs(Math.sin(now / 160)) * 0.06 : 0;
-    clerk.rotation.y = state === 'checking' ? 0.9 : 0;
-    stocker.visible = state === 'checking';
-    stocker.position.y = Math.abs(Math.sin(now / 200)) * 0.05;
-  }
+    const k = Math.min(1, Math.max(0, (now - tween.t0) / tween.ms)), e = ease(k);
+    basePos.lerpVectors(tween.p0, tween.p1, e); lookNow.lerpVectors(tween.l0, tween.l1, e);
+    if (k === 1){ rest = tween.to; const done = tween.res; tween = null; done(); }
+  } else { basePos.set(...rest.pos); lookNow.set(...rest.look); }
+  yaw += (targetYaw - yaw) * damp(0.12); pitch += (targetPitch - pitch) * damp(0.12);
+  dir.subVectors(lookNow, basePos).normalize().applyAxisAngle(UP, yaw);
+  side.crossVectors(dir, UP).normalize(); dir.applyAxisAngle(side, pitch);
+  camera.position.copy(basePos); camera.lookAt(aim.addVectors(basePos, dir));
+
+  doorValue += (doorTarget - doorValue) * damp(0.08);
+  doorL.position.x = -0.36 - 0.55 * doorValue; doorR.position.x = 0.36 + 0.55 * doorValue;
+
+  // The clerk: an idle sway, a turn to the stock room while checking, gestures while answering.
+  const checking = state === 'checking', answering = state === 'answering', k = damp(0.15);
+  clerk.position.y = 0.2 + Math.sin(t * 2.2) * 0.012;
+  clerk.rotation.y += ((checking ? 0.6 : 0) - clerk.rotation.y) * damp(0.1);
+  head.rotation.y += ((checking ? 0.45 : answering ? Math.sin(t * 1.5) * 0.05 : Math.sin(t * 1.2) * 0.08) - head.rotation.y) * k;
+  head.rotation.x += ((checking ? Math.sin(t * 4) * 0.06 : answering ? -0.05 + Math.sin(t * 3) * 0.04 : Math.sin(t * 0.8) * 0.04) - head.rotation.x) * k;
+  armR.rotation.x += ((checking ? -0.6 : answering ? -0.4 + Math.sin(t * 3.5) * 0.25 : 0.1) - armR.rotation.x) * k;
+  armR.rotation.z += ((checking ? 0.3 : answering ? 0.2 + Math.sin(t * 2.5) * 0.15 : Math.sin(t * 2) * 0.05) - armR.rotation.z) * k;
+  armL.rotation.z = -0.05;
+  // The stock agent: visible only while checking, walking over to the clerk with the clipboard.
+  stocker.visible = checking;
+  stocker.position.x += ((checking ? 1.2 : 2.4) - stocker.position.x) * damp(0.06);
+  stocker.rotation.y += ((checking ? -0.4 : 0) - stocker.rotation.y) * damp(0.1);
+  agentArm.rotation.x = checking ? -0.3 + Math.sin(t * 3) * 0.15 : 0;
+  for (const a of propAnims) a(t, state);
+
   renderer.render(scene, camera);
+
+  if (document.body.dataset.where === 'street' && !tween){    // keep the door cue on the doors
+    doorMark.set(0, 2.0, 3.9).project(camera);
+    cue.classList.toggle('off', doorMark.z > 1 || Math.abs(doorMark.x) > 0.85 || Math.abs(doorMark.y) > 0.85);
+    const x = Math.round((doorMark.x + 1) * innerWidth / 2), y = Math.round((1 - doorMark.y) * innerHeight / 2);
+    if (x !== cueX || y !== cueY){ cueX = x; cueY = y; cue.style.left = x + 'px'; cue.style.top = y + 'px'; }
+  }
 });
 
 /* ---------- 5. UI ---------- */
 const $ = id => document.getElementById(id);
 const LABEL = { listening:'Listening', checking:'Checking with the stock room', answering:'Answering' };
-function setState(s){ state = s; $('status').textContent = LABEL[s]; $('status').className = s; }
+function setState(s){
+  state = s; $('status').textContent = LABEL[s]; $('status').className = s;
+  document.body.dataset.state = s;                  // the CSS keys the dots, bars and chips on it
+  if (s === 'checking'){ sfx.rustle(); targetYaw = targetPitch = 0; }   // face the hand-off
+}
+const setWhere = w => { document.body.dataset.where = w; };   // street, entering, inside, leaving
 
 /* Voice. iOS Safari only lets audio and speech start from a tap, so the Enter tap primes ONE
    shared Audio element and the speech engine, and every later reply plays through that element. */
@@ -240,6 +873,7 @@ const player = new Audio();
 const hasTTS = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
 let endSay = () => {};          // resolves the reply being spoken now (Leave uses it)
 let visit = 0;                  // bumped by Leave, so an answer that arrives after it is dropped
+let muted = false;              // the sound button; kept in memory only
 
 function silentWav(samples){    // 16-bit mono PCM at 8 kHz: a 44-byte header, then zero samples
   const b = new Uint8Array(44 + samples * 2), v = new DataView(b.buffer);
@@ -270,7 +904,7 @@ function say(reply){
     const arm = ms => { clearTimeout(timer); timer = setTimeout(finish, ms); };
     const speak = () => {        // the browser's voice
       if (done) return;
-      if (!hasTTS) return arm(2500);
+      if (!hasTTS || muted) return arm(2500);
       const u = new SpeechSynthesisUtterance(reply.reply); u.onend = finish; u.onerror = finish;
       speechSynthesis.speak(u); arm(12000);
     };
@@ -285,26 +919,103 @@ function say(reply){
   });
 }
 
+/* Sound effects from the AI Studio design (soundEffects.ts): synthesised with Web Audio, no files.
+   The context is made inside the Enter tap, like the voice. Any failure is silent. */
+const sfx = (() => {
+  let ctx = null;
+  const run = fn => () => {
+    try {
+      if (muted) return;
+      const C = window.AudioContext || window.webkitAudioContext;
+      if (!ctx && C) ctx = new C();
+      if (!ctx) return;
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      fn(ctx, ctx.currentTime);
+    } catch {}
+  };
+  const voice = (c, type, at, gain) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.connect(g); g.connect(c.destination); g.gain.setValueAtTime(gain, at);
+    return [o, g];
+  };
+  return {
+    unlock: run(() => {}),
+    footsteps: run((c, now) => {             // four soft thumps
+      for (let i = 0; i < 4; i++){
+        const at = now + i * 0.35, [o, g] = voice(c, 'triangle', at, 0.08);
+        o.frequency.setValueAtTime(80 + (i % 2) * 20, at); o.frequency.exponentialRampToValueAtTime(30, at + 0.08);
+        g.gain.exponentialRampToValueAtTime(0.001, at + 0.08);
+        o.start(at); o.stop(at + 0.09);
+      }
+    }),
+    chime: run((c, now) => {                 // the shop door's bell, E6 A6 C7
+      [[1318.5, 0], [1760, 0.12], [2093, 0.24]].forEach(([f, d]) => {
+        const at = now + d, [o, g] = voice(c, 'sine', at, 0);
+        o.frequency.setValueAtTime(f, at);
+        g.gain.linearRampToValueAtTime(0.2, at + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.8);
+        o.start(at); o.stop(at + 0.85);
+      });
+    }),
+    rustle: run((c, now) => {                // the stock room's ledger pages
+      const n = Math.floor(c.sampleRate * 0.15), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      const src = c.createBufferSource(), band = c.createBiquadFilter(), g = c.createGain();
+      src.buffer = buf; band.type = 'bandpass'; band.frequency.setValueAtTime(1800, now); band.Q.setValueAtTime(3, now);
+      g.gain.setValueAtTime(0.05, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      src.connect(band); band.connect(g); g.connect(c.destination); src.start(now);
+    })
+  };
+})();
+
+const ICON = { bakery:'croissant', paint:'paint-bucket', plants:'flower-2' };
+const iconOf = shop => '#i-' + (ICON[shop.id] || 'map-pin');
 const bar = $('shops');
 for (const s of SHOPS){
-  const b = document.createElement('button'); b.textContent = s.name; b.dataset.id = s.id;
+  const b = document.createElement('button'); b.type = 'button'; b.dataset.id = s.id;
+  b.innerHTML = '<svg class="i" aria-hidden="true"><use href="' + iconOf(s) + '"/></svg><span></span>';
+  b.lastChild.textContent = s.name;
   b.onclick = () => { if (!tween && $('panel').hidden && !$('enter').hidden) build(s); };
   bar.appendChild(b);
 }
 
-$('enter').onclick = async () => {
+function showShop(shop){         // the page around the scene: accent colour, names, chips
+  const L = shop.look || SHOPS[0].look;
+  document.documentElement.style.setProperty('--accent', L.accent);
+  document.querySelectorAll('[data-shop-icon] use').forEach(u => u.setAttribute('href', iconOf(shop)));
+  $('area').textContent = shop.area || ''; $('shop-name').textContent = shop.name;
+  $('avatar').textContent = shop.name.charAt(0); $('who').textContent = 'Clerk · ' + shop.name;
+  $('chips').replaceChildren(...(shop.asks || []).map(text => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = text;
+    b.onclick = () => askChip(text); return b;
+  }));
+  for (const b of bar.children) b.setAttribute('aria-pressed', b.dataset.id === shop.id);
+  setSkyline(false);
+}
+function askChip(text){          // through the form, so the trim, the cap and the state guard apply
+  if (state !== 'listening') return;
+  $('q').value = text;
+  $('f').dispatchEvent(new Event('submit', { cancelable:true }));
+}
+
+// Every way in (the button, the door cue, a tap on the street) runs this inside the tap.
+async function enterShop(){
+  if (document.body.dataset.where !== 'street' || tween) return;
   unlockAudio();                                                // first, while still inside the tap
+  sfx.footsteps();                                              // makes the effects' context in the tap too
   const shop = current;
   const greeting = callClerk({ shop: shop.id, greet: true });   // in flight during the walk-in
-  $('enter').hidden = true; bar.hidden = true;
+  $('enter').hidden = true; bar.hidden = true; setWhere('entering'); setSkyline(false);
   await moveCamera(DOOR, 2600);
-  doorTarget = 1; await wait(700);
+  doorTarget = 1; sfx.chime(); await wait(700);
+  sfx.footsteps();
   await moveCamera(INSIDE, 2400);
   const live = await Promise.race([greeting, wait(2000)]);      // at most 2 s more, then the local line
-  $('panel').hidden = false; setState('answering');
+  $('panel').hidden = false; setWhere('inside'); setState('answering');
   await say(live || { reply: 'Welcome to ' + shop.name + '. How can I help you today?' });
   setState('listening'); $('q').focus();
-};
+}
+$('enter').onclick = enterShop;
+$('door-cue').onclick = enterShop;
 
 $('f').onsubmit = async e => {
   e.preventDefault();
@@ -320,10 +1031,49 @@ $('f').onsubmit = async e => {
 $('leave').onclick = async () => {
   if (tween) return;
   visit++; endSay(); silence();
-  $('panel').hidden = true; setState('listening');
+  $('panel').hidden = true; setState('listening'); setWhere('leaving'); sfx.footsteps();
   await moveCamera(DOOR, 1800); doorTarget = 0;
   await moveCamera(STREET, 2200);
-  $('enter').hidden = false; bar.hidden = false;
+  $('enter').hidden = false; bar.hidden = false; setWhere('street');
+};
+
+// Look around: drag on the 3D view (AI Studio's controls). A tap without a drag, on the street, walks in.
+let drag = null, dragged = false;
+canvas.addEventListener('pointerdown', e => {
+  if (drag) return;                                             // one pointer looks; a second finger is ignored
+  drag = { id:e.pointerId, x0:e.clientX, y0:e.clientY, x:e.clientX, y:e.clientY }; dragged = false;
+  document.body.classList.add('dragging');
+  try { canvas.setPointerCapture(e.pointerId); } catch {}
+});
+addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY;
+  if (!dragged && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) >= 8){ dragged = true; if (skyline) setSkyline(false, true); }
+  if (tween) return;                                            // no looking around while walking
+  const maxYaw = document.body.dataset.where === 'inside' ? 0.95 : 1.75;
+  targetYaw = Math.max(-maxYaw, Math.min(maxYaw, targetYaw - dx * 0.0035));
+  targetPitch = Math.max(-0.32, Math.min(0.38, targetPitch - dy * 0.0035));
+});
+const endDrag = e => { if (drag && e.pointerId === drag.id){ drag = null; document.body.classList.remove('dragging'); } };
+addEventListener('pointerup', endDrag);
+addEventListener('pointercancel', endDrag);
+canvas.addEventListener('click', () => { if (!dragged) enterShop(); });   // a click, so iOS counts it as a tap
+
+// Skyline: tilt up toward Bank of America Plaza, on the street only.
+let skyline = false;
+function setSkyline(on, keepView){
+  skyline = on; $('skyline').setAttribute('aria-pressed', on);
+  $('skyline-label').textContent = on ? 'Storefront' : 'Skyline';
+  if (!keepView){ targetYaw = on ? -0.22 : 0; targetPitch = on ? 0.28 : 0; }
+}
+$('skyline').onclick = () => setSkyline(!skyline);
+
+// Sound: mutes the effects and the clerk's voice. The answers still show and the states still advance.
+$('sound').onclick = () => {
+  muted = !muted; player.muted = muted;
+  if (muted){ if (hasTTS) speechSynthesis.cancel(); } else sfx.unlock();
+  $('sound').setAttribute('aria-pressed', muted);
+  $('sound').querySelector('use').setAttribute('href', muted ? '#i-volume-x' : '#i-volume-2');
 };
 
 build(SHOPS[0]);
