@@ -1,41 +1,81 @@
 # Architecture
 
-Peripie is a small shop's website that simulates a walk-in experience. The visitor sees the storefront from the street, the camera moves through the door, and a clerk at the counter greets them out loud. The visitor asks for a product, the clerk checks with a stock agent, and answers by voice: in stock, or out of stock and back on a given date.
+Peripie is a small shop's website that you walk into. A clerk greets you out loud, and when you ask for something, the clerk checks the stock room before answering. It takes one job off the owner's plate: answering "do you have it?"
+
+This page shows who talks to whom, first as people and places, then as files and services.
+
+## The shop
+
+- **The street.** One shopfront at a time, with three shops to pick from: Rosa's Bakery, Southside Paint Supply and Fern & Pot. The visitor picks one and taps Enter shop.
+- **The door.** The doors open and the visitor walks to the counter. The clerk gets the greeting ready on the way in: one fixed line per shop, voiced once and kept in memory, never sent to the helper who understands questions. Leave shop walks the visitor back out.
+- **The counter.** The clerk greets the visitor out loud. The visitor types a question, and the clerk answers out loud in one or two short sentences.
+- **The stock room.** The clerk checks here before every answer. On screen, the clerk turns to a stock agent and the status reads "Checking with the stock room".
+- **The shelf list.** The owner's record for each product: how many are on hand, when the next delivery comes, and past counts that show how long it usually takes to come back.
+- **Outside helpers.** The shop uses three: one understands the question and words the answer, one lends the clerk a voice, and one keeps the shelf list and the count log.
+
+## Who talks to whom
 
 ```mermaid
-flowchart LR
-    subgraph phone["Visitor's phone"]
-        A["Browser page<br/>public/index.html, Three.js"]
+flowchart TB
+    Street["Street: pick one of three shops"]
+    Door["Front door"]
+    subgraph inside["Inside the shop"]
+        Visitor["Visitor, on a phone"]
+        Clerk["Clerk at the counter"]
+        Stock["Stock room"]
     end
-    subgraph replit["Replit"]
-        C["Express server<br/>server/index.js"]
-        S["check_stock<br/>server/stock.js"]
+    subgraph helpers["Outside helpers"]
+        Think["Understands the question"]
+        Voice["Lends the clerk a voice"]
+        List["Keeps the shelf list"]
     end
-    subgraph ext["External APIs"]
-        D["Gemini API<br/>clerk persona + check_stock tool"]
-        E["ElevenLabs API<br/>reply text to mp3"]
-        F["Tiger Data<br/>Postgres: inventory, stock_events"]
-    end
-    A -- "POST /api/clerk: shop, text" --> C
-    C -- "prompt + tool declaration" --> D
-    D -- "call check_stock" --> S
-    S -- "SQL" --> F
-    F -- "rows" --> S
-    S -- "tool result" --> D
-    D -- "reply text" --> C
-    C -- "reply text" --> E
-    E -- "mp3" --> C
-    C -- "reply, audioUrl, stock" --> A
+    Owner["Shop owner"]
+
+    Street -->|"taps Enter shop"| Door
+    Door -->|"walks in"| inside
+    Clerk -->|"Welcome to Rosa's Bakery. How can I help you today?"| Visitor
+    Visitor -->|"Do you have croissants?"| Clerk
+    Clerk -->|"Out of croissants. Back Tuesday, October 13."| Visitor
+    Clerk -->|"Any croissants?"| Stock
+    Stock -->|"reads the bakery list"| List
+    Stock -->|"None left. Back Tuesday."| Clerk
+    Clerk -.-|"hears the question, words the answer"| Think
+    Clerk -.-|"speaks every line aloud"| Voice
+    Owner -->|"tells it counts and delivery dates"| List
 ```
 
-The server keeps no state between requests and never writes the visitor's text anywhere; the only stored data is the shops' inventory and restock history.
+Solid arrows are things said, tapped or looked up during one visit, except the owner's, which happens outside any visit. Dotted lines are outside help.
 
-| File | Responsibility |
-|------|----------------|
-| `server/index.js` | Express app, /api/clerk |
-| `server/clerk.js` | Gemini call and tool loop |
-| `server/stock.js` | check_stock and SQL |
-| `server/voice.js` | ElevenLabs call |
+The clerk has to check the stock room before it answers. Stock comes from the shelf list, not from memory.
+
+Each helper hears only what it needs. The helper who understands hears the question. The voice hears only the clerk's words. The shelf list keeper hears only which shop is asking, and the stock room finds the item itself.
+
+The shop keeps nothing about the visitor: no account, no cookie, no copy of what they asked.
+
+The helpers are a different matter, and the plan says so plainly: on its free tier, the helper who understands the question may keep it to improve its own products; the voice service keeps the clerk's lines, never the question, in its history; and the host counts visits by country. None of them gets a name, an account or a cookie. The full disclosure is in [PLAN.md section 4](../PLAN.md#4-rules-for-everyone).
+
+In the demo, the shelf list is sample data: four products in each shop, with 60 days of past counts. The owner has no screen for it.
+
+If something is slow or down, the visit still works:
+
+- **No answer within 15 seconds, or the helper who understands is down:** the clerk answers from a short list built into the page, in the phone's own voice.
+- **The voice fails or is late:** the phone's own voice says the same words.
+- **The shelf list keeper cannot be reached:** the stock room reads a built-in copy of the sample list.
+
+## For engineers: the same shop in code
+
+| In the story | File | Outside service |
+|---|---|---|
+| Street, front door, counter, clerk and stock agent on screen | `public/index.html`, a Three.js scene | jsDelivr CDN, which serves the Three.js library |
+| Clerk taking the question and handing back the answer | `server/index.js`: `POST /api/clerk` on Express | none |
+| Understands the question | `server/clerk.js` | Gemini API, with `check_stock` as its only tool |
+| Stock room | `server/stock.js`: `check_stock` | none |
+| Keeps the shelf list | `db/schema.sql`, `db/seed.sql` | Tiger Data (Postgres): `inventory`, `stock_events` |
+| The owner's counts and dates, in the demo | `db/seed-data.js`: sample data that generates `db/seed.sql` and is the built-in copy | none |
+| Lends the clerk a voice | `server/voice.js` | ElevenLabs text to speech, sent back as an mp3 data URL |
+| Backup answers and the phone's own voice | `public/index.html` | none: the browser's built-in speech |
+
+One question, step by step: [sequence.md](sequence.md). The tables behind the shelf list: [data-model.md](data-model.md).
 
 ## Request contract
 
