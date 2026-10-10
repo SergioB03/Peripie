@@ -4,7 +4,7 @@
 import 'dotenv/config';
 import express from 'express';
 import { fileURLToPath } from 'node:url';
-import { textToSpeech } from './voice.js';
+import { textToSpeech, warmUpVoice } from './voice.js';
 
 const SHOPS = new Map([
   ['bakery', "Rosa's Bakery"],
@@ -134,4 +134,7 @@ app.listen(port, '0.0.0.0', (err) => {
   if (!process.env.GEMINI_API_KEY) console.warn('GEMINI_API_KEY not set: questions answer 502 clerk_unavailable');
   if (!process.env.ELEVENLABS_API_KEY) console.warn('ELEVENLABS_API_KEY not set: audioUrl is null');
   loadClerk().catch(() => {});
+  // The voice SDK import blocks for about 2 s; start it just after boot, once /health is
+  // answering, instead of inside the first greeting or question.
+  setTimeout(warmUpVoice, 500);
 });
