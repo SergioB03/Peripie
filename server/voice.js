@@ -33,7 +33,7 @@ function loadSdk() {
 
 let client;
 
-export async function textToSpeech(text) {
+export async function textToSpeech(text, { timeoutMs = TIMEOUT_MS } = {}) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey || typeof text !== 'string' || !text.trim()) return null;
   if (text.length > MAX_CHARS) {
@@ -49,7 +49,7 @@ export async function textToSpeech(text) {
     const audio = await client.textToSpeech.convert(
       process.env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE_ID,
       { text, modelId: MODEL_ID, outputFormat: OUTPUT_FORMAT },
-      { abortSignal: AbortSignal.timeout(TIMEOUT_MS), maxRetries: 1 },
+      { abortSignal: AbortSignal.timeout(timeoutMs), maxRetries: 1 },
     );
     const chunks = [];
     for await (const chunk of audio) chunks.push(chunk);

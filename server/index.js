@@ -12,6 +12,12 @@ const SHOPS = new Map([
   ['plants', 'Fern & Pot'],
 ]);
 const MAX_TEXT = 300;
+// The page gives up on a clerk call after 12 s (PLAN.md M6), so a reply's audio gets only the
+// time left inside this budget. Without time for audio the reply goes out with audioUrl null
+// and the page speaks it in the browser's voice.
+const RESPONSE_BUDGET_MS = 11_500;
+const MIN_AUDIO_MS = 1_500;
+const MAX_AUDIO_MS = 6_000;
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
 
 function errorType(err) {
@@ -67,6 +73,7 @@ app.get('/health', (req, res) => {
 });
 
 app.post('/api/clerk', express.json({ limit: '4kb' }), async (req, res) => {
+  const started = performance.now();
   res.set('Cache-Control', 'no-store');
   const body = req.body ?? {};
 
@@ -92,7 +99,8 @@ app.post('/api/clerk', express.json({ limit: '4kb' }), async (req, res) => {
     return res.status(502).json({ error: 'clerk_unavailable' });
   }
 
-  const audioUrl = await textToSpeech(answer.reply);
+  const audioMs = Math.floor(Math.min(MAX_AUDIO_MS, RESPONSE_BUDGET_MS - (performance.now() - started)));
+  const audioUrl = audioMs >= MIN_AUDIO_MS ? await textToSpeech(answer.reply, { timeoutMs: audioMs }) : null;
   res.json({ reply: answer.reply, audioUrl, stock: answer.stock ?? null });
 });
 
