@@ -38,7 +38,7 @@ See [docs/architecture.md](docs/architecture.md) for a diagram of the system.
 
 We never collect or store personal information about visitors. No accounts, cookies, analytics, or local storage of visitor data. When you ask a question, your text goes to Gemini via the API; we do not log it on our server. The clerk's reply text goes to ElevenLabs for audio generation; we do not store that either. The server only stores inventory and restock events, never the visitor's input.
 
-What those services keep on their side: on Google's free tier, Gemini may use the question to improve its products; ElevenLabs keeps the clerk's replies, never the question, in the account's history; and the host counts visits by country. None of it is tied to a name, an account or a cookie.
+What those services keep on their side: on Google's free tier, Gemini may use the question to improve its products; ElevenLabs keeps the clerk's replies, never the question, in the account's history; and the host counts visits by country. None of it is tied to a name or an account. One thing we cannot remove: the hosting provider's front end sets a routing cookie (`GAESA`) on every app it serves; it carries no identity and we never read it. The host also counts requests and unique IPs and keeps deployment logs for 30 days.
 
 ## Challenges we ran into
 
