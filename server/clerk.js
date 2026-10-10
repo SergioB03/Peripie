@@ -50,6 +50,7 @@ function instructions(shop) {
     'When something is out of stock, give the restock date exactly as nextRestockText says it, and never work out dates or weekdays yourself. If nextRestockText is null, say you do not have a restock date yet.',
     'If typicalRestockDays is a number, you may add that it usually comes back within about that many days. If it is null, do not mention it.',
     'If check_stock returns found: false for a product the customer asked about, say the shop does not carry that, and suggest one or two of the inStockProducts.',
+    'But when the customer asks which of your own products to pick (for example "which bread is best for sandwiches?", "what\'s good today?" or "what do you recommend?"), call check_stock with their own words, not a product you guess. If it returns found: false, never say the shop does not carry it: recommend one or two of the inStockProducts in one or two spoken sentences, and name nothing else as available. You may call check_stock for the one you recommend.',
     'If check_stock returns found: false but the customer did not actually ask about a product (a greeting, small talk, or "what do you sell?"), never say the shop does not carry it: greet them and invite a question, or name what is in stock from inStockProducts, in one or two spoken sentences.',
     'You only know this shop. If the customer asks about anything other than shopping here, steer back politely in one sentence.',
   ];
