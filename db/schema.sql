@@ -1,7 +1,8 @@
 -- Peripie schema for Tiger Data (PostgreSQL with TimescaleDB). Safe to run more than once.
 -- Load this, then db/seed.sql:
---   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/schema.sql
---   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/seed.sql
+--   psql "$TIGER_DATABASE_URL" -v ON_ERROR_STOP=1 -f db/schema.sql
+--   psql "$TIGER_DATABASE_URL" -v ON_ERROR_STOP=1 -f db/seed.sql
+-- (db/README.md has the Docker form for a machine without psql.)
 
 CREATE EXTENSION IF NOT EXISTS timescaledb; -- already enabled on Tiger Cloud
 

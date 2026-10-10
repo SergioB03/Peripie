@@ -2,8 +2,9 @@
 //
 // Two things read this file:
 //   - db/seed.sql is generated from it:   node db/seed-data.js --write-sql
-//   - server/stock.js serves it from memory when DATABASE_URL is unset, building the same
-//     stock history with the same formula, so both paths give the same answers.
+//   - server/stock.js serves it from memory when no database is configured (neither
+//     TIGER_DATABASE_URL nor DATABASE_URL), building the same stock history with the
+//     same formula, so both paths give the same answers.
 //
 // Shops, product names and in/out status match the SHOPS list in public/index.html.
 

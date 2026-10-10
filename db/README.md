@@ -2,21 +2,25 @@
 
 Two files, run in order: `schema.sql` (tables, hypertable, index; safe to re-run) and `seed.sql` (empties both tables and re-inserts; safe to re-run). `seed.sql` is generated from `seed-data.js`, the single source of truth that the in-memory fallback in `server/stock.js` also reads. If you change the seed, run `node db/seed-data.js --write-sql` and commit both files.
 
-## Into Tiger Data (once `DATABASE_URL` exists)
+## Why `TIGER_DATABASE_URL`
+
+`server/stock.js` reads `TIGER_DATABASE_URL` first and falls back to `DATABASE_URL`. Replit provisions its own Postgres for every app under the name `DATABASE_URL`, so if the server read that name, the live app would connect to Replit's empty database, find no inventory rows and answer from the built-in seed instead of Tiger Data, with nothing visibly wrong. On Replit, put the Tiger service URL in the `TIGER_DATABASE_URL` secret. Locally, either name works.
+
+## Into Tiger Data (once you have the Tiger service URL)
 
 There is no local `psql` on this machine, so use the one inside the TimescaleDB image (Docker Desktop must be running). From the repo root, in PowerShell:
 
 ```powershell
-$env:DATABASE_URL = '<Tiger service URL, ending ?sslmode=require>'
-docker run --rm -v "${PWD}\db:/db" timescale/timescaledb:latest-pg17 psql "$env:DATABASE_URL" -v ON_ERROR_STOP=1 -f /db/schema.sql
-docker run --rm -v "${PWD}\db:/db" timescale/timescaledb:latest-pg17 psql "$env:DATABASE_URL" -v ON_ERROR_STOP=1 -f /db/seed.sql
+$env:TIGER_DATABASE_URL = '<Tiger service URL, ending ?sslmode=require>'
+docker run --rm -v "${PWD}\db:/db" timescale/timescaledb:latest-pg17 psql "$env:TIGER_DATABASE_URL" -v ON_ERROR_STOP=1 -f /db/schema.sql
+docker run --rm -v "${PWD}\db:/db" timescale/timescaledb:latest-pg17 psql "$env:TIGER_DATABASE_URL" -v ON_ERROR_STOP=1 -f /db/seed.sql
 ```
 
-Where `psql` exists (for example the Replit shell):
+Where `psql` exists (for example the Replit shell; there, `$DATABASE_URL` is Replit's own database, so use `$TIGER_DATABASE_URL`):
 
 ```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/schema.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/seed.sql
+psql "$TIGER_DATABASE_URL" -v ON_ERROR_STOP=1 -f db/schema.sql
+psql "$TIGER_DATABASE_URL" -v ON_ERROR_STOP=1 -f db/seed.sql
 ```
 
 Tiger CLI equivalents: `tiger db query <service-id> -f db/schema.sql`, then the same with `db/seed.sql`.
@@ -32,10 +36,25 @@ SELECT shop_id, product, on_hand, next_restock FROM inventory ORDER BY 1, 2;
 SELECT count(*) FROM stock_events;   -- 2880 after a fresh seed
 ```
 
-Or from Node, with `DATABASE_URL` set:
+Or from Node, with `TIGER_DATABASE_URL` set:
 
 ```bash
 node --input-type=module -e "const m = await import('./server/stock.js'); console.log(await m.checkStock('bakery', 'croissants'))"
 ```
 
-The server never needs the database to start: with no `DATABASE_URL`, or if the database is unreachable, `checkStock` answers from the built-in seed and logs one warning.
+At startup the server logs which variable it uses, with the host only, never credentials. On the live app it must be the Tiger host:
+
+```
+[stock] using TIGER_DATABASE_URL (xyz.tsdb.cloud.timescale.com)
+```
+
+If it says `using DATABASE_URL`, the `TIGER_DATABASE_URL` secret is missing. Other lines mean the clerk is answering from the built-in seed:
+
+| Log line | Meaning |
+|---|---|
+| `TIGER_DATABASE_URL and DATABASE_URL are not set` | No database configured |
+| `database has no inventory rows for bakery: seed not loaded?` | Connected, but `seed.sql` was not run on that database |
+| `database is missing the Peripie tables (42P01): schema not loaded?` | Connected, but `schema.sql` was not run on that database |
+| `database unavailable (<code>)` | Connecting or the query failed |
+
+The server never needs the database to start, and `checkStock` never fails: in each case above it answers from the built-in seed and says why in the log. It never logs the visitor's text.

@@ -5,9 +5,10 @@
 //   { found: false, inStockProducts }
 // It never rejects: if the database fails, it answers from the built-in seed and logs why.
 //
-// With DATABASE_URL set it reads Tiger Data (inventory plus the stock_events hypertable).
-// Without it, it answers from an in-memory copy of the seed (db/seed-data.js) and logs one
-// warning, so the clerk can be tested before the database exists.
+// With TIGER_DATABASE_URL (or, failing that, DATABASE_URL) set it reads Tiger Data
+// (inventory plus the stock_events hypertable). With neither, it answers from an in-memory
+// copy of the seed (db/seed-data.js) and logs one warning, so the clerk can be tested
+// before the database exists.
 //
 // Zero Data: the visitor's words are matched here in Node. They are never logged and never
 // sent to the database; the only query parameter is the shop id.
@@ -170,15 +171,37 @@ function memoryRows(shopId) {
   return memory.rows.filter((r) => r.shopId === shopId);
 }
 
+// Which database to use. TIGER_DATABASE_URL comes first because Replit provisions its own
+// Postgres for every app under DATABASE_URL: reading that first would put the live app on
+// Replit's empty database, answering from the built-in seed instead of Tiger Data.
+function databaseSetting() {
+  for (const name of ['TIGER_DATABASE_URL', 'DATABASE_URL']) {
+    if (process.env[name]) return { name, url: process.env[name] };
+  }
+  return null;
+}
+
+// The host part only, for the log: never the user name or password.
+function hostOf(url) {
+  try {
+    return new URL(url).hostname || 'no host';
+  } catch {
+    return 'unparseable URL';
+  }
+}
+
 let warnedNoDatabase = false;
 function warnNoDatabase() {
   if (warnedNoDatabase) return;
   warnedNoDatabase = true;
-  console.warn('[stock] DATABASE_URL is not set: check_stock answers from the built-in seed (db/seed-data.js), not Tiger Data.');
+  console.warn('[stock] TIGER_DATABASE_URL and DATABASE_URL are not set: check_stock answers from the built-in seed (db/seed-data.js), not Tiger Data.');
 }
-// One warning at startup, checked after the entry module has run (and loaded .env).
+// Once at startup, after the entry module has run (and loaded .env): which variable is in
+// use and its host, or the warning that there is no database.
 setImmediate(() => {
-  if (!process.env.DATABASE_URL) warnNoDatabase();
+  const db = databaseSetting();
+  if (db) console.log(`[stock] using ${db.name} (${hostOf(db.url)})`);
+  else warnNoDatabase();
 });
 
 // ---------- Tiger Data ----------
@@ -197,11 +220,11 @@ function connectionOptions(databaseUrl) {
   return { connectionString: url.toString(), ssl };
 }
 
-function getPool() {
+function getPool(databaseUrl) {
   poolPromise ??= (async () => {
     const { default: pg } = await import('pg'); // loaded only when a database is configured
     const pool = new pg.Pool({
-      ...connectionOptions(process.env.DATABASE_URL),
+      ...connectionOptions(databaseUrl),
       max: 4,
       connectionTimeoutMillis: 4000,
       query_timeout: 3000,
@@ -228,10 +251,10 @@ function describe(err) {
   return String(err?.code || err?.message || err).slice(0, 100);
 }
 
-async function databaseRows(shopId) {
+async function databaseRows(shopId, databaseUrl) {
   let result;
   try {
-    result = await (await getPool()).query(SHOP_SQL, [shopId]);
+    result = await (await getPool(databaseUrl)).query(SHOP_SQL, [shopId]);
   } catch (err) {
     if (!isCertificateError(err)) throw err;
     // PLAN.md pins: on a certificate error, keep TLS but skip verifying the chain.
@@ -242,7 +265,7 @@ async function databaseRows(shopId) {
       poolPromise = null;
       old?.then((p) => p.end()).catch(() => {});
     }
-    result = await (await getPool()).query(SHOP_SQL, [shopId]);
+    result = await (await getPool(databaseUrl)).query(SHOP_SQL, [shopId]);
   }
   return result.rows.map((r) => ({
     product: r.product,
@@ -254,19 +277,23 @@ async function databaseRows(shopId) {
 
 export async function checkStock(shopId, query) {
   const shop = String(shopId ?? '');
-  if (!process.env.DATABASE_URL) {
+  const db = databaseSetting();
+  if (!db) {
     warnNoDatabase();
     return answer(memoryRows(shop), query);
   }
   let rows;
   try {
-    rows = await databaseRows(shop);
+    rows = await databaseRows(shop, db.url);
   } catch (err) {
-    console.warn(`[stock] database unavailable (${describe(err)}); answering from the built-in seed`);
+    console.warn(err?.code === '42P01'
+      ? '[stock] database is missing the Peripie tables (42P01): schema not loaded? answering from the built-in seed'
+      : `[stock] database unavailable (${describe(err)}); answering from the built-in seed`);
     return answer(memoryRows(shop), query);
   }
+  // Logged only for the three seed shops, so no visitor input ever reaches this line.
   if (!rows.length && memoryRows(shop).length) {
-    console.warn(`[stock] no inventory rows for shop ${shop} in the database (seed not loaded?); answering from the built-in seed`);
+    console.warn(`[stock] database has no inventory rows for ${shop}: seed not loaded? answering from the built-in seed`);
     return answer(memoryRows(shop), query);
   }
   return answer(rows, query);
