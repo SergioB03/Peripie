@@ -27,7 +27,7 @@
 | Audio on iOS | one shared Audio element primed on the Enter tap | a new Audio() per reply | Prevents iOS Safari from silencing audio after the first interaction |
 | Forcing the stock lookup | Gemini's first round must call check_stock (function-calling mode ANY) | trusting the prompt to ask for it | Without it the model can answer "yes, we have that" from memory and the answer never touches the database |
 | Timing budget | page waits 15 s; server gives Gemini 10 s and ElevenLabs the time left before 12.5 s | 12 s on both sides | A 12 s tie meant a slow real answer lost to the canned one; now every reply is back 2.5 s before the page gives up |
-| Hosting | Replit (per the challenge) or AWS App Runner; decided at deploy time | changing hosts before the demo works | The server is plain Express on PORT, so the host is a deploy-time choice, not a code change |
+| Hosting | Replit for the submission (decided Oct 10, 3:05 pm) | AWS App Runner | Replit is in the prize table and is the fastest path to a public HTTPS URL with a secrets screen; the server is plain Express on PORT, so an AWS deployment stays a stretch goal after the submission, not a code change |
 
 ## Open questions for organizers
 
