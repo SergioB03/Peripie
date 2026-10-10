@@ -173,20 +173,20 @@ Environment variables: `GEMINI_API_KEY`, `GEMINI_MODEL` (optional), `ELEVENLABS_
 **3 pm check: passed at 3:45 pm** with the real Gemini key and the in-memory seed (Tiger Data load pending `DATABASE_URL`): sourdough in stock in 1.3 s, croissants out with "Tuesday, October 13" and "usually takes about three days" in 1.2 s.
 
 ### Must have
-- [ ] M1. Scaffold: Express server serving `public/` and `/api/clerk`
-- [ ] M2. Schema and seed data in Tiger Data
-- [ ] M3. `check_stock` reading from the database
-- [ ] M4. Gemini clerk with `check_stock` as a tool, scoped to the current shop
-- [ ] M5. ElevenLabs audio returned as a data URL
-- [ ] M6. Page: set `CLERK_ENDPOINT` to `/api/clerk`. `askClerk` tries the endpoint with an AbortController (15 s; timing rule in section 3) and falls through to the canned branch on any throw, non-2xx or timeout (today's catch only prints "couldn't reach the stock room"). Greeting fetched with `{ greet: true }` on the Enter tap. iOS audio unlock: one shared `Audio` element, primed synchronously inside the Enter click handler with a silent mp3 data URL plus an empty `speechSynthesis` utterance, then reused for every later reply; without this iOS Safari silences the greeting and the answers
+- [x] M1. Scaffold: Express server serving `public/` and `/api/clerk`
+- [x] M2. Schema and seed data in Tiger Data
+- [x] M3. `check_stock` reading from the database
+- [x] M4. Gemini clerk with `check_stock` as a tool, scoped to the current shop
+- [x] M5. ElevenLabs audio returned as a data URL
+- [x] M6. Page: set `CLERK_ENDPOINT` to `/api/clerk`. `askClerk` tries the endpoint with an AbortController (15 s; timing rule in section 3) and falls through to the canned branch on any throw, non-2xx or timeout (today's catch only prints "couldn't reach the stock room"). Greeting fetched with `{ greet: true }` on the Enter tap. iOS audio unlock: one shared `Audio` element, primed synchronously inside the Enter click handler with a silent mp3 data URL plus an empty `speechSynthesis` utterance, then reused for every later reply; without this iOS Safari silences the greeting and the answers
 - [ ] M7. Deployed on Replit and tested on a phone
 
 ### Should have
-- [ ] S1. Mic input (Web Speech API in Chrome), with typing kept as the fallback
-- [ ] S2. `typicalRestockDays` from `stock_events`, used in the clerk's answer
+- [x] S1. Mic input (Web Speech API in Chrome), with typing kept as the fallback
+- [x] S2. `typicalRestockDays` from `stock_events`, used in the clerk's answer
 - [ ] S3. Domain registered and pointed at the app
-- [ ] S4. README and docs/ as specified in section 10
-- [ ] S5. Two-minute pitch
+- [x] S4. README and docs/ as specified in section 10
+- [x] S5. Two-minute pitch
 
 ### Only if everything above is done
 - [ ] N1. Owner can upload a storefront photo for the sign and walls
