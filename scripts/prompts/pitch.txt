@@ -1,0 +1,12 @@
+Write the spoken script for a two-minute pitch of the project described in the plan above. Markdown only, no preamble. About 280 words of speech (two minutes at a normal pace), in Sergio's first person, plain words, short sentences, nothing a person would not say out loud.
+
+Follow section 9 of the plan, in this order, with a heading and a rough time stamp for each beat:
+1. (0:00) Open with the line from section 9 about running a painting company and customers calling to ask one thing: do you have it. Then one sentence on who this is for: small local shops, which the existing virtual-store platforms do not serve.
+2. (0:20) The live demo, narrated: open the bakery, enter, the clerk greets out loud; ask for sourdough (in stock); ask for croissants (out, back Tuesday, and the clerk says it usually comes back within three days because that number comes from the restock history in the database).
+3. (1:05) Switch to the paint store to show the same code running a different shop.
+4. (1:20) How it works, in three sentences: Gemini runs the clerk and decides when to call the stock tool; Tiger Data holds the inventory and the restock history as time series; ElevenLabs gives the clerk a voice. Nothing about the visitor is stored anywhere.
+5. (1:40) Close with what is next: the sandbox builder. Say the exact line: "Each shop is one settings file. The builder we're making next lets an owner edit that file by dragging things around." Then the business model in one sentence: a free shop with one clerk, and paid add-on agents.
+
+After the script, add a section "## If asked" with five likely judge questions and a one-sentence answer each, taken only from the plan: why not a chatbot on the website; what happens if the network fails at the venue (canned answers and the browser voice); what is stored about the visitor (nothing); why Tiger Data and not a plain table (restock history as time series gives typical restock days); what the builder would cost to build (pitched, not built this weekend, because it is a product in itself).
+
+Use only facts from the plan. No marketing adjectives.
