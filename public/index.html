@@ -127,6 +127,7 @@
     overflow:hidden;text-overflow:ellipsis}
   .duty{font-size:11px;line-height:16px;font-weight:500;color:var(--s400);white-space:nowrap;overflow:hidden;
     text-overflow:ellipsis}
+  @media (max-width:399px){.duty{white-space:normal;text-wrap:balance}}   /* small phones: the staff line wraps, never clips */
   #enter{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 20px;
     border-radius:12px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;letter-spacing:.025em;
     box-shadow:var(--sh-lg);transition:filter .15s,transform .15s,background-color .3s}
@@ -307,7 +308,7 @@
       <span class="tile round"><svg class="i" data-shop-icon aria-hidden="true"><use href="#i-croissant"/></svg></span>
       <div class="dock-text">
         <div class="dock-title"><h1 id="shop-name"></h1><span class="chip green">Open now</span></div>
-        <span class="duty">Clerk and stock room on duty</span>
+        <span class="duty" id="duty">Desk clerk and stock agent on duty</span>
       </div>
     </div>
     <button id="enter" type="button">Enter shop<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
@@ -340,9 +341,9 @@ import * as THREE from 'three';
 
 /* ---------- 1. SHOP TEMPLATES: add a shop by adding an entry here ----------
    id, name and inventory are what the server and the database seed match. The rest is display
-   only: area labels the shop, asks are the question chips (each names a product it carries), and
-   look holds the AI Studio design's colours. wall, floor, accent and products are the first
-   scene's colours; nothing reads them since the design port. */
+   only: area labels the shop, agents is the staff the street dock names, asks are the question
+   chips (each names a product it carries), and look holds the AI Studio design's colours. wall,
+   floor, accent and products are the first scene's colours; nothing reads them since the port. */
 const SHOPS = [
   { id:'bakery', name:'Rosa\'s Bakery', wall:0xf3e3c8, floor:0xb98a5e, accent:0xc2553d,
     products:[0xe8c07a,0xd99a4e,0xf5e1b5,0xa86a3a],
@@ -352,6 +353,7 @@ const SHOPS = [
       {name:'concha', inStock:true},
       {name:'baguette', inStock:false, restock:'tomorrow at 7am'} ],
     area:'Atlanta, GA',
+    agents:['Desk clerk', 'Stock agent'],
     asks:['Do you have sourdough?', 'Do you have croissants?', 'Any conchas today?', 'Is there a baguette?'],
     look:{ accent:'#d97706', wall:'#fdf6ec', floor:'#a16207', awning:['#b45309', '#fef3c7'], apron:'#b45309',
            vest:'#78350f', signBg:'#78350f', signText:'#fef3c7', light:'#ffedd5' } },
@@ -363,7 +365,8 @@ const SHOPS = [
       {name:'roller', inStock:false, restock:'Friday'},
       {name:'painter\'s tape', inStock:true} ],
     area:'Atlanta, GA',
-    asks:['Do you have primer?', 'Do you have a roller?', 'Any painter\'s tape?', 'Eggshell white in stock?'],
+    agents:['Desk clerk', 'Stock agent', 'Support agent'],
+    asks:['Which primer for a bathroom?', 'Do you have a roller?', 'Any painter\'s tape?', 'Eggshell white in stock?'],
     look:{ accent:'#2563eb', wall:'#f1f5f9', floor:'#475569', awning:['#1d4ed8', '#dbeafe'], apron:'#1d4ed8',
            vest:'#1e3a8a', signBg:'#1e3a8a', signText:'#93c5fd', light:'#f0f9ff' } },
   { id:'plants', name:'Fern & Pot', wall:0xe9f2e4, floor:0x9a8468, accent:0x3f7d4f,
@@ -374,6 +377,7 @@ const SHOPS = [
       {name:'snake plant', inStock:true},
       {name:'terracotta pot', inStock:true} ],
     area:'Atlanta, GA',
+    agents:['Desk clerk', 'Stock agent'],
     asks:['Do you have a monstera?', 'Any pothos?', 'Do you have a snake plant?', 'Any terracotta pots?'],
     look:{ accent:'#059669', wall:'#f7fee7', floor:'#78350f', awning:['#047857', '#d1fae5'], apron:'#047857',
            vest:'#064e3b', signBg:'#064e3b', signText:'#a7f3d0', light:'#ecfdf5' } }
@@ -999,11 +1003,19 @@ for (const s of SHOPS){
   bar.appendChild(b);
 }
 
-function showShop(shop){         // the page around the scene: accent colour, names, chips
+// The dock's staff line, lowercase after the first name:
+// ['Desk clerk', 'Stock agent', 'Support agent'] -> 'Desk clerk, stock agent and support agent on duty'
+function onDuty(agents){
+  const names = agents.map((a, i) => i ? a.toLowerCase() : a), last = names.pop();
+  return (names.length ? names.join(', ') + ' and ' : '') + last + ' on duty';
+}
+
+function showShop(shop){         // the page around the scene: accent colour, names, staff, chips
   const L = shop.look || SHOPS[0].look;
   document.documentElement.style.setProperty('--accent', L.accent);
   document.querySelectorAll('[data-shop-icon] use').forEach(u => u.setAttribute('href', iconOf(shop)));
   $('area').textContent = shop.area || ''; $('shop-name').textContent = shop.name;
+  $('duty').textContent = onDuty(shop.agents?.length ? shop.agents : SHOPS[0].agents);
   $('avatar').textContent = shop.name.charAt(0); $('who').textContent = 'Clerk · ' + shop.name;
   $('chips').replaceChildren(...(shop.asks || []).map(text => {
     const b = document.createElement('button'); b.type = 'button'; b.textContent = text;
