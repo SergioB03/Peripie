@@ -141,7 +141,7 @@ Environment variables: `GEMINI_API_KEY`, `GEMINI_MODEL`, `ELEVENLABS_API_KEY`, `
 
 ### SDK and runtime pins (checked against current docs by the staff engineer, Oct 10 1:40 pm ET; builders re-check per rule 1)
 
-- **Gemini** (`@google/genai`): `ai.models.generateContent` with `tools: [{ functionDeclarations }]`, read `response.functionCalls`, answer with `functionResponse` parts; a manual loop of at most two tool rounds. Do not use the Interactions API. Model from `GEMINI_MODEL`, default `gemini-3.8-flash` (free tier), with `thinkingConfig: { thinkingLevel: 'low' }` (the default level adds seconds); fallback `gemini-3.5-flash-lite`. `gemini-2.0-flash` is shut down and `gemini-2.5-*` is limited access; do not write those from memory.
+- **Gemini** (`@google/genai`): `ai.models.generateContent` with `tools: [{ functionDeclarations }]`, read `response.functionCalls`, answer with `functionResponse` parts; a manual loop of at most two tool rounds. Do not use the Interactions API. Model from `GEMINI_MODEL`, with `thinkingConfig: { thinkingLevel: 'low' }` (the default level adds seconds). **Measured Oct 10, 3:40 pm, on Sergio's key: `gemini-3.8-flash` answered 503 to every call and then 429; `gemini-3.5-flash-lite` answered every question in 0.9 to 1.4 s with correct facts.** So the primary is `gemini-3.5-flash-lite` (set `GEMINI_MODEL=gemini-3.5-flash-lite` in `.env` and in Replit Secrets; the code default is the same) and `gemini-3.8-flash` is the fallback. A single model attempt is capped at 5 s so a hanging model cannot eat the fallback's time; the loop total stays 10 s. `gemini-2.0-flash` is shut down and `gemini-2.5-*` is limited access; do not write those from memory.
 - **ElevenLabs** (`@elevenlabs/elevenlabs-js`): `new ElevenLabsClient({ apiKey })`, `client.textToSpeech.convert(voiceId, { text, modelId: 'eleven_flash_v2_5', outputFormat: 'mp3_44100_64' })` returns a stream, not a Buffer: `for await (const c of audio) chunks.push(c)` then `Buffer.concat`. One or two sentences is about 40 to 60 KB of base64. Free tier is 10k credits a month; the greeting cache protects most of it.
 - **Tiger Data** (`pg`): `DATABASE_URL` ends in `?sslmode=require`; node-postgres lets `sslmode` in the URL override an `ssl` object, so if connecting fails with a certificate error, strip `sslmode` and pass `ssl: { rejectUnauthorized: false }`.
 - **Replit**: `app.listen(process.env.PORT || 3000, '0.0.0.0')` before any database connect; the health check must answer within 5 s. Autoscale sleeps after 15 min idle, so the first judge hit is a cold start plus a TLS handshake to Tiger: warm the link from the second device before each judge, or pick Reserved VM.
@@ -169,6 +169,8 @@ Environment variables: `GEMINI_API_KEY`, `GEMINI_MODEL`, `ELEVENLABS_API_KEY`, `
 | Sun 6 to 9 am | Rehearse, final checks, submit by 8:30 | Submitted |
 
 **Cut rule:** if the 3 pm check has not passed by 6 pm, drop mic input and `typicalRestockDays` and spend the evening on the endpoint and the deploy.
+
+**3 pm check: passed at 3:45 pm** with the real Gemini key and the in-memory seed (Tiger Data load pending `DATABASE_URL`): sourdough in stock in 1.3 s, croissants out with "Tuesday, October 13" and "usually takes about three days" in 1.2 s.
 
 ### Must have
 - [ ] M1. Scaffold: Express server serving `public/` and `/api/clerk`
