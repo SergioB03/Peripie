@@ -1,13 +1,18 @@
 // The clerk: Gemini (generateContent, not the Interactions API) with check_stock as its only
 // tool, scoped to the shop the visitor is in. Manual tool loop, at most two tool rounds; the
-// first round must call check_stock. 10 s overall (PLAN.md section 3, timing). Zero Data: the
-// visitor's text and the reply are never logged; failures log the model id and error type only.
+// first round must call check_stock. 10 s overall (PLAN.md section 3, timing), each model
+// attempt at most 5 s, so a hanging model leaves time for the next one. Zero Data: the
+// visitor's text and the reply are never logged; the log gets model ids, timings and error
+// types only.
 import { FunctionCallingConfigMode, GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { checkStock } from './stock.js';
 
 const PRIMARY_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
+// Two attempts: the primary, then the fallback; when they are the same model, the primary again.
+const ATTEMPT_MODELS = [PRIMARY_MODEL, FALLBACK_MODEL];
 const TIMEOUT_MS = 10_000;
+const ATTEMPT_MS = 5_000;
 const MAX_TOOL_ROUNDS = 2;
 
 const checkStockDeclaration = {
@@ -150,16 +155,24 @@ export async function askClerk(shop, text) {
   if (!apiKey) throw failure('NoGeminiKey');
   client ??= new GoogleGenAI({ apiKey });
 
-  const signal = AbortSignal.timeout(TIMEOUT_MS);
-  let lastError;
-  for (const model of new Set([PRIMARY_MODEL, FALLBACK_MODEL])) {
+  const started = performance.now();
+  const deadline = started + TIMEOUT_MS;
+  let lastError = failure('NoTimeLeft');
+  for (const [i, model] of ATTEMPT_MODELS.entries()) {
+    const ms = Math.floor(Math.min(ATTEMPT_MS, deadline - performance.now()));
+    if (ms <= 0) break;
+    // Each attempt has its own deadline, so a model that hangs (not only one that errors)
+    // hands the rest of the 10 s to the next attempt.
+    const signal = AbortSignal.timeout(ms);
     try {
-      return await withDeadline(runTurn(client, model, shop, text, signal), signal);
+      const answer = await withDeadline(runTurn(client, model, shop, text, signal), signal);
+      console.log(`clerk: answered by ${model} (attempt ${i + 1}) in ${Math.round(performance.now() - started)}ms`);
+      return answer;
     } catch (err) {
       lastError = err;
-      console.warn(`clerk: ${model} failed: ${errorType(err)}`);
-      // A stock failure or the deadline would fail the fallback model the same way.
-      if (signal.aborted || err?.name === 'StockError') break;
+      console.warn(`clerk: attempt ${i + 1} ${model} failed: ${errorType(err)}`);
+      // A stock failure would fail the next attempt the same way.
+      if (err?.name === 'StockError') break;
     }
   }
   throw lastError;
