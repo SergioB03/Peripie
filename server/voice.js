@@ -1,7 +1,6 @@
 // ElevenLabs text to speech for the clerk. Returns the mp3 as a base64 data URL, so no audio
 // file is ever written, or null on any failure; the page then uses the browser's voice.
 // Only the clerk's words come here, never the visitor's. Failures log the error type only.
-import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 
 const MODEL_ID = 'eleven_flash_v2_5';
 const OUTPUT_FORMAT = 'mp3_44100_64';
@@ -20,6 +19,18 @@ function errorType(err) {
   return `${err.name || 'Error'}${code === undefined ? '' : ` ${code}`}${kind}`;
 }
 
+// The SDK takes about 2 s to import and blocks the event loop while it does, so it loads on
+// first use (normally the greeting, which the page fetches during the walk-in camera move),
+// never in the way of the health check.
+let sdk;
+function loadSdk() {
+  sdk ??= import('@elevenlabs/elevenlabs-js').catch((err) => {
+    sdk = undefined;
+    throw err;
+  });
+  return sdk;
+}
+
 let client;
 
 export async function textToSpeech(text) {
@@ -29,8 +40,11 @@ export async function textToSpeech(text) {
     console.warn('voice: skipped, reply too long');
     return null;
   }
-  client ??= new ElevenLabsClient({ apiKey });
   try {
+    if (!client) {
+      const { ElevenLabsClient } = await loadSdk();
+      client ??= new ElevenLabsClient({ apiKey });
+    }
     // The signal also bounds reading the audio stream, not just the response headers.
     const audio = await client.textToSpeech.convert(
       process.env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE_ID,
