@@ -4,13 +4,9 @@
 import 'dotenv/config';
 import express from 'express';
 import { fileURLToPath } from 'node:url';
+import { SHOPS } from './shops.js';
 import { textToSpeech, warmUpVoice } from './voice.js';
 
-const SHOPS = new Map([
-  ['bakery', "Rosa's Bakery"],
-  ['paint', 'Southside Paint Supply'],
-  ['plants', 'Fern & Pot'],
-]);
 const MAX_TEXT = 300;
 // Timing (PLAN.md section 3): the page waits 15 s and clerk.js gives Gemini 10 s, so a reply's
 // audio gets only the time left before 12.5 s after the request arrived. Without time for
@@ -77,9 +73,9 @@ app.post('/api/clerk', express.json({ limit: '4kb' }), async (req, res) => {
   res.set('Cache-Control', 'no-store');
   const body = req.body ?? {};
 
-  const shopName = typeof body.shop === 'string' ? SHOPS.get(body.shop) : undefined;
-  if (!shopName) return res.status(400).json({ error: 'bad_shop' });
-  const shop = { id: body.shop, name: shopName };
+  const settings = typeof body.shop === 'string' ? SHOPS.get(body.shop) : undefined;
+  if (!settings) return res.status(400).json({ error: 'bad_shop' });
+  const shop = { id: body.shop, ...settings }; // { id, name, staff }
 
   if (body.greet === true) {
     const reply = `Welcome to ${shop.name}. How can I help you today?`;

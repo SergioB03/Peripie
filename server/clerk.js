@@ -1,9 +1,10 @@
 // The clerk: Gemini (generateContent, not the Interactions API) with check_stock as its only
 // tool, scoped to the shop the visitor is in. Manual tool loop, at most two tool rounds; the
 // first round must call check_stock. 10 s overall (PLAN.md section 3, timing), each model
-// attempt at most 5 s, so a hanging model leaves time for the next one. Zero Data: the
-// visitor's text and the reply are never logged; the log gets model ids, timings and error
-// types only.
+// attempt at most 5 s, so a hanging model leaves time for the next one. A shop whose staff
+// includes a support agent (shops.js) gets one more rule: advice for how-to questions, still
+// ending with the stock of what it recommends. Zero Data: the visitor's text and the reply are
+// never logged; the log gets model ids, timings and error types only.
 import { FunctionCallingConfigMode, GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { checkStock } from './stock.js';
 
@@ -35,9 +36,14 @@ const checkStockDeclaration = {
   },
 };
 
-function instructions(shopName) {
-  return [
-    `You are the clerk at the counter of ${shopName}, a small local shop. A customer is standing at the counter, and everything you say is spoken aloud to them.`,
+// The support agent's rule. Round one is forced to check_stock, and round two may look up the
+// recommended product if round one found something else, so this stays within the two rounds.
+const SUPPORT_RULE =
+  'You can also give advice here. For a how-to or which-product question (for example, which primer to use in a bathroom), answer in two spoken sentences: one practical tip that recommends a product, then that product\'s stock, how many are on hand or when it is back. If check_stock has not returned the product you recommend, call check_stock for it before you answer. A plain "do you have" question gets no advice.';
+
+function instructions(shop) {
+  const rules = [
+    `You are the clerk at the counter of ${shop.name}, a small local shop. A customer is standing at the counter, and everything you say is spoken aloud to them.`,
     'Whenever the customer mentions a product, call check_stock for it before you answer, once for each product. Never guess whether something is in stock, how many there are, or when it comes back; say only what check_stock returned.',
     'Answer in one or two short, friendly spoken sentences. No lists, markdown, emoji or prices.',
     'When something is in stock, say so; you may mention how many are on hand.',
@@ -46,7 +52,9 @@ function instructions(shopName) {
     'If check_stock returns found: false for a product the customer asked about, say the shop does not carry that, and suggest one or two of the inStockProducts.',
     'If check_stock returns found: false but the customer did not actually ask about a product (a greeting, small talk, or "what do you sell?"), never say the shop does not carry it: greet them and invite a question, or name what is in stock from inStockProducts, in one or two spoken sentences.',
     'You only know this shop. If the customer asks about anything other than shopping here, steer back politely in one sentence.',
-  ].join('\n');
+  ];
+  if (shop.staff?.includes('Support agent')) rules.push(SUPPORT_RULE);
+  return rules.join('\n');
 }
 
 // Errors named for the log, which records error names only.
@@ -99,7 +107,7 @@ async function runTool(shopId, call, signal) {
 
 async function runTurn(ai, model, shop, text, signal) {
   const config = {
-    systemInstruction: instructions(shop.name),
+    systemInstruction: instructions(shop),
     tools: [{ functionDeclarations: [checkStockDeclaration] }],
     thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
     abortSignal: signal,
@@ -150,7 +158,7 @@ async function runTurn(ai, model, shop, text, signal) {
 
 let client;
 
-// shop: { id, name }; text: the visitor's question, already validated.
+// shop: { id, name, staff } from shops.js; text: the visitor's question, already validated.
 // Resolves to { reply, stock }; throws when no model could answer in time.
 export async function askClerk(shop, text) {
   const apiKey = process.env.GEMINI_API_KEY;
