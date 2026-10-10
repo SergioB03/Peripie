@@ -1,0 +1,16 @@
+# Replit config for Peripie. Click-by-click steps: docs/deploy-replit.md
+# Keys follow docs.replit.com (Replit App Configuration, Ports), checked Oct 10, 2026.
+
+modules = ["nodejs-24"]
+run = "npm start"
+
+# Exactly one port: server/index.js listens on PORT (or 3000) on 0.0.0.0; the public URL is port 80.
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+# "cloudrun" (Autoscale) is the only target value the docs show. For the demo, pick Reserved VM
+# in Publishing > Adjust settings > Deployment type; Replit records that choice itself.
+[deployment]
+run = "npm start"
+deploymentTarget = "cloudrun"
