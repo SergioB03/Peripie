@@ -1,13 +1,13 @@
 // The clerk: Gemini (generateContent, not the Interactions API) with check_stock as its only
-// tool, scoped to the shop the visitor is in. Manual tool loop, at most two tool rounds, 12 s
-// overall. Zero Data: the visitor's text and the reply are never logged; failures log the
-// model id and error type only.
+// tool, scoped to the shop the visitor is in. Manual tool loop, at most two tool rounds; the
+// first round must call check_stock. 10 s overall (PLAN.md section 3, timing). Zero Data: the
+// visitor's text and the reply are never logged; failures log the model id and error type only.
 import { FunctionCallingConfigMode, GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { checkStock } from './stock.js';
 
 const PRIMARY_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
-const TIMEOUT_MS = 12_000;
+const TIMEOUT_MS = 10_000;
 const MAX_TOOL_ROUNDS = 2;
 
 const checkStockDeclaration = {
@@ -96,6 +96,13 @@ async function runTurn(ai, model, shop, text, signal) {
     thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
     abortSignal: signal,
   };
+  // The first round must look the product up, so stock never comes from the model's memory.
+  const forceConfig = {
+    ...config,
+    toolConfig: {
+      functionCallingConfig: { mode: FunctionCallingConfigMode.ANY, allowedFunctionNames: ['check_stock'] },
+    },
+  };
   // After the last tool round the model must answer in words.
   const answerConfig = {
     ...config,
@@ -109,7 +116,7 @@ async function runTurn(ai, model, shop, text, signal) {
     const response = await ai.models.generateContent({
       model,
       contents,
-      config: lastRound ? answerConfig : config,
+      config: round === 0 ? forceConfig : lastRound ? answerConfig : config,
     });
     const calls = response.functionCalls ?? [];
     if (calls.length === 0 || lastRound) {
