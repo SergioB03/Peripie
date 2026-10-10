@@ -74,11 +74,11 @@ const SHOPS = [
              audioUrl: an mp3 data URL, or null to use the browser's voice;
              stock: the last check_stock result, or null (the page does not use it yet)
    Errors:   400 { error: "bad_shop" | "bad_text" }, 502 { error: "clerk_unavailable" }
-   Fallback: a network error, a non-2xx status, no answer within 12 s, or a body without a
+   Fallback: a network error, a non-2xx status, no answer within 15 s, or a body without a
              string reply counts as no answer. A question then gets the canned answer below,
              and the greeting gets the local welcome line in the browser's voice. */
 if (window.CLERK_ENDPOINT === undefined) window.CLERK_ENDPOINT = '/api/clerk';
-const MAX_TEXT = 300, CLERK_TIMEOUT_MS = 12000;
+const MAX_TEXT = 300, CLERK_TIMEOUT_MS = 15000;
 
 // One POST to the clerk. Resolves to { reply, audioUrl } or null; never throws.
 async function callClerk(body){
@@ -93,7 +93,7 @@ async function callClerk(body){
     if (typeof data?.reply === 'string' && data.reply.trim())
       return { reply: data.reply, audioUrl: (typeof data.audioUrl === 'string' && data.audioUrl) || null };
     why = r.ok ? 'no reply in the body' : 'HTTP ' + r.status;
-  } catch (err){ why = err.name; }            // AbortError after 12 s, TypeError when offline
+  } catch (err){ why = err.name; }            // AbortError after 15 s, TypeError when offline
   finally { clearTimeout(timer); }
   console.warn('Clerk endpoint: ' + why + '; using the fallback');   // never the visitor's text
   return null;
