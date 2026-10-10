@@ -228,9 +228,25 @@
     .panel-card{gap:12px;padding:16px}
   }
   @media (hover:hover) and (pointer:fine){#q{font-size:14px}}
+  /* Phones held sideways: one header row and a one-line dock, so the shop front stays in view */
   @media (max-height:520px) and (orientation:landscape){
+    #top{grid-template-columns:auto 1fr auto;grid-template-areas:"brand tabs actions";
+      padding-top:max(8px,env(safe-area-inset-top))}
+    #top .where,#event,#skyline span,#hint{display:none}
+    #brand{padding:4px 12px 4px 4px}
+    #shops{display:flex;justify-self:center}
+    #shops button{min-height:32px;padding:4px 10px;white-space:nowrap}
+    #dock{bottom:max(8px,env(safe-area-inset-bottom))}
+    .dock-card{flex-direction:row;align-items:center;justify-content:space-between;padding:6px 6px 6px 10px;
+      border-radius:9999px}
+    #enter{flex:none;min-height:40px;border-radius:9999px}
     #chips,.who{display:none}
     .panel-card{gap:8px;padding:10px}
+  }
+  @media (max-height:520px) and (orientation:landscape) and (max-width:699px){
+    #brand{display:none}
+    #top{grid-template-columns:1fr auto;grid-template-areas:"tabs actions"}
+    #shops{justify-self:start}
   }
 
   @keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
@@ -429,12 +445,15 @@ scene.fog = new THREE.FogExp2('#c7d2fe', 0.015);
 const camera = new THREE.PerspectiveCamera(54, 1, 0.1, 180);
 
 // Camera stations: AI Studio's street and counter views, plus a stop at the doors. A portrait
-// screen gets a wider lens from further back, so the storefront and the counter still fit.
+// screen gets a wider lens from further back, so the storefront and the counter still fit; a
+// phone held sideways looks down over the counter, so clerk and stock agent clear the panel.
 const POSES = {
-  wide: { fov:54, STREET:[[0, 1.95, 10.2], [0, 2.2, 0]], DOOR:[[0, 1.6, 6.0], [0, 1.5, 0]],
-          INSIDE:[[0, 1.48, 1.6], [0, 1.42, -0.6]] },
-  tall: { fov:70, STREET:[[0, 2.0, 13.8], [0, 2.3, 0]], DOOR:[[0, 1.6, 6.0], [0, 1.5, 0]],
-          INSIDE:[[0, 1.6, 2.6], [0, 0.95, -0.6]] } };
+  wide:  { fov:54, STREET:[[0, 1.95, 10.2], [0, 2.2, 0]], DOOR:[[0, 1.6, 6.0], [0, 1.5, 0]],
+           INSIDE:[[0, 1.48, 1.6], [0, 1.42, -0.6]] },
+  tall:  { fov:70, STREET:[[0, 2.0, 13.8], [0, 2.3, 0]], DOOR:[[0, 1.6, 6.0], [0, 1.5, 0]],
+           INSIDE:[[0, 1.6, 2.6], [0, 0.95, -0.6]] },
+  short: { fov:54, STREET:[[0, 1.95, 10.2], [0, 2.2, 0]], DOOR:[[0, 1.6, 6.0], [0, 1.5, 0]],
+           INSIDE:[[0, 2.1, 2.0], [0, 0.9, -1.4]] } };
 const STREET = {}, DOOR = {}, INSIDE = {};
 function usePoses(kind){
   const P = POSES[kind];
@@ -807,7 +826,7 @@ let framedWidth = 0;
 function resize(){
   const w = innerWidth, h = innerHeight;
   renderer.setSize(w, h, false); camera.aspect = w / h;
-  if (w !== framedWidth){ framedWidth = w; usePoses(w < h ? 'tall' : 'wide'); }
+  if (w !== framedWidth){ framedWidth = w; usePoses(w < h ? 'tall' : h <= 520 ? 'short' : 'wide'); }
   camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize); resize();
