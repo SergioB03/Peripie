@@ -376,12 +376,12 @@ Record how the idea was reached, since judges ask "why this?" Include the concep
 
 ### Screenshot list (Sergio captures; save as `docs/screenshots/NN-name.png`)
 
-1. `01-street.png`: the storefront from the street
-2. `02-doors.png`: the doors opening
-3. `03-greeting.png`: the clerk greeting the visitor
-4. `04-checking.png`: the clerk turned to the stock agent
-5. `05-answer.png`: an out-of-stock answer with a restock date
-6. `06-second-shop.png`: a different shop template
+1. `01-street.jpg`: the storefront from the street
+2. `02-doors.jpg`: the doors opening
+3. `03-greeting.jpg`: the clerk greeting the visitor
+4. `04-checking.jpg`: the clerk turned to the stock agent
+5. `05-answer.jpg`: an out-of-stock answer with a restock date
+6. `06-second-shop.jpg`: a different shop template
 7. `07-phone.png`: the app on a phone
 
 ### Demo video

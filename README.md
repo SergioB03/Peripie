@@ -2,7 +2,7 @@
 
 Walk into a small shop's website and ask the clerk. A 3D storefront with a voice agent that checks live stock. Built at HackLanta '26.
 
-![Walk-in](docs/screenshots/01-street.png)
+![Walk-in](docs/screenshots/01-street.jpg)
 
 **Live demo:** coming after deploy · **Demo video:** coming Saturday night · **Submission:** coming
 
@@ -15,13 +15,13 @@ Some days I'm also the customer who won't ask. I'll order at a drive-through bef
 ## What it does
 
 1. Open the site, pick a shop, tap **Enter shop**. The camera walks you through the door.
-   ![Doors opening](docs/screenshots/02-doors.png)
+   ![Doors opening](docs/screenshots/02-doors.jpg)
 2. The clerk greets you out loud, in an ElevenLabs voice.
-   ![Greeting](docs/screenshots/03-greeting.png)
+   ![Greeting](docs/screenshots/03-greeting.jpg)
 3. Ask for a product by typing. The clerk turns to the stock agent; the label reads *Checking with the stock room*.
-   ![Checking](docs/screenshots/04-checking.png)
+   ![Checking](docs/screenshots/04-checking.jpg)
 4. Hear the answer, which comes from the database: in stock, or out with the restock date and how long that item usually takes to come back.
-   ![Answer](docs/screenshots/05-answer.png)
+   ![Answer](docs/screenshots/05-answer.jpg)
 
 What the clerk actually said on the first real run (Oct 10, 3:45 pm):
 
