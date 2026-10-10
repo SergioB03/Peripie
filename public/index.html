@@ -202,6 +202,7 @@
   body[data-state=checking] .typing{display:inline-flex}
   #chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -2px;padding:0 2px}
   #chips::-webkit-scrollbar{display:none}
+  @media (max-width:399px){#chips{flex-wrap:wrap;overflow:visible}}   /* phones: show all four chips on two rows */
   #chips button{flex:none;min-height:30px;padding:4px 10px;border-radius:12px;background:rgb(41 37 36/.7);
     border:1px solid rgb(68 64 60/.5);color:var(--s300);font-size:11px;white-space:nowrap;
     transition:background-color .15s,color .15s,opacity .15s}
@@ -879,6 +880,7 @@ renderer.setAnimationLoop(now => {
 /* ---------- 5. UI ---------- */
 const $ = id => document.getElementById(id);
 const LABEL = { listening:'Listening', checking:'Checking with the stock room', answering:'Answering' };
+const coarse = matchMedia('(pointer:coarse)').matches;   // phones: keep the keyboard down so the hand-off stays in view
 function setState(s){
   state = s; $('status').textContent = LABEL[s]; $('status').className = s;
   document.body.dataset.state = s;                  // the CSS keys the dots, bars and chips on it
@@ -1031,7 +1033,7 @@ async function enterShop(){
   const live = await Promise.race([greeting, wait(2000)]);      // at most 2 s more, then the local line
   $('panel').hidden = false; setWhere('inside'); setState('answering');
   await say(live || { reply: 'Welcome to ' + shop.name + '. How can I help you today?' });
-  setState('listening'); $('q').focus();
+  setState('listening'); if (!coarse) $('q').focus();
 }
 $('enter').onclick = enterShop;
 $('door-cue').onclick = enterShop;
@@ -1041,10 +1043,10 @@ $('f').onsubmit = async e => {
   const text = $('q').value.trim().slice(0, MAX_TEXT);
   if (!text || state !== 'listening') return;
   const here = visit;
-  $('q').value = ''; setState('checking'); $('reply').textContent = '';
+  $('q').value = ''; setState('checking'); $('reply').textContent = ''; if (coarse) $('q').blur();
   const reply = await askClerk(text);                           // never throws; canned on failure
   if (here !== visit) return;                                   // the visitor left while we checked
-  setState('answering'); await say(reply); setState('listening'); $('q').focus();
+  setState('answering'); await say(reply); setState('listening'); if (!coarse) $('q').focus();
 };
 
 $('leave').onclick = async () => {
