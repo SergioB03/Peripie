@@ -1,7 +1,7 @@
 # Peripie Pitch Script
 
 ## 0:00 – The Problem
-I run a painting company. My customers call to ask one thing: do you have it? This is exactly what small local shops face every day. The virtual-store platforms that exist sell to large brands, not to shops like mine. This answers that one question, at the door.
+I run a painting company. My customers call to ask one thing: do you have it? And some days I'm the customer who won't ask. I'll take a drive-through over a counter, a website can't answer, and the phone call is the thing I'm avoiding. The virtual-store platforms that exist sell to large brands, not to shops like mine. This answers that one question, at the door, for both of us.
 
 ## 0:20 – The Demo
 Let's open the bakery. As soon as I tap "Enter," the camera moves through the door and the clerk greets me out loud. I ask for sourdough. In stock. Now, I ask for croissants. We are out of them right now. They will be back Tuesday. The clerk adds that they usually come back within three days. That number isn't a guess; it comes directly from the restock history in the database.
@@ -19,6 +19,9 @@ What's next is the sandbox builder. Each shop is one settings file. The builder 
 
 **Why not a chatbot on the website?**
 A chatbot answers in text from whatever it was told. This one walks you in, talks, and only answers after checking with the stock room, so the answer comes from the database, not from the model's guess.
+
+**Why a 3D shop and not a text box?**
+Because you watch the clerk turn to the stock room before answering. For someone who would rather not ask in person, an answer they can see being checked is one they can trust, from wherever they are.
 
 **What happens if the network fails at the venue?**
 The page falls back to its canned answers and uses the browser's built-in voice so the demo survives without internet access.

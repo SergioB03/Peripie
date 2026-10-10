@@ -8,6 +8,8 @@ We are building a website where you walk into a shop and speak to a clerk who ch
 ### Inspiration
 I run a small painting company, and I get tired of customers calling to ask if we have specific colors or primers. Existing virtual store platforms like Obsess and Emperia are built for large brands with complex supply chains; they don't serve us. We need a solution that fits in a small shop's pocket: something that listens at the door and answers questions immediately without needing a login or a backend server we can't afford to maintain.
 
+It is also for the customer who would rather not walk in and ask. Some days that is me: I will take a drive-through over a counter, and a website cannot answer the question. Peripie is a counter you can walk up to from wherever you are, and you watch the clerk turn to the stock room before answering, so the answer is one you can trust.
+
 ### What it does
 Peripie lets you walk into a virtual storefront, hear a clerk greet you, and ask for a product by typing or speaking. The clerk checks our database using an AI agent, determines if the item is in stock, and speaks the answer aloud. If an item is out of stock, the clerk tells you exactly when it will be back based on historical restock data. The system works entirely without storing your personal information or requiring an account.
 

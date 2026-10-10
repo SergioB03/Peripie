@@ -11,6 +11,10 @@ A small shop's website that you walk into. The visitor sees the storefront from 
 
 The audience is small local shops, which the existing virtual-store platforms (Obsess, Emperia) do not serve; they sell to large brands. Sergio runs a small business himself, and the pitch opens with that.
 
+The second audience is the customer who would rather not walk in and ask. Sergio is one of them some days: he will take a drive-through or an online order over asking at a counter. A website cannot answer the question, and the phone call is the thing being avoided. Peripie is a counter you can walk up to from wherever you are, and because the clerk visibly turns to the stock room before answering, the visitor sees the work being done and can trust the answer.
+
+Design rule that follows: **the hand-off stays visible and legible on every screen size.** The "Checking with the stock room" state and the stock-room figure are a trust signal, not decoration; no visual change may hide or shorten them.
+
 Where we compete:
 
 | Entry | What earns it |

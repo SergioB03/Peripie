@@ -10,6 +10,8 @@ Walk into a small shop's website and ask the clerk. A 3D storefront with a voice
 
 I run a painting company. My customers call to ask one thing: do you have it? I don't want them to wait on hold or drive by if the paint isn't there. I wanted a tool that answers that question instantly, right at the door. Existing virtual store platforms only serve big brands with massive catalogs. They ignore small local shops like mine. This project started because I needed a simple way for my business to talk back to customers without hiring more staff or buying expensive software.
 
+Some days I'm also the customer who won't ask. I'll order at a drive-through before I'll ask at a counter, and a website can't answer the question anyway. Peripie is a counter you can walk up to from wherever you are. You watch the clerk turn to the stock room before answering, so the answer is one you can trust.
+
 ## What it does
 
 1. Open the site, pick the bakery, tap "Enter shop."
