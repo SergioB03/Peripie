@@ -7,8 +7,10 @@
 import { FunctionCallingConfigMode, GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { checkStock } from './stock.js';
 
-const PRIMARY_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
-const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
+// Measured Oct 10 on the project key: flash-lite answered in about 1 s while 3.8-flash returned
+// 503 and 429 (PLAN.md section 3), so flash-lite is the default and 3.8-flash the fallback.
+const PRIMARY_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+const FALLBACK_MODEL = 'gemini-3.8-flash';
 // Two attempts: the primary, then the fallback; when they are the same model, the primary again.
 const ATTEMPT_MODELS = [PRIMARY_MODEL, FALLBACK_MODEL];
 const TIMEOUT_MS = 10_000;
