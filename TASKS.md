@@ -6,8 +6,8 @@ See PLAN.md section 7. Claim a file here before editing it. Owner is one of: bac
 |----|------|-------|-------|--------|
 | CP1 | Checkpoint 1: review plan and contract | staff-engineer | PLAN.md | done 1:45 pm, folded into PLAN.md |
 | M1 | Scaffold: Express server serving public/ and /api/clerk | backend | server/index.js, package.json, .env.example | in progress |
-| M2 | Schema and seed data in Tiger Data | data | db/schema.sql, db/seed.sql | claimed (DATABASE_URL pending; run against the real database once Sergio adds it) |
-| M3 | check_stock reading from the database, in-memory seed fallback | data | server/stock.js | claimed |
+| M2 | Schema and seed data in Tiger Data | data | db/schema.sql, db/seed.sql, db/seed-data.js | code done 2:09 pm (3d971dd): schema + seed verified twice (idempotent) on local TimescaleDB 2.30.2 / PG 17 in Docker: 12 inventory rows, 2,880 stock_events in a 10-chunk hypertable. Not yet loaded into Tiger: Sergio runs the two load commands once DATABASE_URL exists, and re-runs seed.sql on demo morning |
+| M3 | check_stock reading from the database, in-memory seed fallback | data | server/stock.js | done 2:09 pm (3d971dd): all 12 products + 6 test phrases identical from DB and in-memory; live DB edit picked up; DB down -> seed fallback; sslmode=require cert-error retry verified on a self-signed TLS server. typicalRestockDays (S2, data side) included |
 | M4 | Gemini clerk with check_stock tool | backend | server/clerk.js | todo, after M1 and M3 |
 | M5 | ElevenLabs audio as a data URL, greeting cache | backend | server/voice.js | todo |
 | M6 | Page: endpoint, greeting, canned fallback, iOS audio unlock | frontend | public/index.html | todo |
