@@ -17,19 +17,20 @@ Peripie lets you walk into a virtual storefront, hear a clerk greet you, and ask
 We used Replit to host our Node.js server, which connects to a Tiger Data PostgreSQL database for inventory management. Our frontend is built with Three.js to create the 3D walk-in experience. For the brain of the operation, we use the Gemini API to power the clerk's decision-making and tool calling capabilities. We leverage ElevenLabs to convert the clerk's text responses into natural-sounding audio. The entire stack runs on a single endpoint that handles both greetings and product queries.
 
 ### Challenges we ran into
-- TODO: Handling network timeouts during the cold start of the Replit server.
-- TODO: Ensuring the AI agent correctly parses user intent to distinguish between greetings and product questions.
-- TODO: Optimizing ElevenLabs audio generation to stay within free tier limits while maintaining quality.
+- On the first real run, gemini-3.8-flash answered 503 to every call and then a 429 on our key, and when it hung it ate the whole 10 s budget. We made gemini-3.5-flash-lite the primary (about a second per answer), 3.8-flash the fallback, and capped any single model attempt at 5 s.
+- A 12 s page timeout against a 12 s server deadline was a tie a slow real answer would lose. The review set a budget: page 15 s, Gemini 10 s, ElevenLabs only the time left before 12.5 s.
+- iOS Safari silences audio that does not start inside the tap, so one shared Audio element is primed in the Enter handler and reused for every reply.
+- Replit names its own Postgres DATABASE_URL, so the live app could have quietly answered from the built-in seed instead of Tiger Data. The server now reads TIGER_DATABASE_URL first and logs which database it uses.
 
 ### Accomplishments that we're proud of
-- TODO: Successfully implementing a "Zero Data" architecture where no visitor text is stored or logged.
-- TODO: Creating a seamless handoff between the visual 3D environment and the voice response system.
-- TODO: Building a database schema that tracks restock history to provide accurate future dates for out-of-stock items.
+- The demo line is literally what the clerk says: "out of croissants, back on Tuesday, October 13, which usually takes about three days," with the date from the shelf list and the three days from 60 days of stock counts, in 1.2 s.
+- check_stock gives the same answer from Tiger Data and from its built-in copy, 18 cases and 0 mismatches, so the demo survives a dead database.
+- Zero Data held up under review: no visitor text in any log on 25 request paths, the database sees only the shop id, and what each outside service keeps is disclosed.
 
 ### What we learned
-- TODO: The importance of robust fallback mechanisms (canned answers) when external APIs fail.
-- TODO: How to structure prompts so an AI agent knows exactly when to call a stock-checking tool versus answering directly.
-- TODO: That small, specific use cases often solve problems better than generic, large-scale platforms.
+- Force the tool call. Telling a model to "always check stock" is a suggestion; functionCallingConfig mode ANY on the first round is a rule.
+- Put the weekday in the tool result, not in the prompt. The model should never do calendar math.
+- Fallbacks are what let you demo at all at a venue: canned answers and the browser voice stayed in the page from the first commit.
 
 ### What's next for Peripie
 Our immediate goal is to launch the sandbox builder, which allows shop owners to assemble their own storefront by dragging and dropping elements and staff them with custom agents. We plan to add a photo upload feature so owners can replace our default 3D models with photos of their actual storefront walls. Eventually, we want to integrate a checkout system so customers can order out-of-stock items for delivery, turning the clerk into a full sales assistant running on the shop's own hardware.
