@@ -30,7 +30,7 @@
   <span id="status">Listening</span>
   <p id="reply"></p>
   <form id="f">
-    <input id="q" placeholder="Ask for a product" autocomplete="off" aria-label="Ask the clerk">
+    <input id="q" placeholder="Ask for a product" autocomplete="off" maxlength="300" aria-label="Ask the clerk">
     <button>Ask</button>
   </form>
   <button id="leave" type="button">Leave shop</button>
@@ -64,24 +64,49 @@ const SHOPS = [
       {name:'terracotta pot', inStock:true} ] }
 ];
 
-/* ---------- 2. AGENT HAND-OFF ----------
-   Set window.CLERK_ENDPOINT to your backend URL when the agents are ready.
-   Request:  POST { shop: "bakery", text: "do you have croissants" }
-   Response: { reply: "text the clerk says", audioUrl: "optional mp3 url" }
-   Until then the canned logic below answers from the inventory lists above. */
-async function askClerk(text){
-  if (window.CLERK_ENDPOINT){
+/* ---------- 2. AGENT HAND-OFF (contract v2, PLAN.md section 3) ----------
+   Endpoint: window.CLERK_ENDPOINT, '/api/clerk' on the same origin by default. Set it (before
+   this script, or later from the console) to another URL, or to '' for canned answers only.
+   Question: POST { shop: "bakery", text: "do you have croissants?" }   text is 1 to 300 characters
+   Greeting: POST { shop: "bakery", greet: true }   sent on the Enter tap, during the walk-in
+   200:      { reply, audioUrl, stock }   reply: the clerk's words, always a string;
+             audioUrl: an mp3 data URL, or null to use the browser's voice;
+             stock: the last check_stock result, or null (the page does not use it yet)
+   Errors:   400 { error: "bad_shop" | "bad_text" }, 502 { error: "clerk_unavailable" }
+   Fallback: a network error, a non-2xx status, no answer within 12 s, or a body without a
+             string reply counts as no answer. A question then gets the canned answer below,
+             and the greeting gets the local welcome line in the browser's voice. */
+if (window.CLERK_ENDPOINT === undefined) window.CLERK_ENDPOINT = '/api/clerk';
+const MAX_TEXT = 300, CLERK_TIMEOUT_MS = 12000;
+
+// One POST to the clerk. Resolves to { reply, audioUrl } or null; never throws.
+async function callClerk(body){
+  if (!window.CLERK_ENDPOINT) return null;
+  const abort = new AbortController(), timer = setTimeout(() => abort.abort(), CLERK_TIMEOUT_MS);
+  let why;
+  try {
     const r = await fetch(window.CLERK_ENDPOINT, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ shop: current.id, text }) });
-    if (!r.ok) throw new Error('Clerk endpoint returned ' + r.status);
-    return r.json();
-  }
-  await wait(1500);
+      method:'POST', headers:{'Content-Type':'application/json'}, credentials:'omit',
+      body: JSON.stringify(body), signal: abort.signal });
+    const data = r.ok ? await r.json() : null;
+    if (typeof data?.reply === 'string' && data.reply.trim())
+      return { reply: data.reply, audioUrl: (typeof data.audioUrl === 'string' && data.audioUrl) || null };
+    why = r.ok ? 'no reply in the body' : 'HTTP ' + r.status;
+  } catch (err){ why = err.name; }            // AbortError after 12 s, TypeError when offline
+  finally { clearTimeout(timer); }
+  console.warn('Clerk endpoint: ' + why + '; using the fallback');   // never the visitor's text
+  return null;
+}
+
+async function askClerk(text){
+  const shop = current, t0 = performance.now();
+  const live = await callClerk({ shop: shop.id, text });
+  if (live) return live;
+  await wait(Math.max(0, 1500 - (performance.now() - t0)));   // canned answers, as before
   const t = text.toLowerCase();
-  const item = current.inventory.find(i => t.includes(i.name) || t.includes(i.name.replace(/s$/,'')));
+  const item = shop.inventory.find(i => t.includes(i.name) || t.includes(i.name.replace(/s$/,'')));
   if (!item) return { reply: 'I checked with the back. We don\'t carry that, but we do have ' +
-    current.inventory.filter(i => i.inStock).map(i => i.name).join(', ') + '.' };
+    shop.inventory.filter(i => i.inStock).map(i => i.name).join(', ') + '.' };
   return { reply: item.inStock
     ? 'Good news, ' + item.name + ' is in stock.'
     : 'We\'re out of ' + item.name + ' right now. It\'ll be back ' + item.restock + '.' };
@@ -208,52 +233,92 @@ const $ = id => document.getElementById(id);
 const LABEL = { listening:'Listening', checking:'Checking with the stock room', answering:'Answering' };
 function setState(s){ state = s; $('status').textContent = LABEL[s]; $('status').className = s; }
 
+/* Voice. iOS Safari only lets audio and speech start from a tap, so the Enter tap primes ONE
+   shared Audio element and the speech engine, and every later reply plays through that element. */
+const player = new Audio();
+const hasTTS = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+let endSay = () => {};          // resolves the reply being spoken now (Leave uses it)
+let visit = 0;                  // bumped by Leave, so an answer that arrives after it is dropped
+
+function silentWav(samples){    // 16-bit mono PCM at 8 kHz: a 44-byte header, then zero samples
+  const b = new Uint8Array(44 + samples * 2), v = new DataView(b.buffer);
+  const tag = (at, s) => { for (let i = 0; i < 4; i++) b[at + i] = s.charCodeAt(i); };
+  tag(0, 'RIFF'); v.setUint32(4, 36 + samples * 2, true); tag(8, 'WAVE');
+  tag(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true); v.setUint32(28, 16000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  tag(36, 'data'); v.setUint32(40, samples * 2, true);
+  return 'data:audio/wav;base64,' + btoa(String.fromCharCode(...b));
+}
+const SILENCE = silentWav(400);  // 50 ms
+
+function unlockAudio(){          // call synchronously inside the tap, before any await
+  try {
+    player.onended = player.onerror = null;
+    player.src = SILENCE; player.play().catch(() => {});
+    if (hasTTS) speechSynthesis.speak(new SpeechSynthesisUtterance(''));
+  } catch {}                     // the walk-in must start even if this fails
+}
+function silence(){ player.pause(); if (hasTTS) speechSynthesis.cancel(); }
+
 function say(reply){
   $('reply').textContent = reply.reply;
+  silence();
   return new Promise(res => {
-    const finish = () => res();
-    if (reply.audioUrl){
-      const a = new Audio(reply.audioUrl); a.onended = finish; a.onerror = finish;
-      a.play().catch(finish); return;
-    }
-    if (!('speechSynthesis' in window)) return setTimeout(finish, 2500);
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(reply.reply); u.onend = finish; u.onerror = finish;
-    speechSynthesis.speak(u); setTimeout(finish, 12000);
+    let done = false, timer;
+    const finish = () => { done = true; clearTimeout(timer); res(); };
+    const arm = ms => { clearTimeout(timer); timer = setTimeout(finish, ms); };
+    const speak = () => {        // the browser's voice
+      if (done) return;
+      if (!hasTTS) return arm(2500);
+      const u = new SpeechSynthesisUtterance(reply.reply); u.onend = finish; u.onerror = finish;
+      speechSynthesis.speak(u); arm(12000);
+    };
+    endSay = finish;
+    if (!reply.audioUrl) return speak();
+    let started = false, failed = false;   // the clerk's mp3; the browser's voice if it won't start
+    const fail = () => { if (done || failed) return; failed = true; started ? finish() : speak(); };
+    player.onended = finish; player.onerror = fail;
+    player.src = reply.audioUrl;
+    player.play().then(() => { started = true; }, fail);
+    arm(20000);
   });
 }
 
 const bar = $('shops');
 for (const s of SHOPS){
   const b = document.createElement('button'); b.textContent = s.name; b.dataset.id = s.id;
-  b.onclick = () => { if (!tween && $('panel').hidden) build(s); };
+  b.onclick = () => { if (!tween && $('panel').hidden && !$('enter').hidden) build(s); };
   bar.appendChild(b);
 }
 
 $('enter').onclick = async () => {
+  unlockAudio();                                                // first, while still inside the tap
+  const shop = current;
+  const greeting = callClerk({ shop: shop.id, greet: true });   // in flight during the walk-in
   $('enter').hidden = true; bar.hidden = true;
   await moveCamera(DOOR, 2600);
   doorTarget = 1; await wait(700);
   await moveCamera(INSIDE, 2400);
+  const live = await Promise.race([greeting, wait(2000)]);      // at most 2 s more, then the local line
   $('panel').hidden = false; setState('answering');
-  await say({ reply: 'Welcome to ' + current.name + '. How can I help you today?' });
+  await say(live || { reply: 'Welcome to ' + shop.name + '. How can I help you today?' });
   setState('listening'); $('q').focus();
 };
 
 $('f').onsubmit = async e => {
   e.preventDefault();
-  const text = $('q').value.trim();
+  const text = $('q').value.trim().slice(0, MAX_TEXT);
   if (!text || state !== 'listening') return;
+  const here = visit;
   $('q').value = ''; setState('checking'); $('reply').textContent = '';
-  let reply;
-  try { reply = await askClerk(text); }
-  catch (err){ reply = { reply: 'Sorry, I couldn\'t reach the stock room. Try again in a moment.' }; console.error(err); }
+  const reply = await askClerk(text);                           // never throws; canned on failure
+  if (here !== visit) return;                                   // the visitor left while we checked
   setState('answering'); await say(reply); setState('listening'); $('q').focus();
 };
 
 $('leave').onclick = async () => {
   if (tween) return;
-  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  visit++; endSay(); silence();
   $('panel').hidden = true; setState('listening');
   await moveCamera(DOOR, 1800); doorTarget = 0;
   await moveCamera(STREET, 2200);
