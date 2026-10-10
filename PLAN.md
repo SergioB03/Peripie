@@ -191,7 +191,7 @@ Environment variables: `GEMINI_API_KEY`, `GEMINI_MODEL` (optional), `ELEVENLABS_
 ### Only if everything above is done
 - [ ] N1. Owner can upload a storefront photo for the sign and walls
 - [ ] N2. A greeting that changes with the time of day
-- [ ] N3. A per-shop `agents` list in `SHOPS`. The bakery gets a desk clerk and a stock agent; the paint store adds a support agent that answers questions like "which primer for a bathroom?". It is the same Gemini call with a different instruction, about an hour once the endpoint exists
+- [x] N3. A per-shop `agents` list in `SHOPS`. The bakery gets a desk clerk and a stock agent; the paint store adds a support agent that answers questions like "which primer for a bathroom?". It is the same Gemini call with a different instruction, about an hour once the endpoint exists
 - [ ] N4. A customize panel with three controls: shop name, accent color, and checkboxes for which agents are on. No dragging, no resizing. Start only if the four demo steps pass on a phone by 9 pm
 
 The sandbox builder itself (owners assemble a shop from ready-made elements and staff it with agents) is pitched, not built: a drag-and-drop builder is a product in itself, and with the backend not yet running it would cost the demo. N3, the pitch line in section 9 and one mockup slide make it visible.
