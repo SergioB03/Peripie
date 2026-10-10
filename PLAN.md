@@ -81,9 +81,12 @@ Response: 200, JSON
 Errors, JSON:
 - 400 `{ "error": "bad_shop" }` or `{ "error": "bad_text" }`
 - 502 `{ "error": "clerk_unavailable" }` when Gemini fails or times out; the page falls back to its canned answers.
+- A body the server cannot read is also 400: not JSON, not an object, or missing `Content-Type: application/json` is `bad_shop`; over 4 kb is `bad_text` (never 413). The page treats every non-2xx alike, so these matter only for curl.
+- Timing (checkpoint 2): the page waits 15 s for a question (`CLERK_TIMEOUT_MS = 15000`) and 2 s past the walk-in for the greeting. The server gives the whole Gemini tool loop 10 s (`server/clerk.js` `TIMEOUT_MS`), then ElevenLabs only the time left before 12.5 s after the request arrived (`server/index.js` `RESPONSE_BUDGET_MS`), at least 1.5 s and at most 6 s, otherwise `audioUrl` is null. A 200 leaves the server by about 12.5 s and a 502 by about 10 s, both at least 2.5 s inside the page's limit.
+- The first Gemini round forces a `check_stock` call (`toolConfig.functionCallingConfig.mode = ANY`, `allowedFunctionNames: ['check_stock']`), so the model cannot answer a product question from memory. A greeting-like question costs one `found: false` lookup, which the prompt already handles.
 
 - `reply` is always present. `audioUrl` and `stock` may be null.
-- `stock` is the result of the last `check_stock` call in the turn (its found shape); null if none was called, if the product is not carried, or for a greeting.
+- `stock` is the found shape, minus `found`, of the last `check_stock` call in the turn that found a product (calls count in the model's order; a parallel batch in the order the model listed them). It is null when no call found a product, when none was called, or for a greeting. When a question names several products, `reply` covers all of them and `stock` describes the last one found; the page speaks `reply` and may use `stock` for display only.
 - `audioUrl` is a base64 data URL, so no audio file is ever written to disk.
 - If ElevenLabs fails, return the reply with `audioUrl: null`; the page falls back to the browser's voice.
 - Keep replies to one or two short sentences. They are spoken aloud.
@@ -169,7 +172,7 @@ Environment variables: `GEMINI_API_KEY`, `GEMINI_MODEL`, `ELEVENLABS_API_KEY`, `
 - [ ] M3. `check_stock` reading from the database
 - [ ] M4. Gemini clerk with `check_stock` as a tool, scoped to the current shop
 - [ ] M5. ElevenLabs audio returned as a data URL
-- [ ] M6. Page: set `CLERK_ENDPOINT` to `/api/clerk`. `askClerk` tries the endpoint with an AbortController (about 12 s) and falls through to the canned branch on any throw, non-2xx or timeout (today's catch only prints "couldn't reach the stock room"). Greeting fetched with `{ greet: true }` on the Enter tap. iOS audio unlock: one shared `Audio` element, primed synchronously inside the Enter click handler with a silent mp3 data URL plus an empty `speechSynthesis` utterance, then reused for every later reply; without this iOS Safari silences the greeting and the answers
+- [ ] M6. Page: set `CLERK_ENDPOINT` to `/api/clerk`. `askClerk` tries the endpoint with an AbortController (15 s; timing rule in section 3) and falls through to the canned branch on any throw, non-2xx or timeout (today's catch only prints "couldn't reach the stock room"). Greeting fetched with `{ greet: true }` on the Enter tap. iOS audio unlock: one shared `Audio` element, primed synchronously inside the Enter click handler with a silent mp3 data URL plus an empty `speechSynthesis` utterance, then reused for every later reply; without this iOS Safari silences the greeting and the answers
 - [ ] M7. Deployed on Replit and tested on a phone
 
 ### Should have
@@ -195,7 +198,7 @@ If the `fable` model is not available or is over its usage limit, change the sta
 
 **Staff engineer checkpoints**
 1. Before any code: review this plan and the contract. **Done Oct 10, 1:45 pm ET**; findings folded into sections 3, 4, 5, 8 and 9.
-2. After M4: review the Gemini tool loop and the SQL.
+2. After M4: review the Gemini tool loop and the SQL. **Done Oct 10, 2:45 pm ET**; four findings (force `check_stock` on round one, timing budget 15/10/12.5 s, `stock` wording, unreadable bodies) folded into section 3; code fixes assigned to backend and frontend.
 3. After M7: review the deployed app against section 2 and the Zero Data rule.
 4. At feature freeze: final pass, listing only demo-breaking problems.
 

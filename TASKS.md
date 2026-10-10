@@ -12,7 +12,9 @@ See PLAN.md section 7. Claim a file here before editing it. Owner is one of: bac
 | M5 | ElevenLabs audio as a data URL, greeting cache | backend | server/voice.js | code done 2:07 pm (be9ec34; f616a11 loads the SDK on first use so /health answers 0.6 s after boot; 2751462 keeps reply audio inside the page's 12 s window): real SDK verified against a fake endpoint (request shape, greeting cache, 401, 6 s timeout); no key -> audioUrl null verified. Real ElevenLabs untested until ELEVENLABS_API_KEY is in .env |
 | M6 | Page: endpoint, greeting, canned fallback, iOS audio unlock | frontend | public/index.html | code done 2:17 pm (b88f325): node --check passes; fallback logic tested in Node against a mock server (502, 400, timeout, stalled body, refused, bad JSON, missing reply -> canned; request bodies match the contract; canned answers identical to before); silent WAV checked in ffprobe. Verified in desktop Chrome 2:27 pm against the local server: walk-in, greeting fetched from the server, 502 -> canned answer, shop buttons hidden inside (33ca889). iOS audio and the ElevenLabs path still need a phone check (M7) |
 | M7 | Deployed on Replit, tested on a phone | sergio | - | todo |
-| CP2 | Checkpoint 2: Gemini tool loop and SQL | staff-engineer | server/clerk.js, server/stock.js | after M4 |
+| CP2 | Checkpoint 2: Gemini tool loop and SQL | staff-engineer | server/clerk.js, server/stock.js | done 2:45 pm: 25 request cases + DB verification; 4 findings in PLAN.md section 3 |
+| CP2-a | Force check_stock on round one (toolConfig ANY); server timing 10 s / 12.5 s | backend | server/clerk.js, server/index.js | in progress |
+| CP2-b | Page timeout 15 s | frontend | public/index.html | in progress |
 | - | Draft docs/decisions.md | ollama | docs/decisions.md | drafted 1:51 pm, reviewed and fixed; add technical decisions as they are made |
 | - | Draft README to docs/drafts/README-draft.md | ollama | docs/drafts/README-draft.md | drafted; Sergio rewrites Inspiration in his voice, then it becomes README.md (S4) |
 | - | Draft Devpost submission text | ollama | docs/drafts/submission.md | drafted; TODO bullets to fill once the demo works |
