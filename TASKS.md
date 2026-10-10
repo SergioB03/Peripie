@@ -18,7 +18,8 @@ See PLAN.md section 7. Claim a file here before editing it. Owner is one of: bac
 | - | Draft docs/decisions.md | ollama | docs/decisions.md | drafted 1:51 pm, reviewed and fixed; add technical decisions as they are made |
 | - | Draft README to docs/drafts/README-draft.md | ollama | docs/drafts/README-draft.md | drafted; Sergio rewrites Inspiration in his voice, then it becomes README.md (S4) |
 | - | Draft Devpost submission text | ollama | docs/drafts/submission.md | drafted; TODO bullets to fill once the demo works |
-| - | Draft docs/user-flow.md, architecture.md, data-model.md (Mermaid) | ollama | docs/*.md | drafted, diagrams corrected; Sergio checks the rendering on GitHub |
+| - | Draft docs/user-flow.md, architecture.md, data-model.md (Mermaid) | ollama | docs/*.md | drafted, diagrams corrected; all four (plus sequence.md) confirmed rendering on GitHub 2:55 pm |
+| S5 | Two-minute pitch script with judge Q&A | ollama | docs/drafts/pitch.md | drafted 2:50 pm, reviewed (38bbaf3); Sergio rehearses it twice |
 | - | Keys: Gemini (billing-enabled project preferred), ElevenLabs + voice id, Tiger Data URL | sergio | .env (never committed) | todo |
 | - | Replit project and the secrets | sergio | - | todo |
 | - | Decide on the builder mockup slide; confirm Devpost and video requirements | sergio | - | todo |
