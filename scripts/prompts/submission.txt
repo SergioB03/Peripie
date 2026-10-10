@@ -1,0 +1,9 @@
+Draft the Devpost submission text for the project described in the plan above. Markdown only, no preamble. Sections:
+
+- "## Tagline" (under 100 characters).
+- "## Elevator pitch" (three sentences).
+- "## About the project": the Devpost story headings Inspiration, What it does, How we built it, Challenges we ran into, Accomplishments that we're proud of, What we learned, What's next for Peripie. Two short paragraphs each at most; mark Challenges, Accomplishments and What we learned as `TODO` bullets to be filled in once the demo works.
+- "## Built with": a comma-separated list: JavaScript, Node.js, Express, Three.js, Gemini API, ElevenLabs, Tiger Data (PostgreSQL), Replit.
+- "## Prizes and tracks entered": the table from section 1 of the plan, one row per entry with one sentence on why it qualifies.
+
+First person plural is fine. Plain language, short sentences, no marketing adjectives. Use only the plan's facts.

@@ -1,0 +1,9 @@
+Write docs/user-flow.md for the repository described in the plan above. Markdown only, no preamble.
+
+Contents:
+1. "# Visitor flow" and one sentence.
+2. A Mermaid `flowchart TD` inside a ```mermaid fence with these steps in order: Street view (pick a shop) -> Tap Enter shop -> Camera moves to the door, doors open -> At the counter: clerk greets by voice -> Visitor types or speaks a product -> Clerk turns to the stock agent (status: Checking with the stock room) -> Answer spoken: in stock, or out of stock with the restock date -> Ask again or Leave shop (back to the street). Add a side branch: if the endpoint fails, the page answers from canned inventory with the browser voice. Every node label must be a double-quoted string, e.g. A["Street view"].
+3. "## Screens" table: Step | Screenshot, using the seven screenshot files from section 10 of the plan in order, as image links `![..](screenshots/NN-name.png)`.
+4. "## What the visitor never does": no account, no cookies, nothing stored about them.
+
+Use only the plan's facts. Valid Mermaid syntax is the priority.

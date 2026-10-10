@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Peripie</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;font-family:system-ui,sans-serif;background:#bfe3f5}
+  canvas{display:block;width:100%;height:100%}
+  #shops{position:fixed;top:16px;left:16px;display:flex;gap:8px;flex-wrap:wrap}
+  button{font:inherit;padding:10px 16px;border-radius:10px;border:1px solid #2223;background:#fff;cursor:pointer}
+  button.on{background:#222;color:#fff}
+  #enter{position:fixed;left:50%;bottom:32px;transform:translateX(-50%);font-size:18px;padding:14px 28px}
+  #panel{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);width:min(560px,calc(100% - 32px));
+    background:#fffffff2;border-radius:16px;padding:16px;box-sizing:border-box;box-shadow:0 6px 24px #0003}
+  #status{display:inline-block;font-size:13px;padding:4px 10px;border-radius:99px;background:#e8e8e8}
+  #status.checking{background:#ffe2a8}
+  #status.answering{background:#c9efd3}
+  #reply{font-size:18px;line-height:1.4;margin:12px 0;min-height:1.4em}
+  form{display:flex;gap:8px}
+  input{flex:1;font:inherit;padding:10px 12px;border-radius:10px;border:1px solid #2224;min-width:0}
+  #leave{margin-top:10px;border:none;background:none;text-decoration:underline;padding:4px 0}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="shops"></div>
+<button id="enter">Enter shop</button>
+<div id="panel" hidden>
+  <span id="status">Listening</span>
+  <p id="reply"></p>
+  <form id="f">
+    <input id="q" placeholder="Ask for a product" autocomplete="off" aria-label="Ask the clerk">
+    <button>Ask</button>
+  </form>
+  <button id="leave" type="button">Leave shop</button>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+/* ---------- 1. SHOP TEMPLATES: add a shop by adding an entry here ---------- */
+const SHOPS = [
+  { id:'bakery', name:'Rosa\'s Bakery', wall:0xf3e3c8, floor:0xb98a5e, accent:0xc2553d,
+    products:[0xe8c07a,0xd99a4e,0xf5e1b5,0xa86a3a],
+    inventory:[
+      {name:'sourdough', inStock:true},
+      {name:'croissant', inStock:false, restock:'Tuesday morning'},
+      {name:'concha', inStock:true},
+      {name:'baguette', inStock:false, restock:'tomorrow at 7am'} ] },
+  { id:'paint', name:'Southside Paint Supply', wall:0xe6ecf2, floor:0x8d949c, accent:0x2a6fb0,
+    products:[0xd6453d,0x2a9d8f,0xf2c14e,0x3d5a80,0xffffff],
+    inventory:[
+      {name:'primer', inStock:true},
+      {name:'eggshell white', inStock:true},
+      {name:'roller', inStock:false, restock:'Friday'},
+      {name:'painter\'s tape', inStock:true} ] },
+  { id:'plants', name:'Fern & Pot', wall:0xe9f2e4, floor:0x9a8468, accent:0x3f7d4f,
+    products:[0x4f9d5d,0x7cc48a,0xc47a4a,0x2f6b3f],
+    inventory:[
+      {name:'monstera', inStock:false, restock:'next Saturday'},
+      {name:'pothos', inStock:true},
+      {name:'snake plant', inStock:true},
+      {name:'terracotta pot', inStock:true} ] }
+];
+
+/* ---------- 2. AGENT HAND-OFF ----------
+   Set window.CLERK_ENDPOINT to your backend URL when the agents are ready.
+   Request:  POST { shop: "bakery", text: "do you have croissants" }
+   Response: { reply: "text the clerk says", audioUrl: "optional mp3 url" }
+   Until then the canned logic below answers from the inventory lists above. */
+async function askClerk(text){
+  if (window.CLERK_ENDPOINT){
+    const r = await fetch(window.CLERK_ENDPOINT, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ shop: current.id, text }) });
+    if (!r.ok) throw new Error('Clerk endpoint returned ' + r.status);
+    return r.json();
+  }
+  await wait(1500);
+  const t = text.toLowerCase();
+  const item = current.inventory.find(i => t.includes(i.name) || t.includes(i.name.replace(/s$/,'')));
+  if (!item) return { reply: 'I checked with the back. We don\'t carry that, but we do have ' +
+    current.inventory.filter(i => i.inStock).map(i => i.name).join(', ') + '.' };
+  return { reply: item.inStock
+    ? 'Good news, ' + item.name + ' is in stock.'
+    : 'We\'re out of ' + item.name + ' right now. It\'ll be back ' + item.restock + '.' };
+}
+
+/* ---------- 3. SCENE ---------- */
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xbfe3f5);
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a8a, 1.1));
+const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(6, 12, 10); scene.add(sun);
+const lamp = new THREE.PointLight(0xfff1d6, 40, 30); lamp.position.set(0, 4.2, -5); scene.add(lamp);
+
+const STREET = { pos:[0, 4, 20],    look:[0, 2.5, 0] };
+const DOOR   = { pos:[0, 1.7, 5],   look:[0, 1.7, -7] };
+const INSIDE = { pos:[0, 1.7, -2.5], look:[0, 1.6, -7.9] };
+const lookNow = new THREE.Vector3(...STREET.look);
+camera.position.set(...STREET.pos); camera.lookAt(lookNow);
+
+let world, current, doorL, doorR, clerk, stocker;
+let doorTarget = 0, doorValue = 0, state = 'listening', tween = null;
+
+const mat = c => new THREE.MeshLambertMaterial({ color:c });
+function box(w, h, d, color, x, y, z, parent){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color));
+  m.position.set(x, y, z); (parent || world).add(m); return m;
+}
+function person(color, x, z){
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 1.5, 16), mat(color)); body.position.y = 0.95;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 20, 16), mat(0xe9c4a1)); head.position.y = 1.98;
+  g.add(body, head); g.position.set(x, 0, z); world.add(g); return g;
+}
+function signTexture(text, color){
+  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 200;
+  const x = cv.getContext('2d');
+  x.fillStyle = '#' + new THREE.Color(color).getHexString(); x.fillRect(0, 0, 1024, 200);
+  x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  let size = 110; do { size -= 6; x.font = '600 ' + size + 'px system-ui, sans-serif'; } while (x.measureText(text).width > 940);
+  x.fillText(text, 512, 104);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; return tex;
+}
+
+function build(shop){
+  if (world) scene.remove(world);
+  world = new THREE.Group(); scene.add(world); current = shop;
+
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), mat(0x6f7378));
+  ground.rotation.x = -Math.PI / 2; world.add(ground);
+  box(16, 0.12, 5, 0xc9c6bf, 0, 0.06, 2.6);                      // sidewalk
+
+  box(4.8, 5, 0.3, shop.wall, -3.6, 2.5, 0);                     // front wall, left of door
+  box(4.8, 5, 0.3, shop.wall,  3.6, 2.5, 0);                     // front wall, right of door
+  box(2.4, 2, 0.3, shop.wall,  0,   4,   0);                     // above the door
+  box(0.3, 5, 10, shop.wall, -6, 2.5, -5);                       // side walls
+  box(0.3, 5, 10, shop.wall,  6, 2.5, -5);
+  box(12.3, 5, 0.3, shop.wall, 0, 2.5, -10);                     // back wall
+  box(12.6, 0.3, 10.6, 0x54585e, 0, 5.15, -5);                   // roof
+  box(12, 0.04, 10, shop.floor, 0, 0.02, -5);                    // floor
+
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(7, 1.35),
+    new THREE.MeshBasicMaterial({ map: signTexture(shop.name, shop.accent) }));
+  sign.position.set(0, 4.15, 0.17); world.add(sign);
+  const awning = box(4.4, 0.12, 1.6, shop.accent, 0, 3.15, 0.85); awning.rotation.x = 0.22;
+
+  doorL = box(1.2, 3, 0.1, 0x3b3f45, -0.6, 1.5, -0.22);
+  doorR = box(1.2, 3, 0.1, 0x3b3f45,  0.6, 1.5, -0.22);
+
+  for (const side of [-1, 1]){
+    for (const h of [0.9, 1.7, 2.5]){
+      box(0.8, 0.08, 6, 0xd9d2c5, side * 5.4, h, -5);
+      for (let i = 0; i < 9; i++){
+        const c = shop.products[(i + Math.round(h * 10) + (side > 0 ? 2 : 0)) % shop.products.length];
+        box(0.42, 0.42, 0.42, c, side * 5.4, h + 0.25, -2.4 - i * 0.65);
+      }
+    }
+  }
+
+  box(4.2, 1.1, 1, shop.accent, 0, 0.55, -7);                    // counter
+  box(4.4, 0.08, 1.2, 0xf4f1ea, 0, 1.14, -7);                    // counter top
+  box(0.55, 0.4, 0.45, 0x2b2e33, 1.3, 1.38, -7);                 // register
+  clerk = person(shop.accent, 0, -7.9);
+  stocker = person(0x5b6470, 3.6, -9.1); stocker.visible = false;
+
+  document.querySelectorAll('#shops button').forEach(b => b.classList.toggle('on', b.dataset.id === shop.id));
+}
+
+/* ---------- 4. MOTION ---------- */
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function moveCamera(to, ms){
+  return new Promise(res => { tween = {
+    p0: camera.position.clone(), p1: new THREE.Vector3(...to.pos),
+    l0: lookNow.clone(), l1: new THREE.Vector3(...to.look), t0: performance.now(), ms, res }; });
+}
+function resize(){
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+
+renderer.setAnimationLoop(now => {
+  if (tween){
+    const k = Math.min(1, (now - tween.t0) / tween.ms), e = k * k * (3 - 2 * k);
+    camera.position.lerpVectors(tween.p0, tween.p1, e);
+    lookNow.lerpVectors(tween.l0, tween.l1, e); camera.lookAt(lookNow);
+    if (k === 1){ const done = tween.res; tween = null; done(); }
+  }
+  doorValue += (doorTarget - doorValue) * 0.08;
+  if (doorL){ doorL.position.x = -0.6 - 1.25 * doorValue; doorR.position.x = 0.6 + 1.25 * doorValue; }
+  if (clerk){
+    clerk.position.y = state === 'answering' ? Math.abs(Math.sin(now / 160)) * 0.06 : 0;
+    clerk.rotation.y = state === 'checking' ? 0.9 : 0;
+    stocker.visible = state === 'checking';
+    stocker.position.y = Math.abs(Math.sin(now / 200)) * 0.05;
+  }
+  renderer.render(scene, camera);
+});
+
+/* ---------- 5. UI ---------- */
+const $ = id => document.getElementById(id);
+const LABEL = { listening:'Listening', checking:'Checking with the stock room', answering:'Answering' };
+function setState(s){ state = s; $('status').textContent = LABEL[s]; $('status').className = s; }
+
+function say(reply){
+  $('reply').textContent = reply.reply;
+  return new Promise(res => {
+    const finish = () => res();
+    if (reply.audioUrl){
+      const a = new Audio(reply.audioUrl); a.onended = finish; a.onerror = finish;
+      a.play().catch(finish); return;
+    }
+    if (!('speechSynthesis' in window)) return setTimeout(finish, 2500);
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(reply.reply); u.onend = finish; u.onerror = finish;
+    speechSynthesis.speak(u); setTimeout(finish, 12000);
+  });
+}
+
+const bar = $('shops');
+for (const s of SHOPS){
+  const b = document.createElement('button'); b.textContent = s.name; b.dataset.id = s.id;
+  b.onclick = () => { if (!tween && $('panel').hidden) build(s); };
+  bar.appendChild(b);
+}
+
+$('enter').onclick = async () => {
+  $('enter').hidden = true; bar.hidden = true;
+  await moveCamera(DOOR, 2600);
+  doorTarget = 1; await wait(700);
+  await moveCamera(INSIDE, 2400);
+  $('panel').hidden = false; setState('answering');
+  await say({ reply: 'Welcome to ' + current.name + '. How can I help you today?' });
+  setState('listening'); $('q').focus();
+};
+
+$('f').onsubmit = async e => {
+  e.preventDefault();
+  const text = $('q').value.trim();
+  if (!text || state !== 'listening') return;
+  $('q').value = ''; setState('checking'); $('reply').textContent = '';
+  let reply;
+  try { reply = await askClerk(text); }
+  catch (err){ reply = { reply: 'Sorry, I couldn\'t reach the stock room. Try again in a moment.' }; console.error(err); }
+  setState('answering'); await say(reply); setState('listening'); $('q').focus();
+};
+
+$('leave').onclick = async () => {
+  if (tween) return;
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  $('panel').hidden = true; setState('listening');
+  await moveCamera(DOOR, 1800); doorTarget = 0;
+  await moveCamera(STREET, 2200);
+  $('enter').hidden = false; bar.hidden = false;
+};
+
+build(SHOPS[0]);
+</script>
+</body>
+</html>

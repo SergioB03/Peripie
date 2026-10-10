@@ -1,0 +1,10 @@
+Write docs/data-model.md for the repository described in the plan above. Markdown only, no preamble.
+
+Contents:
+1. "# Data model" and two sentences: Tiger Data is Postgres with time-series features; stock_events is a hypertable partitioned on ts.
+2. A Mermaid `erDiagram` inside a ```mermaid fence with the two tables from the plan's data model, their columns and types, and the relationship `inventory ||--o{ stock_events : history`. Use Mermaid erDiagram attribute syntax: type then name, e.g. `text shop_id PK`.
+3. A table of columns: Table | Column | Type | Meaning.
+4. "## How typicalRestockDays is computed": explain in four sentences that stock_events is scanned per (shop_id, product) in time order with LAG(on_hand) to find each transition from 0 to a positive number, the gap in days from the first zero to the restock is averaged, and the result is null when the item has never hit zero.
+5. "## Seed data": three shops (bakery, paint, plants), products matching the page's SHOPS list, about 60 days of stock_events per product, and next_restock seeded relative to current_date so it stays in the future.
+
+Use only the plan's facts. Valid Mermaid syntax is the priority.

@@ -1,0 +1,9 @@
+Write docs/architecture.md for the repository described in the plan above. Markdown only, no preamble.
+
+Contents:
+1. "# Architecture" and two sentences on what the system is.
+2. A Mermaid `flowchart LR` inside a ```mermaid fence showing: Browser page (public/index.html, Three.js) -> POST /api/clerk -> Express server on Replit (server/index.js); the server -> Gemini API (clerk persona + check_stock tool); check_stock -> Tiger Data (Postgres: inventory, stock_events); server -> ElevenLabs API (reply text -> mp3); server -> Browser ({ reply, audioUrl, stock }). Use subgraphs "Visitor's phone", "Replit", "External APIs". Every node label must be a double-quoted string, e.g. A["Browser page"]; no parentheses or braces outside quotes.
+3. A table of the server files from the repo layout in the plan: File | Responsibility.
+4. "## Request contract" with the two request shapes and the response shape from section 3 of the plan, as JSON code blocks copied exactly.
+
+Use only the plan's facts. Valid Mermaid syntax is the priority; keep the diagram simple.

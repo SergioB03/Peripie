@@ -52,27 +52,51 @@ Node + Express server (server/index.js)  -- hosted on Replit
 Browser plays audio, animates clerk
 ```
 
-### The contract (do not change without the staff engineer's sign-off)
+### The contract (v2, approved at checkpoint 1; do not change without the staff engineer's sign-off)
 
-Request: `POST /api/clerk`, JSON body
+One endpoint, two request shapes. `shop` must be one of `bakery | paint | plants`.
+
+Question: `POST /api/clerk`, JSON body
 ```json
 { "shop": "bakery", "text": "do you have croissants?" }
 ```
+`text` is 1 to 300 characters. The server uses `express.json({ limit: "4kb" })`.
+
+Greeting: `POST /api/clerk`, JSON body
+```json
+{ "shop": "bakery", "greet": true }
+```
+Gemini is not called for a greeting. The server uses fixed text per shop and caches the mp3 per shop in memory (the shop id is not visitor data; this also protects the ElevenLabs credit budget). The page sends this request on the Enter tap, in parallel with the camera move, so the audio is ready at the counter.
 
 Response: 200, JSON
 ```json
 {
-  "reply": "We're out of croissants right now. They'll be back Tuesday morning.",
+  "reply": "We're out of croissants right now. They'll be back Tuesday, October 13.",
   "audioUrl": "data:audio/mpeg;base64,...",
-  "stock": { "product": "croissant", "inStock": false, "nextRestock": "2026-10-13" }
+  "stock": { "product": "croissant", "inStock": false, "onHand": 0, "nextRestock": "2026-10-13",
+             "nextRestockText": "Tuesday, October 13", "typicalRestockDays": 3 }
 }
 ```
 
+Errors, JSON:
+- 400 `{ "error": "bad_shop" }` or `{ "error": "bad_text" }`
+- 502 `{ "error": "clerk_unavailable" }` when Gemini fails or times out; the page falls back to its canned answers.
+
 - `reply` is always present. `audioUrl` and `stock` may be null.
+- `stock` is the result of the last `check_stock` call in the turn (its found shape); null if none was called, if the product is not carried, or for a greeting.
 - `audioUrl` is a base64 data URL, so no audio file is ever written to disk.
 - If ElevenLabs fails, return the reply with `audioUrl: null`; the page falls back to the browser's voice.
-- If Gemini fails, return HTTP 502; the page falls back to its canned answers.
 - Keep replies to one or two short sentences. They are spoken aloud.
+
+`check_stock(shopId, query)` returns one of:
+```json
+{ "found": true, "product": "croissant", "inStock": false, "onHand": 0, "nextRestock": "2026-10-13",
+  "nextRestockText": "Tuesday, October 13", "typicalRestockDays": 3 }
+```
+```json
+{ "found": false, "inStockProducts": ["sourdough", "concha"] }
+```
+`nextRestockText` is computed in Node in America/New_York so the model never does weekday math; that is what makes step 4 of section 2 "correct". `typicalRestockDays` is null when the item has never hit zero, and the clerk prompt must tolerate that.
 
 ### Data model (Tiger Data)
 
@@ -82,9 +106,11 @@ inventory(shop_id text, product text, on_hand int, next_restock date,
 stock_events(ts timestamptz, shop_id text, product text, on_hand int)   -- hypertable on ts
 ```
 
-`check_stock` returns `{ product, inStock, onHand, nextRestock, typicalRestockDays }`. `typicalRestockDays` is computed from `stock_events` (average gap between an item hitting zero and coming back). That number is what makes this a real use of a time-series database, so the clerk should use it: "that usually comes back within three days."
+`check_stock` returns the shape in the contract above. `typicalRestockDays` is computed from `stock_events` with `LAG(on_hand) OVER (PARTITION BY shop_id, product ORDER BY ts)`: each 0 to positive transition is a restock, the gap in days from the first zero is averaged, and the result is null when the item never hit zero. That number is what makes this a real use of a time-series database, so the clerk should use it: "that usually comes back within three days."
 
-Seed three shops to match the `SHOPS` list in the page: `bakery`, `paint`, `plants`.
+Hypertable rules: `SELECT create_hypertable('stock_events', by_range('ts'))`; no `serial primary key` on it (any unique index must include `ts`). Match products loosely ("croissants" finds "croissant") and with parameterized queries only.
+
+Seed three shops to match the `SHOPS` list in `public/index.html`: `bakery`, `paint`, `plants`, with the same four products each and the same in/out status. Seed `next_restock` relative to `current_date` so it is still in the future on Sunday (the page's wording: croissant back Tuesday, baguette tomorrow at 7 am, roller Friday, monstera next Saturday). If `DATABASE_URL` is unset, `server/stock.js` serves an in-memory copy of the seed and logs one warning, so M4 stays testable before the database is ready.
 
 ### Repo layout
 
@@ -104,7 +130,14 @@ README.md          project page for judges (section 10)
 docs/              diagrams, decision log, screenshots (section 10)
 ```
 
-Environment variables: `GEMINI_API_KEY`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`, `DATABASE_URL`. On Replit these go in Secrets. `.env` is in `.gitignore` from the first commit.
+Environment variables: `GEMINI_API_KEY`, `GEMINI_MODEL`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`, `DATABASE_URL`, `PORT` (set by Replit). On Replit these go in Secrets. `.env` is in `.gitignore` from the first commit.
+
+### SDK and runtime pins (checked against current docs by the staff engineer, Oct 10 1:40 pm ET; builders re-check per rule 1)
+
+- **Gemini** (`@google/genai`): `ai.models.generateContent` with `tools: [{ functionDeclarations }]`, read `response.functionCalls`, answer with `functionResponse` parts; a manual loop of at most two tool rounds. Do not use the Interactions API. Model from `GEMINI_MODEL`, default `gemini-3.8-flash` (free tier), with `thinkingConfig: { thinkingLevel: 'low' }` (the default level adds seconds); fallback `gemini-3.5-flash-lite`. `gemini-2.0-flash` is shut down and `gemini-2.5-*` is limited access; do not write those from memory.
+- **ElevenLabs** (`@elevenlabs/elevenlabs-js`): `new ElevenLabsClient({ apiKey })`, `client.textToSpeech.convert(voiceId, { text, modelId: 'eleven_flash_v2_5', outputFormat: 'mp3_44100_64' })` returns a stream, not a Buffer: `for await (const c of audio) chunks.push(c)` then `Buffer.concat`. One or two sentences is about 40 to 60 KB of base64. Free tier is 10k credits a month; the greeting cache protects most of it.
+- **Tiger Data** (`pg`): `DATABASE_URL` ends in `?sslmode=require`; node-postgres lets `sslmode` in the URL override an `ssl` object, so if connecting fails with a certificate error, strip `sslmode` and pass `ssl: { rejectUnauthorized: false }`.
+- **Replit**: `app.listen(process.env.PORT || 3000, '0.0.0.0')` before any database connect; the health check must answer within 5 s. Autoscale sleeps after 15 min idle, so the first judge hit is a cold start plus a TLS handshake to Tiger: warm the link from the second device before each judge, or pick Reserved VM.
 
 ## 4. Rules for everyone
 
@@ -114,7 +147,9 @@ Environment variables: `GEMINI_API_KEY`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE
 4. **One owner per file at a time.** Claim it in `TASKS.md` before editing.
 5. **Commit after every working step**, with a message that says what now works. Git is how the agents and Ollama see each other's work.
 6. **Keep the fallback.** The page must still demo with canned answers and the browser voice if the network or an API fails at the venue.
-7. **No new scope.** Checkout, owner accounts, a world builder and walkable 3D are for the pitch's "where this goes" slide.
+7. **No new scope.** Checkout, owner accounts, the sandbox builder and walkable 3D are for the pitch's "where this goes" slide.
+
+**Zero Data disclosures (from checkpoint 1).** Gemini's free tier states that content is used to improve Google's products, and the visitor's question goes there: use a key from a billing-enabled project if possible, otherwise say so in the README, and put this fact to Shock Tracker. ElevenLabs keeps TTS text and audio in the account's History (`enable_logging=false` is enterprise-only); only the clerk's reply goes there, never the visitor's text; disclose it. Replit Analytics records top URLs, countries and unique-IP counts: keep the visitor's text in the POST body only, no request-logging middleware, and log method, path, status and milliseconds only.
 
 ## 5. Order of work
 
@@ -134,7 +169,7 @@ Environment variables: `GEMINI_API_KEY`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE
 - [ ] M3. `check_stock` reading from the database
 - [ ] M4. Gemini clerk with `check_stock` as a tool, scoped to the current shop
 - [ ] M5. ElevenLabs audio returned as a data URL
-- [ ] M6. Page: set `CLERK_ENDPOINT` to `/api/clerk`; on any endpoint error, fall back to the canned answers already in the file
+- [ ] M6. Page: set `CLERK_ENDPOINT` to `/api/clerk`. `askClerk` tries the endpoint with an AbortController (about 12 s) and falls through to the canned branch on any throw, non-2xx or timeout (today's catch only prints "couldn't reach the stock room"). Greeting fetched with `{ greet: true }` on the Enter tap. iOS audio unlock: one shared `Audio` element, primed synchronously inside the Enter click handler with a silent mp3 data URL plus an empty `speechSynthesis` utterance, then reused for every later reply; without this iOS Safari silences the greeting and the answers
 - [ ] M7. Deployed on Replit and tested on a phone
 
 ### Should have
@@ -147,6 +182,10 @@ Environment variables: `GEMINI_API_KEY`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE
 ### Only if everything above is done
 - [ ] N1. Owner can upload a storefront photo for the sign and walls
 - [ ] N2. A greeting that changes with the time of day
+- [ ] N3. A per-shop `agents` list in `SHOPS`. The bakery gets a desk clerk and a stock agent; the paint store adds a support agent that answers questions like "which primer for a bathroom?". It is the same Gemini call with a different instruction, about an hour once the endpoint exists
+- [ ] N4. A customize panel with three controls: shop name, accent color, and checkboxes for which agents are on. No dragging, no resizing. Start only if the four demo steps pass on a phone by 9 pm
+
+The sandbox builder itself (owners assemble a shop from ready-made elements and staff it with agents) is pitched, not built: a drag-and-drop builder is a product in itself, and with the backend not yet running it would cost the demo. N3, the pitch line in section 9 and one mockup slide make it visible.
 
 ## 6. Agents
 
@@ -155,7 +194,7 @@ Create these four files under `.claude/agents/` as the first step. Builders run 
 If the `fable` model is not available or is over its usage limit, change the staff engineer's `model` to `opus` and continue.
 
 **Staff engineer checkpoints**
-1. Before any code: review this plan and the contract.
+1. Before any code: review this plan and the contract. **Done Oct 10, 1:45 pm ET**; findings folded into sections 3, 4, 5, 8 and 9.
 2. After M4: review the Gemini tool loop and the SQL.
 3. After M7: review the deployed app against section 2 and the Zero Data rule.
 4. At feature freeze: final pass, listing only demo-breaking problems.
@@ -221,7 +260,9 @@ The page already has three shop templates, the walk-in camera move, the clerk's 
 
 ## 7. Working with Ollama
 
-Ollama (through Aider or a chat window) takes small jobs where a wrong answer is obvious. It does not write SDK calls and does not edit a file an agent has claimed.
+Ollama takes volume jobs where a wrong answer is obvious. It does not write SDK calls and does not edit a file an agent has claimed.
+
+Run it with `node scripts/ollama.mjs [--model NAME] [--out FILE] PROMPT_FILE` (or `-` for stdin). Prompts live in `scripts/prompts/`; `scripts/ollama-jobs.sh` runs the drafting jobs in sequence with `PLAN.md` prepended as context. Models on this machine: `qwen3.5:9b` for prose, `coder16k` (qwen2.5-coder 14b, 32k context) for code, SQL and Mermaid. Ollama output is a draft: the owning agent reads it before it is committed as final, and nothing from `.env` ever goes into a prompt.
 
 Good Ollama jobs: more seed rows for `db/seed.sql`, CSS tweaks, explaining an error message, drafting README sections, drafting the submission text.
 
@@ -249,6 +290,9 @@ Owner is one of: `backend`, `data`, `frontend`, `staff-engineer`, `ollama`, `ser
 - [ ] Send screenshots after visual changes
 - [ ] Capture the screenshot list in section 10 and record the demo video
 - [ ] Rehearse the pitch out loud twice
+- [ ] Decide whether to have the builder mockup slide made (one slide: palette of elements and agents on the left, the shop on the right)
+- [ ] Confirm the submission goes through Devpost, and the video length and host, when the form opens
+- [ ] Gemini key: prefer a project with billing enabled (see the Zero Data disclosures in section 4)
 
 ## 9. Demo script
 
@@ -256,7 +300,7 @@ Owner is one of: `backend`, `data`, `frontend`, `staff-engineer`, `ollama`, `ser
 2. Open the bakery, enter, let the greeting play.
 3. Ask for sourdough (in stock), then croissants (out, with a restock date).
 4. Switch to the paint store to show the same code running a different shop.
-5. Close with what's next: owners uploading their own storefront, checkout, and running the clerk on the shop's own hardware.
+5. Close with what's next: the sandbox builder. Say the line: "Each shop is one settings file. The builder we're making next lets an owner edit that file by dragging things around." Show one mockup slide: a palette of elements and agents on the left, the shop on the right. A judge then sees two shops with different staff running from the same code, which is evidence the platform idea is real. Then, briefly: owners uploading their own storefront, checkout, and running the clerk on the shop's own hardware. Business model for the Q&A: a free shop with one clerk, and paid add-on agents.
 
 Tested questions only. Keep a second device open on the deployed link in case the first fails.
 
@@ -277,7 +321,7 @@ The format below is the one experienced MLH hackers use: a README that follows t
 7. **Challenges we ran into**
 8. **Accomplishments we're proud of**
 9. **What we learned**
-10. **What's next**
+10. **What's next**: the sandbox builder first (owners assemble their own shop from ready-made elements and staff it with agents; a free shop with one clerk, paid add-on agents), then storefront photos, checkout, and the clerk on the shop's own hardware
 11. Run it locally: setup steps and the four environment variable names
 
 ### docs/
@@ -319,7 +363,7 @@ sequenceDiagram
 
 ### The idea log (`docs/decisions.md`)
 
-Record how the idea was reached, since judges ask "why this?" Include the concepts that were dropped and the reason for each: Mise (meal planner; crowded category), Proof (AI car condition report; Cox Automotive already ships photo-based damage detection), the bookkeeper that forgets (many statement analyzers exist), and the virtual shop that became Peripie (existing platforms serve large brands, none found for small local shops). Add each technical decision as it is made, one line each: what was chosen, what was rejected, why.
+Record how the idea was reached, since judges ask "why this?" Include the concepts that were dropped and the reason for each: Mise (meal planner; crowded category), Proof (AI car condition report; Cox Automotive already ships photo-based damage detection), the bookkeeper that forgets (many statement analyzers exist), and the virtual shop that became Peripie (existing platforms serve large brands, none found for small local shops). Add the sandbox builder: pitched, not built, because a drag-and-drop builder is a product in itself and with the backend not running it would have cost the demo. Add each technical decision as it is made, one line each: what was chosen, what was rejected, why.
 
 ### Screenshot list (Sergio captures; save as `docs/screenshots/NN-name.png`)
 

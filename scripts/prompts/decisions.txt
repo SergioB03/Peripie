@@ -1,0 +1,27 @@
+You are drafting docs/decisions.md for the repository described in the plan above (PLAN.md). Write GitHub-flavored Markdown only: no preamble, no closing remarks.
+
+Title: "# Decision log"
+
+Section "## How we got to Peripie": a table with columns Idea | What it was | Why it was cut or kept, with these rows in this order:
+- Mise: a meal planner. Cut: crowded category.
+- Proof: an AI car condition report from photos. Cut: Cox Automotive already ships photo-based damage detection.
+- The bookkeeper that forgets: a statement analyzer that keeps nothing. Cut: many statement analyzers already exist.
+- The virtual shop, which became Peripie. Kept: existing virtual-store platforms (Obsess, Emperia) serve large brands; none found for small local shops, and Sergio runs a small business himself.
+- The sandbox builder: owners assemble a shop from ready-made elements and staff it with agents. Pitched, not built: a drag-and-drop builder is a product in itself, and with the backend not yet running it would cost the demo. Shown instead with a per-shop agents list, one line in the pitch, and one mockup slide.
+
+Section "## Technical decisions": a table with columns Decision | Chosen | Rejected | Why. One row per line below; keep each cell short.
+- Hosting: Replit (challenge requirement) vs Vultr.
+- Login: none (Zero Data challenge) vs Auth0.
+- Checkout: out of scope vs Solana.
+- Clerk model: Gemini with a check_stock tool vs letting the model guess stock.
+- Voice: ElevenLabs mp3 returned as a base64 data URL vs writing audio files to disk.
+- Database: Tiger Data hypertable for stock_events so typicalRestockDays comes from real history vs a static restock date.
+- Greeting: fixed text per shop, mp3 cached in memory vs a Gemini call per visitor.
+- Restock wording: nextRestockText computed in Node vs the model doing weekday math.
+- Fallbacks: canned answers and the browser voice stay in the page vs a page that needs the network.
+- Logging: method, path, status and timing only vs request-logging middleware.
+- Audio on iOS: one shared Audio element primed on the Enter tap vs a new Audio() per reply.
+
+Section "## Open questions for organizers": the three questions from section 8 of the plan as a bullet list.
+
+Use only facts from the plan above and this prompt. Do not invent names, numbers or dates.
