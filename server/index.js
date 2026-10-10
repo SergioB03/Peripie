@@ -16,7 +16,7 @@ const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
 
 function errorType(err) {
   if (!err || typeof err !== 'object') return 'Error';
-  const code = err.status ?? err.statusCode ?? err.code;
+  const code = err.status ?? err.statusCode ?? (typeof err.code === 'string' ? err.code : undefined);
   return code === undefined ? err.name || 'Error' : `${err.name || 'Error'} ${code}`;
 }
 
