@@ -41,3 +41,4 @@ See PLAN.md section 7. Claim a file here before editing it. Owner is one of: bac
 | - | Keys: Gemini (billing-enabled project preferred), ElevenLabs + voice id, Tiger Data URL | sergio | .env (never committed) | todo |
 | - | Replit project and the secrets | sergio | - | todo |
 | - | Decide on the builder mockup slide; confirm Devpost and video requirements | sergio | - | todo |
+| SUMMARY | Short spoken summary for lists past four items (three sentences, about fifty words; the soonest time in full, the rest bare; four or fewer unchanged) | backend (Fable, workflow: build, verify) | server/clerk.js on polish/list-summary | built and verified Sun 10:40 am: fake-Gemini list harness 42/42, two real calls (8-item plants list 64 words / 3 sentences, facts right; 2-item bakery list 36 words); merged into main with the 10:35 am build |
