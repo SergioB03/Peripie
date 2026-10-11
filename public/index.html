@@ -390,6 +390,9 @@
   html.hc #status.answering{background:#172554;border-color:#60a5fa}
   html.hc :is(#enter,#f button,#settings-close,#a11y-close,#shops button.on,.tile,#avatar){
     background:color-mix(in srgb,var(--accent) 70%,#000)}
+  /* The mic (mic.js) turns red while it listens, and the rule above outranks mic.js's own rule, so the red
+     is restated here; the white ring shows that it is listening without relying on colour or motion */
+  html.hc #f .pp-mic.pp-live{background:#dc2626;border:2px solid #fff}
   html.hc .sw{border-color:var(--s300)}
 
   /* Reduce motion (drawer): the system setting's rule below, on demand; the 3D motion is in script section 4 */
