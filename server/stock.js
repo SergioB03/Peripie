@@ -1,11 +1,16 @@
 // check_stock for the clerk: whether a shop has something, and when it comes back.
 //
 // checkStock(shopId, query) resolves to exactly one of the two shapes in PLAN.md section 3:
-//   { found: true, product, inStock, onHand, nextRestock, nextRestockAt, nextRestockText,
-//     restockNote, typicalRestockDays }
+//   { found: true, product, inStock, onHand, lowStock, price, nextRestock, nextRestockAt,
+//     nextRestockText, restockNote, typicalRestockDays, alsoMatched }
 //   { found: false, inStockProducts }
 // It never rejects: if the database fails, it answers from the built-in seed and logs why.
 // checkStockList(shopId, queries) answers a whole list the same way from one read of the shop.
+//
+// Products are matched by name and by their aliases ("bread" is the sourdough, "a pot" the
+// terracotta pot). When the visitor's words fit several products, the best match wins, an
+// in-stock one before an out-of-stock one, and the rest are named in `alsoMatched` so the clerk
+// can mention them. `lowStock` is true at 1 to 3 on hand; `price` is a display string, "$8.00".
 //
 // The restock fields come from the row's restock_rule (how the shop restocks: a tray every 20
 // minutes, batches at 7 and 2, a truck on Fridays) evaluated against the clock in America/New_York:
@@ -55,7 +60,7 @@ WITH readings AS (
   GROUP BY product
 )
 SELECT i.product, i.on_hand, to_char(i.next_restock, 'YYYY-MM-DD') AS next_restock,
-       i.restock_rule, i.restock_note, r.typical_restock_days
+       i.restock_rule, i.restock_note, i.aliases, i.price_cents, r.typical_restock_days
 FROM inventory i
 LEFT JOIN restocks r ON r.product = i.product
 WHERE i.shop_id = $1`;
@@ -93,12 +98,26 @@ function forms(word) {
   return f;
 }
 
-// The product name the visitor means, or null. A product matches when any of its words
-// appears in the query, comparing singular forms on both sides ("do you have pots" is the
-// terracotta pot). Adjacent query words are also tried joined, so "sour dough" and
-// "terra cotta" still match. A full-name match beats a partial one ("pothos plant" is the
-// pothos, not the snake plant); then the longest name wins.
-export function matchProduct(names, query) {
+// How well one name (or alias) fits the query: [whole, length, hits], or null when no word of it
+// appears. A name matches when any of its words appears in the query, comparing singular forms on
+// both sides ("do you have pots" is the terracotta pot); `whole` when all of them do, or the words
+// run together ("snakeplant").
+function nameScore(name, present) {
+  const nw = words(name);
+  const hits = nw.filter(present).length;
+  const whole = nw.length > 0 && (hits === nw.length || present(nw.join('')));
+  if (!hits && !whole) return null;
+  return [whole ? 1 : 0, nw.join(' ').length, hits];
+}
+
+// The products the visitor may mean, best first, each as { product, aliases?, onHand }. Adjacent
+// query words are also tried joined, so "sour dough" and "terra cotta" still match. A product
+// scores by the best of its name and aliases: a whole match beats a partial one ("pothos plant"
+// is the pothos, not the snake plant), then more words hit ("french bread" is the baguette, whose
+// alias covers both words, not the sourdough, whose alias "bread" covers one), then an in-stock
+// product beats an out-of-stock one ("bread" alone fits several; the sourdough on the shelf is the
+// answer), then the longer name, then alphabetical order.
+export function matchProducts(products, query) {
   const qw = words(query);
   const tokens = new Set();
   qw.forEach((w, i) => {
@@ -107,21 +126,37 @@ export function matchProduct(names, query) {
   });
   const present = (w) => forms(w).some((f) => tokens.has(f));
 
-  let best = null;
-  for (const name of names) {
-    const nw = words(name);
-    const hits = nw.filter(present).length;
-    const whole = nw.length > 0 && (hits === nw.length || present(nw.join(''))); // "snakeplant"
-    if (!hits && !whole) continue;
-    const score = [whole ? 1 : 0, nw.join(' ').length, hits]; // compared in this order
-    if (!best || outranks(score, best.score)) best = { name, score };
+  const matched = [];
+  for (const p of products) {
+    let best = null; // [whole, hits, length] of the best-fitting name
+    for (const name of [p.product, ...(p.aliases ?? [])]) {
+      const s = nameScore(name, present);
+      if (!s) continue;
+      const ranked = [s[0], s[2], s[1]];
+      if (!best || outranks(ranked, best)) best = ranked;
+    }
+    if (best) matched.push({ p, score: [best[0], best[1], p.onHand > 0 ? 1 : 0, best[2]] });
   }
-  return best ? best.name : null;
+  matched.sort((a, b) => (outranks(a.score, b.score) ? -1 : outranks(b.score, a.score) ? 1 : byName(a.p, b.p)));
+  return matched.map((m) => m.p);
+}
+
+// The one product name the visitor most likely means, or null.
+export function matchProduct(products, query) {
+  const [best] = matchProducts(products.map((p) => (typeof p === 'string' ? { product: p, onHand: 1 } : p)), query);
+  return best ? best.product : null;
 }
 
 function outranks(a, b) {
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];
   return false;
+}
+
+const byName = (a, b) => (a.product < b.product ? -1 : a.product > b.product ? 1 : 0);
+
+// 800 -> '$8.00'; null when the row has no price.
+export function priceText(cents) {
+  return cents == null ? null : `$${(Number(cents) / 100).toFixed(2)}`;
 }
 
 // ---------- dates and times, in the shops' time zone ----------
@@ -238,9 +273,8 @@ function fillNote(note, when) {
 // ---------- answers ----------
 
 function answer(rows, query, nowMs) {
-  const sorted = [...rows].sort((a, b) => (a.product < b.product ? -1 : a.product > b.product ? 1 : 0));
-  const name = matchProduct(sorted.map((r) => r.product), query);
-  const r = name === null ? null : sorted.find((x) => x.product === name);
+  const sorted = [...rows].sort(byName);
+  const [r, ...others] = matchProducts(sorted, query);
   if (!r) {
     return { found: false, inStockProducts: sorted.filter((x) => x.onHand > 0).map((x) => x.product) };
   }
@@ -251,11 +285,14 @@ function answer(rows, query, nowMs) {
     product: r.product,
     inStock: r.onHand > 0,
     onHand: r.onHand,
+    lowStock: r.onHand >= 1 && r.onHand <= 3,
+    price: priceText(r.priceCents),
     nextRestock: occ ? occ.ymd : null,
     nextRestockAt: occ ? isoAt(occ.ms) : null,
     nextRestockText: text,
     restockNote: fillNote(r.restockNote, text),
     typicalRestockDays: r.typicalRestockDays,
+    alsoMatched: others.map((x) => x.product),
   };
 }
 
@@ -265,7 +302,9 @@ function memoryRows(shopId, nowMs) {
   const now = shopTime(nowMs);
   return PRODUCTS.filter((p) => p.shop === shopId).map((p) => ({
     product: p.product,
+    aliases: p.aliases ?? [],
     onHand: onHandNow(p),
+    priceCents: p.price ?? null,
     nextRestock: nextRestock(p, now.ymd, now.minute),
     restockRule: p.rule ?? null,
     restockNote: p.note ?? null,
@@ -423,7 +462,9 @@ async function databaseRows(shopId, databaseUrl) {
   const result = await runQuery(databaseUrl, SHOP_SQL, [shopId]);
   return result.rows.map((r) => ({
     product: r.product,
+    aliases: Array.isArray(r.aliases) ? r.aliases : [],
     onHand: r.on_hand,
+    priceCents: r.price_cents ?? null,
     nextRestock: r.next_restock, // already 'YYYY-MM-DD' (to_char), so no time zone shifts
     restockRule: r.restock_rule ?? null,
     restockNote: r.restock_note ?? null,
@@ -447,7 +488,7 @@ async function shopRows(shop, nowMs) {
     if (err?.code === '42P01') {
       console.warn('[stock] database is missing the Peripie tables (42P01): schema not loaded? answering from the built-in seed');
     } else if (err?.code === '42703') {
-      console.warn('[stock] database is missing the restock columns (42703): db/schema.sql not re-run since Oct 11? answering from the built-in seed');
+      console.warn('[stock] database is missing the Oct 11 columns (42703): db/schema.sql not re-run? answering from the built-in seed');
     } else if (isSqlError(err)) {
       console.warn(`[stock] database error (${describe(err)}); answering from the built-in seed`);
     } else {
