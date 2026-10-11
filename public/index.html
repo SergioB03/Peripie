@@ -186,6 +186,13 @@
   .who{display:flex;align-items:center;gap:8px;min-width:0;font-size:12px;line-height:16px;font-weight:700;
     color:var(--s200)}
   #who{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Replay the last answer: at the right of the card's header, without making the header taller */
+  #replay{display:inline-flex;align-items:center;gap:5px;flex:none;margin:-4px 0 -4px auto;min-height:28px;
+    padding:2px 10px;border-radius:9999px;background:rgb(41 37 36/.8);border:1px solid rgb(68 64 60/.6);
+    color:var(--s300);font-size:11px;font-weight:600;transition:background-color .15s,color .15s,opacity .15s}
+  #replay:hover:not(:disabled){background:var(--s800);color:#fff}
+  #replay:disabled{opacity:.4;cursor:default}
+  #replay .i{width:12px;height:12px}
   #avatar{width:24px;height:24px;border-radius:9999px;background:var(--accent);color:#fff;font-size:10px;
     font-weight:700;display:grid;place-items:center;flex:none;box-shadow:var(--sh-sm)}
   body[data-state=checking] #avatar{box-shadow:0 0 0 2px rgb(251 191 36/.5);
@@ -249,7 +256,10 @@
     .dock-card{flex-direction:row;align-items:center;justify-content:space-between;padding:6px 6px 6px 10px;
       border-radius:9999px}
     #enter{flex:none;min-height:40px;border-radius:9999px}
-    #chips,.who{display:none}
+    #chips,#avatar,#who{display:none}
+    .reply-card{position:relative}                          /* Replay keeps the card's top-right corner */
+    .who{position:absolute;top:8px;right:8px}
+    .reply-card:has(#replay:not([hidden])) #reply{padding-right:84px}
     .panel-card{gap:8px;padding:10px}
   }
   @media (max-height:520px) and (orientation:landscape) and (max-width:699px){
@@ -287,6 +297,7 @@
   <symbol id="i-volume-x" viewBox="0 0 24 24"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/></symbol>
   <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
   <symbol id="i-corner-up-left" viewBox="0 0 24 24"><path d="M20 20v-7a4 4 0 0 0-4-4H4"/><path d="M9 14 4 9l5-5"/></symbol>
+  <symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
   <symbol id="i-send" viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></symbol>
 </svg>
 
@@ -332,7 +343,7 @@
       <button id="leave" type="button"><svg class="i" aria-hidden="true"><use href="#i-corner-up-left"/></svg>Leave shop</button>
     </div>
     <div class="reply-card">
-      <div class="who"><span id="avatar" aria-hidden="true"></span><span id="who"></span></div>
+      <div class="who"><span id="avatar" aria-hidden="true"></span><span id="who"></span><button id="replay" type="button" hidden title="Hear the last answer again"><svg class="i" aria-hidden="true"><use href="#i-rotate-ccw"/></svg>Replay</button></div>
       <p id="reply"></p>
       <p id="stock-note"></p>
       <span class="typing" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -902,6 +913,7 @@ const coarse = matchMedia('(pointer:coarse)').matches;   // phones: keep the key
 function setState(s){
   state = s; $('status').textContent = LABEL[s]; $('status').className = s;
   document.body.dataset.state = s;                  // the CSS keys the dots, bars and chips on it
+  $('replay').disabled = s !== 'listening';         // no replay while the clerk checks or talks
   if (s === 'checking'){ sfx.rustle(); targetYaw = targetPitch = 0; }   // face the hand-off
 }
 const setWhere = w => { document.body.dataset.where = w; };   // street, entering, inside, leaving
@@ -912,6 +924,7 @@ const player = new Audio();
 const hasTTS = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
 let endSay = () => {};          // resolves the reply being spoken now (Leave uses it)
 let visit = 0;                  // bumped by Leave, so an answer that arrives after it is dropped
+let lastAnswer = null;          // the last answer this visit, for Replay; in memory only, Leave drops it
 let effectsOff = false;         // the sound-effects button (never the clerk's voice); kept in memory only
 
 function silentWav(samples){    // 16-bit mono PCM at 8 kHz: a 44-byte header, then zero samples
@@ -1095,12 +1108,25 @@ $('f').onsubmit = async e => {
   $('q').value = ''; setState('checking'); $('reply').textContent = ''; showStock(null); if (coarse) $('q').blur();
   const reply = await askClerk(text);                           // never throws; canned on failure
   if (here !== visit) return;                                   // the visitor left while we checked
+  lastAnswer = reply; $('replay').hidden = false;
   setState('answering'); showStock(reply); await say(reply); setState('listening'); if (!coarse) $('q').focus();
+};
+
+// Replay, for a loud room: the last answer again through say(), so the cached mp3 plays on the
+// shared Audio element (inside this tap, which iOS needs), else the browser's voice. The answer
+// is kept in memory for this visit only; Leave drops it.
+$('replay').onclick = async () => {
+  if (!lastAnswer || state !== 'listening' || $('panel').hidden) return;
+  const here = visit, btn = $('replay'), refocus = document.activeElement === btn;
+  setState('answering');                                        // disables the button and the form
+  await say(lastAnswer);
+  if (here !== visit) return;                                   // the visitor left during the replay
+  setState('listening'); if (refocus) btn.focus();              // a disabled button drops focus; give it back
 };
 
 $('leave').onclick = async () => {
   if (tween) return;
-  visit++; endSay(); silence();
+  visit++; endSay(); silence(); lastAnswer = null; $('replay').hidden = true;
   $('panel').hidden = true; setState('listening'); setWhere('leaving'); sfx.footsteps();
   await moveCamera(DOOR, 1800); doorTarget = 0;
   await moveCamera(STREET, 2200);
