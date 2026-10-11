@@ -1,0 +1,16 @@
+You are drafting docs/drafts/demo-day-draft.md for the project described in the plan above. Markdown only, no preamble. This is a first draft for a human reviewer; be concrete and use only facts from the plan.
+
+Sections:
+
+## Twenty judge questions, one answer each
+Cover: why this and not a chatbot on the website; who it is for (small shops, and people with disabilities or social anxiety who would rather not ask in person, for example someone with a large order); what happens if the Wi-Fi or an API fails; what is stored about the visitor (nothing) and what each outside service receives; why Gemini and how the clerk is kept from guessing stock (the first model round is forced to call the stock tool); why Tiger Data and what "usually back in about three days" is computed from; why ElevenLabs; the accessibility features (captions, larger text, high contrast, reduce motion, describe the view, re-centre, keyboard and screen-reader support, a mic, Replay) and why preferences are kept in memory only; the list feature (prepare a whole list in private, check it at once, take the answer with you); the sandbox builder and the business model (a free shop with one clerk, paid add-on agents); the Replit hosting; how long it took and what was hardest; what you would do next week; how a shop owner would keep stock up to date; what a competitor like Obsess or Emperia does differently.
+Each answer: two sentences at most, spoken English, no marketing words.
+
+## Ten ways the demo fails on stage, and the recovery
+For each: the symptom a judge would see, the likely cause, and what Sergio does in the next ten seconds. Include: silent phone (volume, silent switch, earpiece routing after using the mic); a flat templated answer instead of the model's wording; a canned answer from the printed list; slow first load; the wrong shop entered by a stray tap; rate limits from asking too fast; a frozen walk-in; the microphone permission denied; the venue network dropping mid-demo; a judge asking for something the shop does not carry.
+
+## Three Devpost taglines
+Under 100 characters each.
+
+## Four options for a first-visit card on the street
+Three short lines each, for a visitor arriving from a link who has never seen the product: what it is, what you can do, that nothing about you is stored.
