@@ -40,4 +40,4 @@ Everything a judge sees runs from `main`. The laptop server is on `http://192.16
 ## Loose ends you may want to clean
 
 - `public/vendor/` (untracked `three.module.js`, `GLTFLoader.js`) and the branch `visual/storefront-overhaul` were created by something outside this session at 1:49 pm. Nothing uses them. Delete if they are not yours.
-- The worktree `C:\Users\sergi\Peripie-design` and a server on port 3200 remain from the design port; `git worktree remove C:\Users\sergi\Peripie-design` once you are done with it.
+- The design-port and polish worktrees were removed after their merges; the branches `design/aistudio-port` and `polish/venue-ready` remain locally and can be deleted (`git branch -d`) whenever you like.
