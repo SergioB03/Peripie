@@ -3227,9 +3227,8 @@ let lastHeard = '', lastHeardAt = 0;
 function route(raw){
   if (!prefs.handsfree) return false;
   const text = normalize(String(raw || ''));
-  if (text.length < 2) return true;
   const now = performance.now();
-  if (text === lastHeard && now - lastHeardAt < DEDUP_MS) return true;
+  if (text.length < 2 || (text === lastHeard && now - lastHeardAt < DEDUP_MS)){ $('q').value = ''; return true; }
   lastHeard = text; lastHeardAt = now;
   const where = document.body.dataset.where, street = where === 'street', inside = where === 'inside';
   const took = p => { $('q').value = ''; Promise.resolve(p).catch(() => {}); return true; };   // a command: the words leave the ask box
