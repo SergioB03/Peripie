@@ -87,7 +87,8 @@
   #shops button:hover{color:var(--s200);background:rgb(41 37 36/.6)}
   #shops button.on{background:var(--accent);color:#fff;box-shadow:var(--sh-md)}
   #hint{display:none}
-  @media (max-width:379px){#event{display:none}}
+  @media (max-width:429px){#event{display:none}}   /* phones: room for four buttons at the right */
+  @media (max-width:359px){.brand-text{display:none}#brand{padding:6px}}   /* the smallest phones: the icon only */
   @media (min-width:640px){
     #top{padding:max(16px,env(safe-area-inset-top)) 16px 0}
     #skyline{padding:0 12px}
@@ -109,11 +110,13 @@
   #door-cue{position:fixed;left:50%;top:50%;z-index:10;display:flex;align-items:center;gap:8px;
     padding:6px 14px;border-radius:9999px;background:rgb(28 25 23/.75);border:1px solid rgb(255 255 255/.2);
     color:#fff;font-size:12px;font-weight:600;letter-spacing:.025em;white-space:nowrap;box-shadow:var(--sh-xl);
-    transform:translate(-50%,-50%);transition:opacity .3s,border-color .3s,transform .3s}
+    transform:translate(-50%,-50%);transition:opacity .3s,border-color .3s,transform .3s,visibility .3s}
   #door-cue:hover{border-color:#fbbf24;transform:translate(-50%,-50%) scale(1.05)}
   #door-cue::after{content:"";position:absolute;inset:-110px -70px}   /* the street's tap target covers the doors around the pill */
   #door-cue .i{width:14px;height:14px}
-  #door-cue.off{opacity:0;pointer-events:none}
+  #door-cue.off{opacity:0;pointer-events:none;visibility:hidden}   /* off screen: out of the Tab order too */
+  .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip-path:inset(50%);
+    white-space:nowrap}
   body:not([data-where=street]) :is(#dock,#door-cue,#skyline,#hint){display:none}
 
   /* Street dock: the shop's card and the Enter button */
@@ -205,7 +208,9 @@
     animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}
   #reply{margin:0;padding-left:32px;font-size:14px;line-height:1.625;font-weight:500;color:var(--s100);
     overflow-wrap:anywhere}
-  #reply:empty{display:none}
+  #reply:empty{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}   /* out of the layout,
+     but still in the accessibility tree, so the live region is there before the answer arrives */
+  #reply:empty::before,#reply:empty::after{content:none}
   #reply::before{content:"\201C"}
   #reply::after{content:"\201D"}
   /* Under the answer: the stock room's record behind it, or a note that it came from the printed list */
@@ -273,24 +278,125 @@
     #top{grid-template-columns:1fr auto;grid-template-areas:"tabs actions"}
     #shops{justify-self:start}
   }
+  @media (max-height:520px) and (orientation:landscape) and (max-width:619px){   /* the shop tabs scroll beside four buttons */
+    #shops{min-width:0;max-width:100%;overflow-x:auto;scrollbar-width:none}
+    #shops::-webkit-scrollbar{display:none}
+  }
 
-  /* Settings drawer, read-only: the brand card opens the shop's settings, drawn from its SHOPS entry */
-  #settings{width:min(560px,calc(100% - 32px));max-height:calc(100% - 48px);padding:0;border-radius:20px;
+  /* Settings drawer, read-only: the brand card opens the shop's settings, drawn from its SHOPS entry.
+     The accessibility drawer (#a11y) shares its look. */
+  #settings,#a11y{width:min(560px,calc(100% - 32px));max-height:calc(100% - 48px);padding:0;border-radius:20px;
     color:var(--s100);background:rgb(28 25 23/.97);border:1px solid rgb(255 255 255/.12);box-shadow:var(--sh-2xl);
     overflow:hidden}
-  #settings[open]{display:flex;flex-direction:column}
-  #settings::backdrop{background:rgb(12 10 9/.6)}
-  #settings .sheet{display:flex;flex-direction:column;gap:12px;min-height:0;padding:16px}
-  #settings h2{margin:0;font-size:15px;line-height:20px;font-weight:700;color:#fff}
+  #settings[open],#a11y[open]{display:flex;flex-direction:column}
+  #settings::backdrop,#a11y::backdrop{background:rgb(12 10 9/.6)}
+  :is(#settings,#a11y) .sheet{display:flex;flex-direction:column;gap:12px;min-height:0;padding:16px}
+  :is(#settings,#a11y) h2{margin:0;font-size:15px;line-height:20px;font-weight:700;color:#fff}
   #settings pre{flex:1 1 auto;min-height:0;margin:0;overflow:auto;padding:12px;border-radius:12px;
     background:var(--s950);border:1px solid var(--s800);color:var(--s200);
     font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
     white-space:pre-wrap;overflow-wrap:anywhere;-webkit-user-select:text;user-select:text}
   #settings pre:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
   #settings p{margin:0;font-size:13px;line-height:1.5;color:var(--s300)}
-  #settings-close{align-self:flex-end;min-height:40px;padding:8px 18px;border-radius:12px;background:var(--accent);
+  #settings-close,#a11y-close{align-self:flex-end;min-height:40px;padding:8px 18px;border-radius:12px;background:var(--accent);
     color:#fff;font-size:14px;font-weight:700;box-shadow:var(--sh-md);transition:filter .15s}
-  #settings-close:hover{filter:brightness(1.1)}
+  :is(#settings-close,#a11y-close):hover{filter:brightness(1.1)}
+
+  /* Accessibility drawer (the header's Accessibility button): switches, each a whole row, kept in memory
+     only (script section 6). Each switch is named by its title and described by the line under it. */
+  #a11y{width:min(440px,calc(100% - 32px))}
+  #a11y .sheet{overflow-y:auto}
+  #a11y-open .i{color:#fbbf24}
+  /* Re-centre: inside it takes the Skyline button's place; on the street only where the header has room
+     for five buttons (else it is in the drawer, and Skyline brings the view back too) */
+  #recentre{display:none}
+  body[data-where=inside] #recentre{display:inline-flex}
+  @media (min-width:640px) and (min-height:521px),(min-width:640px) and (orientation:portrait){
+    body[data-where=street] #recentre{display:inline-flex}}
+  #a11y .prefs{display:flex;flex-direction:column;gap:6px}
+  #a11y [role=switch]{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:52px;
+    padding:8px 12px;border-radius:14px;text-align:left;background:rgb(12 10 9/.7);border:1px solid var(--s800);
+    transition:border-color .15s}
+  #a11y [role=switch]:hover{border-color:var(--s700)}
+  .pf{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .pf-name{font-size:14px;line-height:20px;font-weight:700;color:#fff}
+  .pf-hint{font-size:13px;line-height:18px;color:var(--s400)}
+  .sw{position:relative;flex:none;width:42px;height:24px;border-radius:9999px;background:var(--s700);
+    border:1px solid var(--s500);transition:background-color .15s,border-color .15s}
+  .sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:9999px;
+    background:var(--s300);transition:transform .15s,background-color .15s}
+  [aria-checked=true] .sw{background:#f59e0b;border-color:#fbbf24}
+  [aria-checked=true] .sw::after{transform:translateX(18px);background:#1c1917}
+  #a11y p{margin:0;font-size:13px;line-height:1.5;color:var(--s300)}
+  #a11y p.pf-hint{color:var(--s400)}
+  #a11y .tools{display:flex;flex-wrap:wrap;gap:8px}
+  #a11y .tools button{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:8px 14px;border-radius:12px;
+    background:rgb(41 37 36/.8);border:1px solid rgb(68 64 60/.6);color:var(--s200);font-size:14px;font-weight:600;
+    transition:background-color .15s,color .15s}
+  #a11y .tools button:hover{background:var(--s800);color:#fff}
+  #a11y .tools .i{color:#fbbf24}
+  #a11y p.desc{padding:10px 12px;border-radius:12px;background:var(--s950);border:1px solid var(--s800);color:var(--s100);
+    font-size:14px}
+
+  /* Describe this view (header button): the words being spoken, under the header. While the clerk checks
+     it keeps clear of the clerk, the stock agent and the stock room door (script section 6 places it). */
+  #scene-toast{position:fixed;left:12px;right:12px;top:72px;z-index:25;max-width:560px;margin:0 auto;padding:10px 14px;
+    border-radius:16px;background:rgb(28 25 23/.94);border:1px solid rgb(255 255 255/.15);box-shadow:var(--sh-xl);
+    color:var(--s100);font-size:14px;line-height:1.5;pointer-events:none;animation:slideUp .3s var(--out) both}
+  #scene-toast.side{right:auto;margin:0}
+
+  /* Captions (drawer): what the clerk is saying (greeting, answer or replay), in large type on a black
+     strip just above the counter panel, so it never covers the input; shown while the clerk speaks
+     (data-state answering), then it fades. A copy of #reply for the eyes only: #reply is the text
+     screen readers read, so this one is aria-hidden. */
+  #cc{position:absolute;left:8px;right:8px;bottom:100%;max-width:576px;margin:0 auto 8px;padding:10px 16px;
+    border-radius:16px;background:rgb(0 0 0/.88);border:2px solid #fbbf24;color:#fff;font-size:20px;line-height:1.35;
+    font-weight:600;text-align:center;overflow-wrap:anywhere;pointer-events:none;opacity:0;visibility:hidden;
+    transition:opacity .5s,visibility .5s}
+  html.cc body[data-state=answering] #cc:not(:empty){opacity:1;visibility:visible}
+  html.hc #cc{background:#000}
+  @media (min-width:640px){#cc{left:16px;right:16px}}
+  @media (max-height:520px) and (orientation:landscape){#cc{font-size:16px;padding:6px 12px}}
+
+  /* Larger text (drawer): the street card's and the counter panel's words at 1.25 times */
+  html.big #shop-name{font-size:17.5px;line-height:24px}
+  html.big .dock-card .chip{font-size:12.5px;line-height:17px}
+  html.big :is(.duty,.zero){font-size:14px;line-height:20px}
+  html.big .zero .i{width:15px;height:15px}
+  html.big #enter{font-size:17.5px}
+  html.big #status{font-size:14px;line-height:20px;white-space:normal}   /* wraps, never runs under Leave */
+  html.big #leave{font-size:14px}
+  html.big .who{font-size:15px;line-height:20px}
+  html.big #replay{font-size:14px}
+  html.big #reply{font-size:17.5px}
+  html.big #stock-note{font-size:15px;line-height:20px}
+  html.big #chips button{font-size:14px}
+  html.big #q{font-size:20px;line-height:28px}
+  html.big #f button{font-size:17.5px}
+  @media (min-width:400px){html.big :is(#status,#leave){font-size:15px}}
+  @media (hover:hover) and (pointer:fine){html.big #q{font-size:17.5px}}
+
+  /* High contrast (drawer): solid panels with no blur, stronger borders, lighter greys. The 3D scene is
+     unchanged. White on the bakery's and the plant shop's colour is under 4.5:1, so buttons in the shop's
+     colour take a darker mix of it (at least 5:1 for all three shops). */
+  html.hc{--s400:#d6d3d1;--s500:#a8a29e}
+  html.hc :is(.glass,.solid,.dock-card,#walking,#door-cue,#hint,#scene-toast,#settings,#a11y){background:rgb(12 10 9/.97);
+    border:2px solid #fbbf24;-webkit-backdrop-filter:none;backdrop-filter:none}
+  html.hc .reply-card{background:#0c0a09;border-color:var(--s500)}
+  html.hc :is(#leave,#replay,#chips button,#a11y [role=switch],#a11y .tools button){background:#1c1917;border-color:var(--s400)}
+  html.hc #q{border-color:var(--s300)}
+  html.hc #status.listening{background:#022c22;border-color:#34d399}
+  html.hc #status.checking{background:#451a03;border-color:#fbbf24}
+  html.hc #status.answering{background:#172554;border-color:#60a5fa}
+  html.hc :is(#enter,#f button,#settings-close,#a11y-close,#shops button.on,.tile,#avatar){
+    background:color-mix(in srgb,var(--accent) 70%,#000)}
+  /* The mic (mic.js) turns red while it listens, and the rule above outranks mic.js's own rule, so the red
+     is restated here; the white ring shows that it is listening without relying on colour or motion */
+  html.hc #f .pp-mic.pp-live{background:#dc2626;border:2px solid #fff}
+  html.hc .sw{border-color:var(--s300)}
+
+  /* Reduce motion (drawer): the system setting's rule below, on demand; the 3D motion is in script section 4 */
+  html.calm *,html.calm *::before,html.calm *::after{animation:none!important;transition:none!important}
 
   @keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
   @keyframes ping{75%,100%{transform:scale(2);opacity:0}}
@@ -300,6 +406,21 @@
   @keyframes bar{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
   @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
+<script>
+  /* Accessibility defaults, set before the first paint from the system's settings alone: reduced
+     motion turns on Reduce motion and Captions, a contrast setting turns on Captions, and "more"
+     contrast turns on High contrast. The drawer (script section 6) changes them for this visit;
+     nothing is ever stored, so a reload starts from these again. */
+  (() => {
+    const m = q => { try { return matchMedia(q).matches; } catch { return false; } };
+    const calm = m('(prefers-reduced-motion: reduce)'), more = m('(prefers-contrast: more)');
+    const set = more || m('(prefers-contrast: less)') || m('(prefers-contrast: custom)');
+    const c = document.documentElement.classList;
+    if (calm || set) c.add('cc');      // Captions
+    if (more) c.add('hc');             // High contrast
+    if (calm) c.add('calm');           // Reduce motion
+  })();
+</script>
 <!-- Three.js 0.186.1 is served from this app (public/vendor/three-0.186.1: build/three.module.js and
      build/three.core.js, byte-identical to the npm package), so the page loads nothing from a CDN.
      three.module.js imports ./three.core.js, so both files stay together in that folder. -->
@@ -324,9 +445,13 @@
   <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
   <symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
   <symbol id="i-send" viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></symbol>
+  <symbol id="i-locate-fixed" viewBox="0 0 24 24"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-scan-eye" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="1"/><path d="M18.944 12.33a1 1 0 0 0 0-.66 7.5 7.5 0 0 0-13.888 0 1 1 0 0 0 0 .66 7.5 7.5 0 0 0 13.888 0"/></symbol>
+  <symbol id="i-accessibility" viewBox="0 0 24 24"><circle cx="16" cy="4" r="1"/><path d="m18 19 1-7-6 1"/><path d="m5 8 3-3 5.5 3-2.36 3.5"/><path d="M4.24 14.5a5 5 0 0 0 6.88 6"/><path d="M13.76 17.5a5 5 0 0 0-6.88-6"/></symbol>
 </svg>
 
-<canvas id="c" role="img" aria-label="A shop front on a city street; inside, a clerk behind the counter"></canvas>
+<canvas id="c" role="img" aria-label="A shop front on a city street; inside, a clerk behind the counter" aria-describedby="scene-desc"></canvas>
+<p id="scene-desc" hidden></p>
 
 <header id="top">
   <button id="brand" class="glass" type="button" aria-haspopup="dialog" aria-label="Peripie: this shop's settings file" title="This shop's settings file">
@@ -339,12 +464,15 @@
   <nav id="shops" class="solid" aria-label="Shops"></nav>
   <div id="actions">
     <button id="skyline" class="solid pill-btn" type="button" aria-pressed="false" title="Look up at the skyline"><svg class="i" aria-hidden="true"><use href="#i-building-2"/></svg><span id="skyline-label">Skyline</span></button>
+    <button id="recentre" class="solid pill-btn" type="button" aria-label="Re-centre view" title="Re-centre view"><svg class="i" aria-hidden="true"><use href="#i-locate-fixed"/></svg></button>
+    <button id="describe" class="solid pill-btn" type="button" aria-label="Describe this view" title="Describe this view"><svg class="i" aria-hidden="true"><use href="#i-scan-eye"/></svg></button>
     <button id="sound" class="solid pill-btn" type="button" aria-pressed="true" aria-label="Sound effects" title="Sound effects"><svg class="i" aria-hidden="true"><use href="#i-volume-2"/></svg></button>
+    <button id="a11y-open" class="solid pill-btn" type="button" aria-haspopup="dialog" aria-label="Accessibility" title="Accessibility"><svg class="i" aria-hidden="true"><use href="#i-accessibility"/></svg></button>
   </div>
 </header>
 <p id="hint">Drag to look around</p>
 
-<button id="door-cue" type="button"><span class="ping"></span>Tap here to walk in<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
+<button id="door-cue" type="button" aria-describedby="shop-name"><span class="ping"></span>Tap here to walk in<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
 
 <div id="dock">
   <div class="dock-card glass">
@@ -358,13 +486,16 @@
         </div>
       </div>
     </div>
-    <button id="enter" type="button">Enter shop<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
+    <button id="enter" type="button" aria-describedby="shop-name">Enter shop<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
   </div>
 </div>
 
 <div id="walking" aria-hidden="true"><span class="ping"></span><span class="in">Walking in…</span><span class="out">Stepping outside…</span></div>
+<p id="scene-toast" hidden></p>
+<p id="announce" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
 
-<div id="panel" hidden>
+<div id="panel" hidden role="region" aria-label="Counter">
+  <p id="cc" aria-hidden="true"></p>
   <div class="panel-card glass">
     <div class="panel-top">
       <span class="st"><span id="status" class="listening" role="status" aria-live="polite">Listening</span><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span></span>
@@ -372,7 +503,7 @@
     </div>
     <div class="reply-card">
       <div class="who"><span id="avatar" aria-hidden="true"></span><span id="who"></span><button id="replay" type="button" hidden title="Hear the clerk again"><svg class="i" aria-hidden="true"><use href="#i-rotate-ccw"/></svg>Replay</button></div>
-      <p id="reply"></p>
+      <p id="reply" aria-live="polite" aria-atomic="true"></p>
       <p id="stock-note"></p>
       <span class="typing" aria-hidden="true"><i></i><i></i><i></i></span>
     </div>
@@ -391,6 +522,27 @@
     <p>Stock lives in the stock room, not in this file. The list here is only what the shop carries.</p>
     <p>Each shop is one settings file. The builder we're making next lets an owner edit it by dragging things around.</p>
     <button id="settings-close" type="button">Close</button>
+  </div>
+</dialog>
+
+<!-- Accessibility drawer: four switches, kept in memory for this visit only (script section 6) -->
+<dialog id="a11y" aria-labelledby="a11y-title">
+  <div class="sheet">
+    <h2 id="a11y-title">Accessibility</h2>
+    <div class="prefs">
+      <button type="button" role="switch" aria-checked="false" data-pref="captions" aria-labelledby="pf-cc" aria-describedby="pf-cc-d"><span class="pf"><span class="pf-name" id="pf-cc">Captions</span><span class="pf-hint" id="pf-cc-d">The clerk's words in large type while they are spoken</span></span><span class="sw" aria-hidden="true"></span></button>
+      <button type="button" role="switch" aria-checked="false" data-pref="big" aria-labelledby="pf-big" aria-describedby="pf-big-d"><span class="pf"><span class="pf-name" id="pf-big">Larger text</span><span class="pf-hint" id="pf-big-d">Bigger words on the shop card and the counter panel</span></span><span class="sw" aria-hidden="true"></span></button>
+      <button type="button" role="switch" aria-checked="false" data-pref="contrast" aria-labelledby="pf-hc" aria-describedby="pf-hc-d"><span class="pf"><span class="pf-name" id="pf-hc">High contrast</span><span class="pf-hint" id="pf-hc-d">Solid panels, no blur, stronger borders</span></span><span class="sw" aria-hidden="true"></span></button>
+      <button type="button" role="switch" aria-checked="false" data-pref="calm" aria-labelledby="pf-calm" aria-describedby="pf-calm-d"><span class="pf"><span class="pf-name" id="pf-calm">Reduce motion</span><span class="pf-hint" id="pf-calm-d">No camera walk, swaying or mist: a cut straight to the counter</span></span><span class="sw" aria-hidden="true"></span></button>
+    </div>
+    <div class="tools">
+      <button type="button" id="a11y-describe" aria-describedby="a11y-describe-d"><svg class="i" aria-hidden="true"><use href="#i-scan-eye"/></svg>Describe this view</button>
+      <button type="button" id="a11y-recentre"><svg class="i" aria-hidden="true"><use href="#i-locate-fixed"/></svg>Re-centre view</button>
+    </div>
+    <p class="pf-hint" id="a11y-describe-d">Says what the 3D view shows, in your device's own voice; nothing goes over the network.</p>
+    <p id="a11y-desc" class="desc" hidden></p>
+    <p class="note">For this visit only. Nothing is stored; a reload goes back to your device's settings.</p>
+    <button id="a11y-close" type="button">Close</button>
   </div>
 </dialog>
 
@@ -777,7 +929,7 @@ function bakeryProps(g, shop, anims){
   put(oven, Cyl(0.6, 0.6, 1.4, 12, 1, false, 0, Math.PI), brick, 0, 1.8, 0, { ry:Math.PI / 2, rz:Math.PI / 2 });
   put(oven, Box(0.6, 0.4, 0.1), basic('#f97316'), 0.62, 0.8, 0, { ry:Math.PI / 2 });
   put(oven, Cyl(0.18, 0.18, 1.8, 8), std('#1c1917', { roughness:0.8 }), 0, 2.7, 0);
-  anims.push(t => { ovenLight.intensity = 1.6 + Math.sin(t * 8) * 0.3 + Math.cos(t * 13) * 0.15; });
+  anims.push(t => { ovenLight.intensity = prefs.calm ? 1.6 : 1.6 + Math.sin(t * 8) * 0.3 + Math.cos(t * 13) * 0.15; });   // steady under Reduce motion
   board(g, shop, { frame:'#78350f', bg:'#1e293b', title:'#fef08a', text:'#ffffff', note:'#fdba74', rough:0.5 });
   const plate = group(g, 0.9, 1.23, 0.2);
   put(plate, Cyl(0.24, 0.22, 0.04, 12), std('#f1f5f9', { roughness:0.2 }));
@@ -804,8 +956,8 @@ function paintProps(g, shop, anims){
   const clamp = group(shaker, 0, 1.3, 0);
   put(clamp, Box(0.65, 0.1, 0.65), std('#334155', { metalness:0.9 }));
   put(clamp, Cyl(0.18, 0.18, 0.4, 12), std('#0d9488', { metalness:0.5 }), 0, 0.25, 0);
-  anims.push((t, s) => {                     // the shaker runs while the stock room checks
-    const on = s === 'checking';
+  anims.push((t, s) => {                     // the shaker runs while the stock room checks (not under Reduce motion)
+    const on = s === 'checking' && !prefs.calm;
     clamp.position.x = on ? Math.sin(t * 45) * 0.02 : 0;
     clamp.position.z = on ? Math.cos(t * 40) * 0.02 : 0;
     clamp.rotation.y = on ? Math.sin(t * 35) * 0.04 : 0;
@@ -845,7 +997,8 @@ function plantsProps(g, shop, anims){
   const ring = new THREE.RingGeometry(0.08, 0.18, 12), mist = [];
   for (let r = 0; r < 4; r++) mist.push(put(mister, ring,
     new THREE.MeshBasicMaterial({ color:'#e0f2fe', transparent:true, opacity:0.4, side:THREE.DoubleSide }), 0, 1.25 + r * 0.2, 0, { rx:-Math.PI / 2 }));
-  anims.push(t => mist.forEach((m, i) => {     // rings of mist rise, widen and fade
+  anims.push(t => mist.forEach((m, i) => {     // rings of mist rise, widen and fade; none under Reduce motion
+    m.visible = !prefs.calm;
     const o = (t * 0.8 + i * 0.4) % 1.2, s = 1 + o * 0.8;
     m.position.y = 1.15 + o; m.scale.set(s, s, 1); m.material.opacity = Math.max(0, 0.45 * (1 - o / 1.2));
   }));
@@ -877,6 +1030,10 @@ function build(shop){
 }
 
 /* ---------- 4. MOTION ---------- */
+// The accessibility drawer's switches (section 6), for this visit only and never stored. They start
+// from the classes the script in <head> set from the system's settings.
+const prefOn = c => document.documentElement.classList.contains(c);
+const prefs = { captions:prefOn('cc'), big:prefOn('big'), contrast:prefOn('hc'), calm:prefOn('calm') };
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const ease = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(2 - 2 * k, 3) / 2;   // easeInOutCubic, as in AI Studio
 const basePos = new THREE.Vector3(), lookNow = new THREE.Vector3();
@@ -904,7 +1061,11 @@ const aim = new THREE.Vector3(), doorMark = new THREE.Vector3(), cue = document.
 let last = 0, cueX = NaN, cueY = NaN;
 renderer.setAnimationLoop(now => {
   const dt = last ? Math.min(0.1, (now - last) / 1000) : 0, t = now / 1000; last = now;
-  const damp = n => 1 - Math.pow(1 - n, dt * 60);       // AI Studio's per-frame easing, at any frame rate
+  // Reduce motion (prefs.calm): every eased turn, slide and walk below snaps to its end, and w = 0
+  // takes the sway out of the idle and talking poses. The poses themselves (the clerk turned to the
+  // stock room, the stock agent beside the clerk) stay, so the hand-off still shows.
+  const still = prefs.calm, w = still ? 0 : 1;
+  const damp = n => still ? 1 : 1 - Math.pow(1 - n, dt * 60);   // AI Studio's per-frame easing, at any frame rate
   if (tween){
     const k = Math.min(1, Math.max(0, (now - tween.t0) / tween.ms)), e = ease(k);
     basePos.lerpVectors(tween.p0, tween.p1, e); lookNow.lerpVectors(tween.l0, tween.l1, e);
@@ -920,18 +1081,18 @@ renderer.setAnimationLoop(now => {
 
   // The clerk: an idle sway, a turn to the stock room while checking, gestures while answering.
   const checking = state === 'checking', answering = state === 'answering', k = damp(0.15);
-  clerk.position.y = 0.2 + Math.sin(t * 2.2) * 0.012;
+  clerk.position.y = 0.2 + Math.sin(t * 2.2) * 0.012 * w;
   clerk.rotation.y += ((checking ? 0.6 : 0) - clerk.rotation.y) * damp(0.1);
-  head.rotation.y += ((checking ? 0.45 : answering ? Math.sin(t * 1.5) * 0.05 : Math.sin(t * 1.2) * 0.08) - head.rotation.y) * k;
-  head.rotation.x += ((checking ? Math.sin(t * 4) * 0.06 : answering ? -0.05 + Math.sin(t * 3) * 0.04 : Math.sin(t * 0.8) * 0.04) - head.rotation.x) * k;
-  armR.rotation.x += ((checking ? -0.6 : answering ? -0.4 + Math.sin(t * 3.5) * 0.25 : 0.1) - armR.rotation.x) * k;
-  armR.rotation.z += ((checking ? 0.3 : answering ? 0.2 + Math.sin(t * 2.5) * 0.15 : Math.sin(t * 2) * 0.05) - armR.rotation.z) * k;
+  head.rotation.y += ((checking ? 0.45 : answering ? Math.sin(t * 1.5) * 0.05 * w : Math.sin(t * 1.2) * 0.08 * w) - head.rotation.y) * k;
+  head.rotation.x += ((checking ? Math.sin(t * 4) * 0.06 * w : answering ? -0.05 + Math.sin(t * 3) * 0.04 * w : Math.sin(t * 0.8) * 0.04 * w) - head.rotation.x) * k;
+  armR.rotation.x += ((checking ? -0.6 : answering ? -0.4 + Math.sin(t * 3.5) * 0.25 * w : 0.1) - armR.rotation.x) * k;
+  armR.rotation.z += ((checking ? 0.3 : answering ? 0.2 + Math.sin(t * 2.5) * 0.15 * w : Math.sin(t * 2) * 0.05 * w) - armR.rotation.z) * k;
   armL.rotation.z = -0.05;
   // The stock agent: visible only while checking, walking over to the clerk with the clipboard.
   stocker.visible = checking;
   stocker.position.x += ((checking ? 1.2 : 2.4) - stocker.position.x) * damp(0.06);
   stocker.rotation.y += ((checking ? -0.4 : 0) - stocker.rotation.y) * damp(0.1);
-  agentArm.rotation.x = checking ? -0.3 + Math.sin(t * 3) * 0.15 : 0;
+  agentArm.rotation.x = checking ? -0.3 + Math.sin(t * 3) * 0.15 * w : 0;
   for (const a of propAnims) a(t, state);
 
   renderer.render(scene, camera);
@@ -1117,25 +1278,36 @@ function askChip(text){          // through the form, so the trim, the cap and t
 }
 
 // Both ways in (the Enter button and the door cue on the doors) run this inside the tap: a click
-// event, so iOS counts it as a tap.
+// event, so iOS counts it as a tap. The greeting has the walk-in (2600 + 700 + 2400 ms) plus 2 s
+// to arrive; under Reduce motion the walk is a cut, so the wait at the counter is longer instead.
+const WALK_IN_MS = 5700;
 async function enterShop(){
   if (document.body.dataset.where !== 'street' || tween) return;
   unlockAudio();                                                // first, while still inside the tap
   sfx.footsteps();                                              // makes the effects' context in the tap too
   const shop = current;
   const greeting = callClerk({ shop: shop.id, greet: true });   // in flight during the walk-in
+  const tapped = performance.now();
   $('enter').hidden = true; bar.hidden = true; setWhere('entering'); setSkyline(false);
-  await moveCamera(DOOR, 2600);
-  doorTarget = 1; sfx.chime(); await wait(700);
-  sfx.footsteps();
-  await moveCamera(INSIDE, 2400);
-  const live = await Promise.race([greeting, wait(2000)]);      // at most 2 s more, then the local line
+  let grace = 2000;                                             // after the walk: at most 2 s more, then the local line
+  if (prefs.calm){                                              // Reduce motion: the doors open, then a cut to the counter
+    doorTarget = 1; sfx.chime(); await wait(700);
+    await moveCamera(INSIDE, 1);                                // 1 ms, not 0: the tween divides by it
+    grace = Math.max(2000, WALK_IN_MS + 2000 - (performance.now() - tapped));   // the greeting keeps its whole window
+  } else {
+    await moveCamera(DOOR, 2600);
+    doorTarget = 1; sfx.chime(); await wait(700);
+    sfx.footsteps();
+    await moveCamera(INSIDE, 2400);
+  }
+  const live = await Promise.race([greeting, wait(grace)]);
   const hello = live || { reply: 'Welcome to ' + shop.name + '. How can I help you today?' };
   showStock(null);                                              // a greeting has no stock-room record
   $('panel').hidden = false; setWhere('inside'); setState('answering');
   lastAnswer = hello; $('replay').hidden = false;               // Replay works from the greeting on; an answer replaces it
   await say(hello);
   setState('listening'); if (!coarse) $('q').focus();
+  if (coarse && !$('panel').hidden && focusLost()) $('replay').focus();   // phones: a place to start, no keyboard
 }
 $('enter').onclick = enterShop;
 $('door-cue').onclick = enterShop;
@@ -1168,9 +1340,10 @@ $('leave').onclick = async () => {
   if (tween) return;
   visit++; endSay(); silence(); lastAnswer = null; $('replay').hidden = true;
   $('panel').hidden = true; setState('listening'); setWhere('leaving'); sfx.footsteps();
-  await moveCamera(DOOR, 1800); doorTarget = 0;
-  await moveCamera(STREET, 2200);
+  if (prefs.calm){ doorTarget = 0; await moveCamera(STREET, 1); }   // Reduce motion: a cut back to the street
+  else { await moveCamera(DOOR, 1800); doorTarget = 0; await moveCamera(STREET, 2200); }
   $('enter').hidden = false; bar.hidden = false; setWhere('street');
+  if (focusLost()) $('enter').focus();                          // Leave hid the button that had focus
 };
 
 // Look around: drag on the 3D view (AI Studio's controls). A tap on the street walks in only on
@@ -1274,6 +1447,207 @@ $('sound').onclick = () => {
   $('sound').setAttribute('aria-pressed', !effectsOff);
   $('sound').querySelector('use').setAttribute('href', effectsOff ? '#i-volume-x' : '#i-volume-2');
 };
+
+/* ---------- 6. ACCESSIBILITY: the AI Studio app's tools, rebuilt for this page ----------
+   The header's Accessibility button opens a drawer of four switches: Captions, Larger text, High
+   contrast and Reduce motion. Each is a class on <html> (cc, big, hc, calm) plus `prefs`, in memory
+   for this visit only: nothing is stored, so a reload goes back to the system's settings. A switch
+   applies at once and announces nothing beyond its own on or off. The drawer is a native modal
+   dialog, like the settings drawer: Escape, Close or a tap outside closes it, and focus goes back
+   to the button. */
+const a11y = $('a11y'), PREF_CLASS = { captions:'cc', big:'big', contrast:'hc', calm:'calm' };
+const switches = [...a11y.querySelectorAll('[role=switch]')];
+function applyPrefs(){
+  for (const [k, c] of Object.entries(PREF_CLASS)) document.documentElement.classList.toggle(c, prefs[k]);
+  for (const s of switches) s.setAttribute('aria-checked', prefs[s.dataset.pref]);
+}
+for (const s of switches) s.onclick = () => { prefs[s.dataset.pref] = !prefs[s.dataset.pref]; applyPrefs(); };
+applyPrefs();
+$('a11y-open').onclick = () => {
+  if (a11y.open || typeof a11y.showModal !== 'function') return;
+  $('a11y-desc').hidden = true;                                 // an earlier description is out of date
+  a11y.showModal(); switches[0].focus();
+};
+$('a11y-close').onclick = () => a11y.close();
+a11y.addEventListener('click', e => {                           // a tap on the dimmed page around it
+  const r = a11y.getBoundingClientRect();
+  if (e.target === a11y && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom))
+    a11y.close();
+});
+a11y.addEventListener('close', () => $('a11y-open').focus());  // Close, Escape or a tap outside
+
+/* Screen readers: #status and #reply are polite live regions (an answer is read once, from #reply;
+   the captions strip is aria-hidden). Walking in and out is said once in #announce, since the
+   button that had focus disappears; afterwards focus lands on the input (or Replay on a phone, which
+   opens no keyboard) at the counter, and on Enter shop back on the street. The chips and Ask say
+   they are unavailable while the clerk is busy, as they look. */
+function focusLost(){                       // on nothing, or on a control no longer shown (browsers differ on when they let go)
+  const a = document.activeElement;
+  return !a || a === document.body || !a.getClientRects().length;
+}
+let announceTimer = 0;
+function announce(text){                    // cleared first, so the same words are read again
+  clearTimeout(announceTimer); $('announce').textContent = '';
+  announceTimer = setTimeout(() => { $('announce').textContent = text; }, 80);
+}
+const askButton = $('f').querySelector('button:not([type=button])');   // Ask, the submit button (not mic.js's)
+function markBusy(){
+  const busy = state !== 'listening';
+  for (const b of [...$('chips').children, askButton])
+    if (busy) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
+}
+
+// Captions: #cc copies whatever say() writes into #reply; the CSS shows it while the clerk speaks.
+const cc = $('cc'), replyText = $('reply');
+new MutationObserver(() => { cc.textContent = replyText.textContent; })
+  .observe(replyText, { childList:true, characterData:true, subtree:true });
+
+/* Describe this view (header button, or the drawer): a few sentences on what the 3D view shows now,
+   written from what section 3 draws (not the AI Studio app's scenes), shown as text and spoken in the
+   browser's own voice. Never ElevenLabs and never the network. It never talks over the clerk: asked
+   while the clerk answers, it waits until the clerk has finished; the clerk's next words (say()) and
+   Leave silence it; it is silenced when a question goes in, and it never speaks while the mic is
+   listening. It never states stock: that lives in the stock room. */
+const STREET_NAME = 'Peachtree Street NE';
+const listOf = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : a.join('');
+const ROOM = {                              // behind the counter, per shop (section 3's props)
+  bakery: () => 'Behind it, wooden shelves hold flour sacks and bread, and a brick oven glows in the back-left corner.',
+  paint: () => 'Behind it, metal shelves hold paint buckets and cans, and a paint shaker stands in the back-left corner.',
+  plants: calm => 'Behind it, a wooden stand holds potted plants and hanging vines, and a mister stands in the back-left corner' +
+    (calm ? '.' : ', sending up rings of mist.') };
+function describe(){
+  const s = current, where = document.body.dataset.where;
+  if (where === 'entering') return 'You\'re going into ' + s.name + '; the counter is just inside.';
+  if (where === 'leaving') return 'You\'re stepping back out onto ' + STREET_NAME + '.';
+  if (where === 'street') return 'You\'re on ' + STREET_NAME + ', outside ' + s.name + '. Its sign hangs over a striped awning, ' +
+    'with two doors in the middle. Behind it rises the Atlanta skyline: Bank of America Plaza with its gold spire on the ' +
+    'right, the round blue Westin tower on the left. ' +
+    (skyline ? 'The view is tilted up toward the skyline.' : 'Press Enter shop to walk in.');
+  if (state === 'checking') return 'The clerk has turned to the stock room, and the stock agent has come out to check.';
+  return 'You\'re at the counter of ' + s.name + (state === 'answering' ? '; the clerk is answering you. ' : ', facing the clerk. ') +
+    (ROOM[s.id] ? ROOM[s.id](prefs.calm) + ' ' : '') + 'A board on the left wall lists ' +
+    listOf(s.inventory.map(i => i.name)) + ', and the stock room door is at the back right.';
+}
+
+// The 3D view for screen readers: its label says where you are, its description is the text above.
+function labelScene(){
+  if (!current) return;
+  const where = document.body.dataset.where, name = current.name;
+  canvas.setAttribute('aria-label', where === 'inside' ? 'Inside ' + name + ', at the counter'
+    : where === 'street' ? 'Outside ' + name + ', on ' + STREET_NAME
+    : where === 'entering' ? 'Walking into ' + name : 'Stepping out of ' + name);
+  $('scene-desc').textContent = describe();
+}
+
+// The toast sits under the header. While the clerk checks, the hand-off (the clerk, the stock agent
+// and the stock room door, projected from the counter's camera station) must stay in view: the toast
+// goes beside it if it would overlap, and is left out (voice only) if there is no room for it.
+const toast = $('scene-toast'), probe = new THREE.PerspectiveCamera(), mark = new THREE.Vector3();
+const HANDOFF = [                           // corners, in metres: the clerk, the stock agent, the stock room door
+  [[-0.35, 1.95, -0.6], [0.35, 1.95, -0.6], [-0.35, 1.0, -0.6], [0.35, 1.0, -0.6]],
+  [[0.75, 1.85, -4.2], [2.6, 1.85, -4.2], [0.75, 0.2, -4.2], [2.6, 0.2, -4.2]],
+  [[1.3, 2.85, -4.6], [2.5, 2.85, -4.6], [1.3, 0.2, -4.6], [2.5, 0.2, -4.6]] ];
+function handoffBoxes(){                    // each on screen, seen from the counter's camera station
+  probe.copy(camera); probe.position.set(...INSIDE.pos); probe.lookAt(mark.set(...INSIDE.look));
+  probe.updateMatrixWorld(); probe.updateProjectionMatrix();
+  return HANDOFF.map(points => {
+    const box = { left:Infinity, right:-Infinity, top:Infinity, bottom:-Infinity };
+    for (const p of points){
+      mark.set(...p).project(probe);
+      const x = (mark.x + 1) * innerWidth / 2, y = (1 - mark.y) * innerHeight / 2;
+      box.left = Math.min(box.left, x); box.right = Math.max(box.right, x);
+      box.top = Math.min(box.top, y); box.bottom = Math.max(box.bottom, y);
+    }
+    return box;
+  });
+}
+function placeToast(){                      // false: no room for it
+  const head = $('top').getBoundingClientRect(), hint = $('hint').getBoundingClientRect();
+  toast.classList.remove('side'); toast.style.width = '';
+  toast.style.top = Math.round(Math.max(head.bottom, hint.height ? hint.bottom : 0) + 8) + 'px';
+  if (state !== 'checking' || document.body.dataset.where !== 'inside') return true;
+  const boxes = handoffBoxes();
+  const bottom = () => toast.offsetTop + toast.offsetHeight;   // layout box, not the slide-in's transform
+  const hits = () => boxes.filter(b => bottom() + 8 > b.top && toast.offsetLeft + toast.offsetWidth + 8 > b.left &&
+                                       toast.offsetLeft - 8 < b.right);
+  for (let tries = 0; tries < 3; tries++){  // beside what it would cover; a narrower toast is taller, so look again
+    const over = hits();
+    if (!over.length) return true;
+    const width = Math.floor(Math.min(...over.map(b => b.left)) - 12 - 12);
+    if (width < 180) return false;
+    toast.classList.add('side'); toast.style.width = width + 'px';
+  }
+  return !hits().length;
+}
+let toastTimer = 0;
+const holdToast = ms => { clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.hidden = true; }, ms); };
+function showToast(text, spoken){
+  toast.textContent = text; toast.hidden = false;
+  if (!placeToast()){ toast.hidden = true; return; }
+  holdToast(spoken ? 60000 : 3000 + text.length * 60);   // while it is spoken, else time to read it
+}
+addEventListener('resize', () => { if (!toast.hidden && !placeToast()) toast.hidden = true; });
+
+let voiced = null;                          // the description being spoken: a token, so a late end is ignored
+let waiting = null;                         // a description asked for while the clerk talks: { drawer }
+const micLive = () => !!document.querySelector('#f .pp-mic.pp-live');
+function voiceScene(text){
+  if (!hasTTS || micLive()) return false;   // the mic must never hear it as a question
+  if (voiced) speechSynthesis.cancel();
+  const run = voiced = {};
+  const parts = (text.match(/[^.!?]+[.!?]*/g) || [text]).map(p => p.trim()).filter(Boolean);
+  parts.forEach((p, i) => {                 // a sentence at a time: Chrome cuts long utterances short
+    const u = new SpeechSynthesisUtterance(p);
+    if (i === parts.length - 1) u.onend = u.onerror = () => { if (voiced === run){ voiced = null; holdToast(2500); } };
+    speechSynthesis.speak(u);
+  });
+  return true;
+}
+// Stop the description. Only at moments when nothing else is speaking: speechSynthesis.cancel()
+// would also cut the clerk's browser voice.
+function hushScene(){ if (voiced){ voiced = null; speechSynthesis.cancel(); } }
+
+function describeNow(drawer){
+  const text = describe();
+  if (drawer){ $('a11y-desc').textContent = text; $('a11y-desc').hidden = false; }
+  if (state === 'answering'){               // after the clerk, never over it
+    waiting = { drawer };
+    if (!drawer) showToast(text, true);
+    return;
+  }
+  waiting = null;
+  const spoken = voiceScene(text);
+  if (!drawer) showToast(text, spoken);
+}
+$('describe').onclick = () => describeNow(false);
+$('a11y-describe').onclick = () => describeNow(true);
+
+// Re-centre (header, or the drawer, which then closes so the view shows): undoes a drag, and on the
+// street the Skyline tilt, so the view faces the doors, or the clerk inside, again.
+function recentre(){ if (skyline) setSkyline(false); else targetYaw = targetPitch = 0; }
+$('recentre').onclick = recentre;
+$('a11y-recentre').onclick = () => { recentre(); a11y.close(); };
+$('f').addEventListener('click', e => { if (e.target.closest?.('.pp-mic')) hushScene(); }, true);   // the mic button
+
+// Where and what the clerk is doing: keeps the 3D view's label current and retires a stale description.
+let seenWhere = document.body.dataset.where, seenState = document.body.dataset.state;
+new MutationObserver(() => {
+  const where = document.body.dataset.where, st = document.body.dataset.state;
+  const moved = where !== seenWhere, turned = st !== seenState;
+  seenWhere = where; seenState = st;
+  if (moved && where === 'entering') announce('Walking into ' + current.name);
+  if (moved && where === 'leaving') announce('Stepping outside');
+  if (turned) markBusy();
+  if (moved){ toast.hidden = true; waiting = null; }   // walking in or out: say() or Leave silences the voice
+  else if (turned){
+    if (waiting && st === 'listening'){ const w = waiting; waiting = null; describeNow(w.drawer); }   // the clerk has finished
+    else if (st === 'checking'){ toast.hidden = true; hushScene(); }   // a question went in; nothing else speaks now
+    else if (st === 'answering'){ toast.hidden = true; voiced = null; } // say() has just silenced it
+  }
+  labelScene();
+}).observe(document.body, { attributes:true, attributeFilter:['data-where', 'data-state'] });
+new MutationObserver(() => { toast.hidden = true; waiting = null; hushScene(); labelScene(); })   // another shop
+  .observe($('shop-name'), { childList:true, characterData:true, subtree:true });
 
 build(SHOPS[0]);
 </script>
