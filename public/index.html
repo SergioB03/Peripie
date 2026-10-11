@@ -762,9 +762,10 @@ const backWords = item => noteLike(item.restock) ? cap(item.restock) + '.' : 'It
 
 /* A list, checked all at once. Resolves to { reply, audioUrl, list: { shop, at, items } }, plus
    canned: true when it is the printed list's answer; never throws. items is the record, one
-   entry per item in list order: { query, found: true, product, inStock, onHand, nextRestockText,
-   typicalRestockDays } (null for what the record lacks) or { query, found: false }. at is when the
-   answer came, for the Take this with you card. Nothing here is stored. */
+   entry per item in list order: { query, found: true, product, inStock, onHand, lowStock, price,
+   nextRestockText, restockNote, typicalRestockDays } (null for what the record lacks) or
+   { query, found: false }. at is when the answer came, for the Take this with you card. Nothing
+   here is stored. */
 async function askList(items){
   const shop = current, t0 = performance.now();
   const live = await callClerk({ shop: shop.id, items });
@@ -775,7 +776,7 @@ async function askList(items){
   const printed = items.map(query => {
     const item = printedItem(shop, query);
     const back = !item || item.inStock ? null : item.restock || null;   // its restock words, or null
-    return item ? { query, found: true, product: item.name, inStock: item.inStock, onHand: null,
+    return item ? { query, found: true, product: item.name, inStock: item.inStock, onHand: null, lowStock: false, price: null,
                     nextRestockText: back && !noteLike(back) ? back : null,
                     restockNote: back && noteLike(back) ? cap(back) + '.' : null, typicalRestockDays: null }
                 : { query, found: false };
@@ -792,9 +793,10 @@ function recordOf(stocks, items){
     const query = items[i];
     if (s?.found === false){ record.push({ query, found: false }); continue; }
     if (s?.found !== true || !stockOf(s) || typeof s.inStock !== 'boolean') return null;
+    const str = v => typeof v === 'string' && v.trim() ? v.trim() : null;
     record.push({ query, found: true, product: s.product, inStock: s.inStock,
-      onHand: Number.isFinite(s.onHand) ? s.onHand : null,
-      nextRestockText: typeof s.nextRestockText === 'string' && s.nextRestockText.trim() ? s.nextRestockText : null,
+      onHand: Number.isFinite(s.onHand) ? s.onHand : null, lowStock: s.lowStock === true, price: str(s.price),
+      nextRestockText: str(s.nextRestockText), restockNote: str(s.restockNote),
       typicalRestockDays: Number.isFinite(s.typicalRestockDays) ? s.typicalRestockDays : null });
   }
   return record;
@@ -2000,14 +2002,32 @@ function showStock(reply){
   const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'Stock room';
   if (reply?.list){ note.replaceChildren(tag, ' · your list, checked ' + clock(reply.list.at)); return; }
   if (!s){ note.replaceChildren(); return; }
-  const parts = [s.product], n = s.onHand;
-  if (s.inStock) parts.push(Number.isFinite(n) ? 'in stock, ' + n + ' on hand' : 'in stock');
-  else {
-    parts.push(Number.isFinite(n) ? n + ' on hand' : 'out of stock');
-    if (typeof s.nextRestockText === 'string' && s.nextRestockText) parts.push('back ' + s.nextRestockText);
-    if (usually(s.typicalRestockDays)) parts.push(usually(s.typicalRestockDays));
-  }
+  const parts = [s.product, ...stockWords(s)];                 // never the price: that is the record's and the card's
   note.replaceChildren(tag, ' · ' + parts.join(' · '));
+}
+
+// The stock room's words for one found product, for the caption and the record: in stock as
+// "in stock, 8 on hand", or "2 left" when the room flags it low; out of stock as "0 on hand"
+// (the caption only), then when it is back: the shop's own note when it has one ("The next tray
+// comes out of the oven in about 18 minutes", its full stop dropped), else "back " +
+// nextRestockText; then how long it usually stays out, only when nextRestockText names a weekday
+// ("Friday, October 16"): next to "in about 18 minutes", "today at 2 pm" or "tomorrow at 7 am" a
+// typical 4.5 days would mislead. The spoken reply is the server's; none of this changes it.
+const weekday = text => /^(mon|tues|wednes|thurs|fri|satur|sun)day\b/i.test(text || '');
+function backWhen(e){                        // [when it is back, how long it usually takes], each optional
+  const parts = [];
+  if (e.restockNote) parts.push(e.restockNote.replace(/\.\s*$/, ''));
+  else if (e.nextRestockText) parts.push('back ' + e.nextRestockText);
+  const usual = weekday(e.nextRestockText) ? usually(e.typicalRestockDays) : '';
+  if (usual) parts.push(usual);
+  return parts;
+}
+function stockWords(e, caption = true){
+  const n = Number.isFinite(e.onHand) ? e.onHand : null;
+  if (e.inStock) return [e.lowStock && n !== null ? n + ' left' : n !== null ? 'in stock, ' + n + ' on hand' : 'in stock'];
+  const back = backWhen(e);
+  if (caption) return [n !== null ? n + ' on hand' : 'out of stock', ...back];
+  return back.length ? back : ['out of stock'];
 }
 
 // The visitor's local time, as on the card: "7:40 am" (or "07:40" where clocks run 24 hours).
@@ -2015,19 +2035,22 @@ const clock = at => at.toLocaleTimeString([], { hour:'numeric', minute:'2-digit'
   .replace(/\s+/g, ' ').replace(/\b(AM|PM)\b/, m => m.toLowerCase());
 
 // One item of a list's answer, for the panel ([kind, mark, product or query, the rest]) and for the
-// card (one plain line). Out of stock with a date: "✗ croissant · back Tuesday, October 13 · usually
-// about 3 days" here, "✗ croissant, back Tuesday, October 13 (usually about 3 days)" on the card.
+// card (one plain line), with the price (the record and the card show it; the caption never does).
+// "✗ croissant · $3.50 · back Friday, October 16 · usually about 4.5 days" here, "✗ croissant
+// ($3.50), back Friday, October 16 (usually about 4.5 days)" on the card; with the shop's note:
+// "✗ croissant · $3.50 · The next tray comes out of the oven in about 18 minutes" and "✗ croissant
+// ($3.50): The next tray comes out of the oven in about 18 minutes"; low: "✓ concha · $1.50 · 2 left".
 function recordLine(e){
   if (!e.found) return ['none', '–', e.query, ' · not carried'];
-  if (e.inStock) return ['in', '✓', e.product, ' · in stock' + (e.onHand !== null ? ', ' + e.onHand + ' on hand' : '')];
-  const usual = usually(e.typicalRestockDays);
-  return ['out', '✗', e.product, (e.nextRestockText ? ' · back ' + e.nextRestockText : ' · out of stock') + (usual ? ' · ' + usual : '')];
+  const price = e.price ? ' · ' + e.price : '';
+  return [e.inStock ? 'in' : 'out', e.inStock ? '✓' : '✗', e.product, price + ' · ' + stockWords(e, false).join(' · ')];
 }
 function cardLine(e){
   if (!e.found) return '– ' + e.query + ', not carried';
-  if (e.inStock) return '✓ ' + e.product + (e.onHand !== null ? ', ' + e.onHand + ' on hand' : ', in stock');
-  const usual = usually(e.typicalRestockDays);
-  return '✗ ' + e.product + (e.nextRestockText ? ', back ' + e.nextRestockText : ', out of stock') + (usual ? ' (' + usual + ')' : '');
+  const price = e.price ? ' (' + e.price + ')' : '';
+  if (e.inStock) return '✓ ' + e.product + price + ', ' + stockWords(e, false)[0];
+  const [when, usual] = backWhen(e);
+  return '✗ ' + e.product + price + (when ? (e.restockNote ? ': ' : ', ') + when + (usual ? ' (' + usual + ')' : '') : ', out of stock');
 }
 
 // The record under a list's answer, and Take this with you; both gone for anything else. The marks
@@ -2038,7 +2061,7 @@ function showRecord(reply){
     const [kind, mark, name, rest] = recordLine(e), li = document.createElement('li');
     const mk = document.createElement('span'); mk.className = 'mk'; mk.setAttribute('aria-hidden', 'true'); mk.textContent = mark;
     const words = document.createElement('span'); words.append(name);
-    if (kind === 'out' && e.nextRestockText){   // "back Tuesday" alone does not say it is out now
+    if (kind === 'out' && (e.nextRestockText || e.restockNote)){   // "back Tuesday" alone does not say it is out now
       const sr = document.createElement('span'); sr.className = 'sr-only'; sr.textContent = ', out of stock'; words.append(sr);
     }
     words.append(rest); li.className = kind; li.append(mk, words); return li;
