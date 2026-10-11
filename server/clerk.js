@@ -3,10 +3,13 @@
 // first round must call check_stock. 10 s overall (PLAN.md section 3, timing), each model
 // attempt at most 5 s, so a hanging model leaves time for the next one. A shop whose staff
 // includes a support agent (shops.js) gets one more rule: advice for how-to questions, still
-// ending with the stock of what it recommends. Zero Data: the visitor's text and the reply are
-// never logged; the log gets model ids, timings and error types only.
+// ending with the stock of what it recommends. If no model answers but a stock lookup found the
+// product, the reply is composed from that record (template.js) instead of failing. Zero Data:
+// the visitor's text and the reply are never logged; the log gets model ids, timings and error
+// types only.
 import { FunctionCallingConfigMode, GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { checkStock } from './stock.js';
+import { templatedReply } from './template.js';
 
 // Measured Oct 10 on the project key: flash-lite answered in about 1 s while 3.8-flash returned
 // 503 and 429 (PLAN.md section 3), so flash-lite is the default and 3.8-flash the fallback.
@@ -106,7 +109,8 @@ async function runTool(shopId, call, signal) {
   }
 }
 
-async function runTurn(ai, model, shop, text, signal) {
+// found.fromTools keeps the last record a tool round found, across attempts, for the template.
+async function runTurn(ai, model, shop, text, signal, found) {
   const config = {
     systemInstruction: instructions(shop),
     tools: [{ functionDeclarations: [checkStockDeclaration] }],
@@ -146,7 +150,9 @@ async function runTurn(ai, model, shop, text, signal) {
     contents.push(response.candidates[0].content);
     const results = await Promise.all(calls.map((call) => runTool(shop.id, call, signal)));
     for (const result of results) {
-      if (result.found === true) stock = stockFields(result);
+      if (result.found !== true) continue;
+      stock = stockFields(result);
+      found.fromTools = result;
     }
     contents.push({
       role: 'user',
@@ -160,31 +166,57 @@ async function runTurn(ai, model, shop, text, signal) {
 let client;
 
 // shop: { id, name, staff } from shops.js; text: the visitor's question, already validated.
-// Resolves to { reply, stock }; throws when no model could answer in time.
+// Resolves to { reply, stock }. If no model answers in time, the last product a stock lookup
+// found is answered from its record; throws only when no model answered and nothing was found.
 export async function askClerk(shop, text) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw failure('NoGeminiKey');
-  client ??= new GoogleGenAI({ apiKey });
-
   const started = performance.now();
   const deadline = started + TIMEOUT_MS;
+
+  // The stock room's own reading of the visitor's words, alongside the first model call. It does
+  // not replace the forced tool round (the model still words the answer); it is only the record
+  // to fall back on if every model attempt fails.
+  let direct = null;
+  const directLookup = checkStock(shop.id, text).then(
+    (result) => {
+      if (result?.found === true) direct = result;
+    },
+    () => {},
+  );
+  const found = { fromTools: null };
+
   let lastError = failure('NoTimeLeft');
-  for (const [i, model] of ATTEMPT_MODELS.entries()) {
-    const ms = Math.floor(Math.min(ATTEMPT_MS, deadline - performance.now()));
-    if (ms <= 0) break;
-    // Each attempt has its own deadline, so a model that hangs (not only one that errors)
-    // hands the rest of the 10 s to the next attempt.
-    const signal = AbortSignal.timeout(ms);
-    try {
-      const answer = await withDeadline(runTurn(client, model, shop, text, signal), signal);
-      console.log(`clerk: answered by ${model} (attempt ${i + 1}) in ${Math.round(performance.now() - started)}ms`);
-      return answer;
-    } catch (err) {
-      lastError = err;
-      console.warn(`clerk: attempt ${i + 1} ${model} failed: ${errorType(err)}`);
-      // A stock failure would fail the next attempt the same way.
-      if (err?.name === 'StockError') break;
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    lastError = failure('NoGeminiKey');
+  } else {
+    client ??= new GoogleGenAI({ apiKey });
+    for (const [i, model] of ATTEMPT_MODELS.entries()) {
+      const ms = Math.floor(Math.min(ATTEMPT_MS, deadline - performance.now()));
+      if (ms <= 0) break;
+      // Each attempt has its own deadline, so a model that hangs (not only one that errors)
+      // hands the rest of the 10 s to the next attempt.
+      const signal = AbortSignal.timeout(ms);
+      try {
+        const answer = await withDeadline(runTurn(client, model, shop, text, signal, found), signal);
+        console.log(`clerk: answered by ${model} (attempt ${i + 1}) in ${Math.round(performance.now() - started)}ms`);
+        return answer;
+      } catch (err) {
+        lastError = err;
+        console.warn(`clerk: attempt ${i + 1} ${model} failed: ${errorType(err)}`);
+        // A stock failure would fail the next attempt the same way.
+        if (err?.name === 'StockError') break;
+      }
     }
+  }
+
+  // No model answered. The last product a lookup found still gets its facts spoken: a tool
+  // round's record, else the direct lookup's (waited for only within the 10 s).
+  const left = Math.floor(deadline - performance.now());
+  if (left > 0) await withDeadline(directLookup, AbortSignal.timeout(left)).catch(() => {});
+  const record = found.fromTools ?? direct;
+  if (record) {
+    console.log(`clerk: templated reply, model unavailable (${errorType(lastError)})`);
+    return { reply: templatedReply(record), stock: stockFields(record) };
   }
   throw lastError;
 }

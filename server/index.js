@@ -2,6 +2,7 @@
 // Zero Data: the visitor's text, the clerk's reply and request bodies are never logged or stored.
 // Logs carry method, path, status and milliseconds, plus error types.
 import 'dotenv/config';
+import compression from 'compression';
 import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { SHOPS } from './shops.js';
@@ -15,6 +16,8 @@ const RESPONSE_BUDGET_MS = 12_500;
 const MIN_AUDIO_MS = 1_500;
 const MAX_AUDIO_MS = 6_000;
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
+// Files under /vendor carry their library version in the path, so browsers may keep them a year.
+const vendorDir = fileURLToPath(new URL('../public/vendor/', import.meta.url));
 
 function errorType(err) {
   if (!err || typeof err !== 'object') return 'Error';
@@ -56,13 +59,19 @@ app.disable('x-powered-by');
 
 app.use((req, res, next) => {
   const start = performance.now();
+  // Read now: a mounted middleware (the /vendor static) strips its prefix from req.path.
+  const path = req.path;
   res.on('close', () => {
     const ms = Math.round(performance.now() - start);
     const aborted = res.writableFinished ? '' : ' aborted';
-    console.log(`${req.method} ${req.path} ${res.statusCode} ${ms}ms${aborted}`);
+    console.log(`${req.method} ${path} ${res.statusCode} ${ms}ms${aborted}`);
   });
   next();
 });
+
+// gzip (or brotli) for the page, the vendored Three.js and the clerk's JSON; bodies under 1 kb
+// go out as they are.
+app.use(compression());
 
 app.get('/health', (req, res) => {
   res.json({ ok: true });
@@ -100,6 +109,7 @@ app.post('/api/clerk', express.json({ limit: '4kb' }), async (req, res) => {
   res.json({ reply: answer.reply, audioUrl, stock: answer.stock ?? null });
 });
 
+app.use('/vendor', express.static(vendorDir, { maxAge: '1y', immutable: true }));
 app.use(express.static(publicDir));
 
 // Every error ends here and is answered without its message: Express's default handler would
@@ -127,7 +137,7 @@ app.listen(port, '0.0.0.0', (err) => {
     process.exit(1);
   }
   console.log(`Peripie listening on 0.0.0.0:${port}`);
-  if (!process.env.GEMINI_API_KEY) console.warn('GEMINI_API_KEY not set: questions answer 502 clerk_unavailable');
+  if (!process.env.GEMINI_API_KEY) console.warn('GEMINI_API_KEY not set: questions about a stocked product get the templated reply, others 502');
   if (!process.env.ELEVENLABS_API_KEY) console.warn('ELEVENLABS_API_KEY not set: audioUrl is null');
   loadClerk().catch(() => {});
 });
