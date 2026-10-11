@@ -15,6 +15,18 @@ CREATE TABLE IF NOT EXISTS inventory (
   PRIMARY KEY (shop_id, product)
 );
 
+-- How the shop restocks it, in words, so the clerk can say "in about 18 minutes" instead of a
+-- date. Added Oct 11; ADD COLUMN IF NOT EXISTS so this file still re-runs on a database that
+-- was created before. Run db/seed.sql again afterwards to fill them.
+--   restock_rule  'every:20;07:00-17:00' (a batch every 20 minutes from 7 am to 5 pm),
+--                 'daily:07:00,14:00' (batches at those times), 'weekly:friday' (a delivery
+--                 every Friday), or NULL (only next_restock is known). Parsed in Node
+--                 (db/seed-data.js parseRule), in America/New_York.
+--   restock_note  the shop's own sentence, with {when} filled in by check_stock:
+--                 'The next tray of croissants comes out of the oven {when}.'
+ALTER TABLE inventory ADD COLUMN IF NOT EXISTS restock_rule text;
+ALTER TABLE inventory ADD COLUMN IF NOT EXISTS restock_note text;
+
 -- Stock level over time, one row per reading: a hypertable partitioned on ts.
 -- No serial id: any unique index on a hypertable must include ts, and nothing needs one.
 CREATE TABLE IF NOT EXISTS stock_events (

@@ -4,36 +4,54 @@
 --
 -- Idempotent: it replaces every row, so it is safe to run again. Dates are relative to the
 -- day it runs in America/New_York, so run it again on demo morning to keep "tomorrow" true.
+-- Needs the restock_rule and restock_note columns: run db/schema.sql first (safe to re-run).
 
 BEGIN;
 
--- current_date and now() in the shops' local time
+-- current_date, localtime and now() in the shops' local time
 SET LOCAL timezone = 'America/New_York';
 
 TRUNCATE inventory;
 TRUNCATE stock_events;
 
--- restock_dow: NULL means tomorrow; otherwise a weekday (0 = Sunday .. 6 = Saturday),
--- the next one strictly after today.
-INSERT INTO inventory (shop_id, product, on_hand, next_restock)
+-- next_restock: last_batch set means a time-of-day rule (today while that batch is still ahead,
+-- else tomorrow); otherwise restock_dow NULL means tomorrow, and a weekday (0 = Sunday ..
+-- 6 = Saturday) means the next one strictly after today.
+-- restock_rule and restock_note say how the shop restocks, in words; check_stock turns the rule
+-- into "in about 18 minutes" or "tomorrow at 7 am" and fills {when} in the note.
+INSERT INTO inventory (shop_id, product, on_hand, next_restock, restock_rule, restock_note)
 SELECT shop_id, product, on_hand,
-       current_date + CASE WHEN restock_dow IS NULL THEN 1
+       current_date + CASE WHEN last_batch IS NOT NULL THEN CASE WHEN localtime < last_batch THEN 0 ELSE 1 END
+                           WHEN restock_dow IS NULL THEN 1
                            ELSE (restock_dow - extract(dow FROM current_date)::int + 6) % 7 + 1
-                      END
+                      END,
+       restock_rule, restock_note
 FROM (VALUES
-  ('bakery', 'sourdough', 8, NULL::int),
-  ('bakery', 'croissant', 0, 2),
-  ('bakery', 'concha', 10, NULL::int),
-  ('bakery', 'baguette', 0, NULL::int),
-  ('paint', 'primer', 12, 5),
-  ('paint', 'eggshell white', 9, 5),
-  ('paint', 'roller', 0, 5),
-  ('paint', 'painter''s tape', 20, 5),
-  ('plants', 'monstera', 0, 6),
-  ('plants', 'pothos', 7, 6),
-  ('plants', 'snake plant', 5, 6),
-  ('plants', 'terracotta pot', 16, 6)
-) AS v (shop_id, product, on_hand, restock_dow);
+  ('bakery', 'sourdough', 8, NULL::int, NULL::time,
+   NULL::text, 'Baked fresh this morning.'),
+  ('bakery', 'croissant', 0, NULL::int, '17:00'::time,
+   'every:20;07:00-17:00', 'The next tray of croissants comes out of the oven {when}.'),
+  ('bakery', 'concha', 10, NULL::int, NULL::time,
+   NULL::text, 'Baked fresh this morning.'),
+  ('bakery', 'baguette', 0, NULL::int, '14:00'::time,
+   'daily:07:00,14:00', 'We bake baguettes at seven and at two; the next batch is {when}.'),
+  ('paint', 'primer', 12, 5, NULL::time,
+   NULL::text, NULL::text),
+  ('paint', 'eggshell white', 9, 5, NULL::time,
+   NULL::text, NULL::text),
+  ('paint', 'roller', 0, 5, NULL::time,
+   'weekly:friday', 'Our supplier''s truck comes {when}.'),
+  ('paint', 'painter''s tape', 20, 5, NULL::time,
+   NULL::text, NULL::text),
+  ('plants', 'monstera', 0, 6, NULL::time,
+   'weekly:saturday', 'The grower drops off new plants {when}.'),
+  ('plants', 'pothos', 7, 6, NULL::time,
+   NULL::text, NULL::text),
+  ('plants', 'snake plant', 5, 6, NULL::time,
+   NULL::text, NULL::text),
+  ('plants', 'terracotta pot', 16, 6, NULL::time,
+   NULL::text, NULL::text)
+) AS v (shop_id, product, on_hand, restock_dow, last_batch, restock_rule, restock_note);
 
 -- One reading every 6 hours for 60 days per product; k counts readings back from now.
 -- Between sell-outs the shelf runs down from base + amp to base over `cycle` readings.
