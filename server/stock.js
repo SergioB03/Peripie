@@ -4,6 +4,7 @@
 //   { found: true, product, inStock, onHand, nextRestock, nextRestockText, typicalRestockDays }
 //   { found: false, inStockProducts }
 // It never rejects: if the database fails, it answers from the built-in seed and logs why.
+// checkStockList(shopId, queries) answers a whole list the same way from one read of the shop.
 //
 // With TIGER_DATABASE_URL (or, failing that, DATABASE_URL) set it reads Tiger Data
 // (inventory plus the stock_events hypertable). With neither, it answers from an in-memory
@@ -327,14 +328,15 @@ async function databaseRows(shopId, databaseUrl) {
   }));
 }
 
-export async function checkStock(shopId, query) {
-  const shop = String(shopId ?? '');
+// The shop's rows: from the database, or from the built-in seed when there is no database, the
+// breaker is open, the query fails, or the database has no rows for a seed shop.
+async function shopRows(shop) {
   const db = databaseSetting();
   if (!db) {
     warnNoDatabase();
-    return answer(memoryRows(shop), query);
+    return memoryRows(shop);
   }
-  if (downSince) return answer(memoryRows(shop), query); // breaker open: no waiting
+  if (downSince) return memoryRows(shop); // breaker open: no waiting
   let rows;
   try {
     rows = await databaseRows(shop, db.url);
@@ -346,12 +348,25 @@ export async function checkStock(shopId, query) {
     } else {
       markDown(db.url, err);
     }
-    return answer(memoryRows(shop), query);
+    return memoryRows(shop);
   }
   // Logged only for the three seed shops, so no visitor input ever reaches this line.
   if (!rows.length && memoryRows(shop).length) {
     console.warn(`[stock] database has no inventory rows for ${shop}: seed not loaded? answering from the built-in seed`);
-    return answer(memoryRows(shop), query);
+    return memoryRows(shop);
   }
-  return answer(rows, query);
+  return rows;
+}
+
+export async function checkStock(shopId, query) {
+  return answer(await shopRows(String(shopId ?? '')), query);
+}
+
+// A list: the shop's rows are read once and every query is answered from them exactly as
+// checkStock answers it, so a list of any length is one round trip and one snapshot. (One
+// checkStock per item would queue up to 12 queries on the pool of 3; measured Oct 11 on a cold
+// pool, that waited 2 s and tripped the breaker.) One result per query, in order; never rejects.
+export async function checkStockList(shopId, queries) {
+  const rows = await shopRows(String(shopId ?? ''));
+  return queries.map((query) => answer(rows, query));
 }

@@ -8,13 +8,14 @@
 // the visitor's text and the reply are never logged; the log gets model ids, timings and error
 // types only.
 //
-// A list (askList): the stock agent checks every item at once (check_stock per item, in
-// parallel, no model involved), then one model call with no tools words the summary from those
-// results, under the same model, fallback and timing rules. The facts are known before the model
+// A list (askList): the stock agent checks every item at once (the shop's stock read once, each
+// item answered from it exactly as check_stock answers it, no model involved), then one model
+// call with no tools words the summary from those results, under the same model, fallback and
+// timing rules. The facts are known before the model
 // is asked, so a list never fails: if no model answers, or an answer drops a restock date, the
 // summary is composed from the facts (template.js).
 import { FunctionCallingConfigMode, GoogleGenAI, ThinkingLevel } from '@google/genai';
-import { checkStock } from './stock.js';
+import { checkStock, checkStockList } from './stock.js';
 import { listFacts, templatedListReply, templatedReply } from './template.js';
 
 // Measured Oct 10 on the project key: flash-lite answered in about 1 s while 3.8-flash returned
@@ -280,14 +281,14 @@ function listEntry(query, result) {
 
 // shop: { id, name, staff } from shops.js; items: the visitor's list, already validated (1 to 12
 // trimmed strings). Resolves to { reply, stock, stocks }: stocks in request order, stock the last
-// one found (the contract's `stock` shape) or null. Rejects only if a stock lookup does, which
-// check_stock never does (it answers from the built-in seed when the database fails).
+// one found (the contract's `stock` shape) or null. Rejects only if the stock lookup does, which
+// it never does (it answers from the built-in seed when the database fails).
 export async function askList(shop, items) {
   const started = performance.now();
   const deadline = started + TIMEOUT_MS;
 
   // The stock agent does the whole list at once.
-  const results = await Promise.all(items.map((item) => checkStock(shop.id, item)));
+  const results = await checkStockList(shop.id, items);
   const stocks = results.map((result, i) => listEntry(items[i], result));
   const facts = listFacts(stocks);
 
