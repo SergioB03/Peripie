@@ -298,6 +298,12 @@
   #a11y{width:min(440px,calc(100% - 32px))}
   #a11y .sheet{overflow-y:auto}
   #a11y-open .i{color:#fbbf24}
+  /* Re-centre: inside it takes the Skyline button's place; on the street only where the header has room
+     for five buttons (else it is in the drawer, and Skyline brings the view back too) */
+  #recentre{display:none}
+  body[data-where=inside] #recentre{display:inline-flex}
+  @media (min-width:640px) and (min-height:521px),(min-width:640px) and (orientation:portrait){
+    body[data-where=street] #recentre{display:inline-flex}}
   #a11y .prefs{display:flex;flex-direction:column;gap:6px}
   #a11y [role=switch]{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:52px;
     padding:8px 12px;border-radius:14px;text-align:left;background:rgb(12 10 9/.7);border:1px solid var(--s800);
@@ -427,6 +433,7 @@
   <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
   <symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
   <symbol id="i-send" viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></symbol>
+  <symbol id="i-locate-fixed" viewBox="0 0 24 24"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/></symbol>
   <symbol id="i-scan-eye" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="1"/><path d="M18.944 12.33a1 1 0 0 0 0-.66 7.5 7.5 0 0 0-13.888 0 1 1 0 0 0 0 .66 7.5 7.5 0 0 0 13.888 0"/></symbol>
   <symbol id="i-accessibility" viewBox="0 0 24 24"><circle cx="16" cy="4" r="1"/><path d="m18 19 1-7-6 1"/><path d="m5 8 3-3 5.5 3-2.36 3.5"/><path d="M4.24 14.5a5 5 0 0 0 6.88 6"/><path d="M13.76 17.5a5 5 0 0 0-6.88-6"/></symbol>
 </svg>
@@ -445,6 +452,7 @@
   <nav id="shops" class="solid" aria-label="Shops"></nav>
   <div id="actions">
     <button id="skyline" class="solid pill-btn" type="button" aria-pressed="false" title="Look up at the skyline"><svg class="i" aria-hidden="true"><use href="#i-building-2"/></svg><span id="skyline-label">Skyline</span></button>
+    <button id="recentre" class="solid pill-btn" type="button" aria-label="Re-centre view" title="Re-centre view"><svg class="i" aria-hidden="true"><use href="#i-locate-fixed"/></svg></button>
     <button id="describe" class="solid pill-btn" type="button" aria-label="Describe this view" title="Describe this view"><svg class="i" aria-hidden="true"><use href="#i-scan-eye"/></svg></button>
     <button id="sound" class="solid pill-btn" type="button" aria-pressed="true" aria-label="Sound effects" title="Sound effects"><svg class="i" aria-hidden="true"><use href="#i-volume-2"/></svg></button>
     <button id="a11y-open" class="solid pill-btn" type="button" aria-haspopup="dialog" aria-label="Accessibility" title="Accessibility"><svg class="i" aria-hidden="true"><use href="#i-accessibility"/></svg></button>
@@ -516,6 +524,7 @@
     </div>
     <div class="tools">
       <button type="button" id="a11y-describe" aria-describedby="a11y-describe-d"><svg class="i" aria-hidden="true"><use href="#i-scan-eye"/></svg>Describe this view</button>
+      <button type="button" id="a11y-recentre"><svg class="i" aria-hidden="true"><use href="#i-locate-fixed"/></svg>Re-centre view</button>
     </div>
     <p class="pf-hint" id="a11y-describe-d">Says what the 3D view shows, in your device's own voice; nothing goes over the network.</p>
     <p id="a11y-desc" class="desc" hidden></p>
@@ -1576,6 +1585,12 @@ function describeNow(drawer){
 }
 $('describe').onclick = () => describeNow(false);
 $('a11y-describe').onclick = () => describeNow(true);
+
+// Re-centre (header, or the drawer, which then closes so the view shows): undoes a drag, and on the
+// street the Skyline tilt, so the view faces the doors, or the clerk inside, again.
+function recentre(){ if (skyline) setSkyline(false); else targetYaw = targetPitch = 0; }
+$('recentre').onclick = recentre;
+$('a11y-recentre').onclick = () => { recentre(); a11y.close(); };
 $('f').addEventListener('click', e => { if (e.target.closest?.('.pp-mic')) hushScene(); }, true);   // the mic button
 
 // Where and what the clerk is doing: keeps the 3D view's label current and retires a stale description.
