@@ -259,13 +259,14 @@
   @keyframes bar{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
   @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
+<!-- Three.js 0.186.1 is served from this app (public/vendor/three-0.186.1: build/three.module.js and
+     build/three.core.js, byte-identical to the npm package), so the page loads nothing from a CDN.
+     three.module.js imports ./three.core.js, so both files stay together in that folder. -->
 <script type="importmap">
-{ "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/" } }
+{ "imports": { "three": "/vendor/three-0.186.1/three.module.js" } }
 </script>
-<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js">
-<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.core.js">
+<link rel="modulepreload" href="/vendor/three-0.186.1/three.module.js">
+<link rel="modulepreload" href="/vendor/three-0.186.1/three.core.js">
 </head>
 <body data-where="street" data-state="listening">
 <!-- Icons: Lucide (lucide-static 0.546.0, the version the AI Studio design used), ISC licence -->
