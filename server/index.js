@@ -5,7 +5,7 @@ import 'dotenv/config';
 import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { SHOPS } from './shops.js';
-import { textToSpeech, warmUpVoice } from './voice.js';
+import { textToSpeech } from './voice.js';
 
 const MAX_TEXT = 300;
 // Timing (PLAN.md section 3): the page waits 15 s and clerk.js gives Gemini 10 s, so a reply's
@@ -130,8 +130,4 @@ app.listen(port, '0.0.0.0', (err) => {
   if (!process.env.GEMINI_API_KEY) console.warn('GEMINI_API_KEY not set: questions answer 502 clerk_unavailable');
   if (!process.env.ELEVENLABS_API_KEY) console.warn('ELEVENLABS_API_KEY not set: audioUrl is null');
   loadClerk().catch(() => {});
-  // The voice SDK import (about 72 MB, 23k files) blocks the event loop for about 2 s, far
-  // longer on a busy disk. Start it 10 s after boot, so the deploy probe and the first page
-  // load land before the block; a greeting that comes sooner loads it inside its own budget.
-  setTimeout(warmUpVoice, 10_000);
 });
