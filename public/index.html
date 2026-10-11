@@ -1171,7 +1171,7 @@ const stockLabel = canvasTexture(512, 128, x => {
 put(scene, new THREE.PlaneGeometry(0.9, 0.2), mat('paint', '#ffffff', { map:stockLabel }), 1.9, 2.72, -4.515);
 
 // Counter: a panelled wooden body, a thicker varnished top (at y 1.225), and on it the brass
-// register at the left end, the bell at the right, a ledger pad. Each shop sets the woods.
+// register at the left end and the bell at the right; each shop sets the woods and adds its own things.
 const counterMat = mat('wood', '#5a3a22', { map:TEX.wood }), topMat = mat('varnish', '#c9915a', { map:TEX.wood }), counterTrim = mat('paint', '#3b2314');
 const counter = group(scene, 0, 0.2, 0.2);
 put(counter, TexBox(3.2, 0.95, 0.85, 0.5), counterMat, 0, 0.475, 0, { cast:true, receive:true });
@@ -1293,18 +1293,18 @@ function baked(parts, name, x, y, z, k = 1){
 // wall, something on the counter and its ceiling fixture. Rebuilt on a shop switch; anims run
 // every frame.
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-function board(g, shop, c, swatches){      // what the shop carries, from SHOPS: no stock, no names
+// The board on the left wall (section 6 describes it): what the shop carries, from SHOPS, in the
+// shop's colours, one column up to six names and two past that (drawList); the paint store adds
+// its chips beside the list. Never stock.
+function board(g, shop, c, swatches){
   const b = group(g, -3.2, 2.2, -0.6, Math.PI / 2);
-  put(b, Box(1.8, 1.2, 0.05), std(c.frame, { roughness:0.7 }));
-  const map = canvasTexture(512, 340, x => {
-    x.fillStyle = c.bg; x.fillRect(0, 0, 512, 340);
-    x.fillStyle = c.title; x.font = 'bold 28px ' + FONT; x.fillText('WHAT WE CARRY', 30, 52);
-    x.fillStyle = c.text; x.font = '26px ' + FONT;
-    shop.inventory.forEach((item, i) => x.fillText('•  ' + cap(item.name), 30, 110 + i * 46));
-    (swatches || []).forEach((col, i) => { x.fillStyle = col; x.fillRect(318 + (i % 4) * 44, 86 + Math.floor(i / 4) * 44, 32, 30); });
-    x.fillStyle = c.note; x.font = 'italic 18px ' + FONT; x.fillText('Ask the clerk what is in stock today', 30, 314);
+  put(b, Box(1.8, 1.2, 0.05), mat('wood', c.frame, { map:TEX.wood }));
+  const map = canvasTexture(768, 496, (x, w, h) => {
+    drawList(x, w, h, shop, { bg:c.bg, title:c.title, text:c.text, rule:c.title, heading:'WHAT WE CARRY', weight:'600',
+      note:'Ask the clerk what is in stock today', noteColor:c.note, listW:swatches ? 0.66 : 1 });
+    (swatches || []).forEach((col, i) => { x.fillStyle = col; x.fillRect(w * 0.7 + (i % 2) * w * 0.14, h * 0.24 + Math.floor(i / 2) * h * 0.15, w * 0.11, h * 0.11); });
   });
-  put(b, new THREE.PlaneGeometry(1.7, 1.1), std('#ffffff', { map, roughness:c.rough ?? 1 }), 0, 0, 0.03);
+  put(b, new THREE.PlaneGeometry(1.7, 1.1), mat('paint', '#ffffff', { map, roughness:c.rough ?? 0.9 }), 0, 0, 0.03);
 }
 
 // Rosa's Bakery: warm cream, terracotta and dark wood. A hutch of bread on the back wall, the
