@@ -640,9 +640,14 @@ const SHOPS = [
     products:[0xe8c07a,0xd99a4e,0xf5e1b5,0xa86a3a],
     inventory:[
       {name:'sourdough', inStock:true},
-      {name:'croissant', inStock:false, restock:'Tuesday morning'},
+      {name:'croissant', inStock:false, restock:'the next tray in a few minutes'},
       {name:'concha', inStock:true},
-      {name:'baguette', inStock:false, restock:'tomorrow at 7am'} ],
+      {name:'baguette', inStock:false, restock:'the next batch at 7 am or 2 pm'},
+      {name:'gluten-free loaf', inStock:true},
+      {name:'cinnamon roll', inStock:true},
+      {name:'pan de muerto', inStock:false, restock:'tomorrow morning at 7'},
+      {name:'coffee', inStock:true},
+      {name:'birthday cake', inStock:false, restock:'made to order, about two days'} ],
     area:'Atlanta, GA',
     agents:['Desk clerk', 'Stock agent'],
     asks:['Do you have sourdough?', 'Do you have croissants?', 'Any conchas today?', 'Is there a baguette?'],
@@ -654,7 +659,12 @@ const SHOPS = [
       {name:'primer', inStock:true},
       {name:'eggshell white', inStock:true},
       {name:'roller', inStock:false, restock:'Friday'},
-      {name:'painter\'s tape', inStock:true} ],
+      {name:'painter\'s tape', inStock:true},
+      {name:'drop cloth', inStock:true},
+      {name:'paint brush set', inStock:true},
+      {name:'ceiling white', inStock:false, restock:'Friday'},
+      {name:'deck stain', inStock:true},
+      {name:'sandpaper', inStock:true} ],
     area:'Atlanta, GA',
     agents:['Desk clerk', 'Stock agent', 'Support agent'],
     asks:['Which primer for a bathroom?', 'Do you have a roller?', 'Any painter\'s tape?', 'Any eggshell white?'],
@@ -663,10 +673,15 @@ const SHOPS = [
   { id:'plants', name:'Fern & Pot', wall:0xe9f2e4, floor:0x9a8468, accent:0x3f7d4f,
     products:[0x4f9d5d,0x7cc48a,0xc47a4a,0x2f6b3f],
     inventory:[
-      {name:'monstera', inStock:false, restock:'next Saturday'},
+      {name:'monstera', inStock:false, restock:'Saturday'},
       {name:'pothos', inStock:true},
       {name:'snake plant', inStock:true},
-      {name:'terracotta pot', inStock:true} ],
+      {name:'terracotta pot', inStock:true},
+      {name:'fiddle-leaf fig', inStock:false, restock:'Saturday'},
+      {name:'succulent', inStock:true},
+      {name:'potting soil', inStock:true},
+      {name:'basil', inStock:true},
+      {name:'orchid', inStock:true} ],
     area:'Atlanta, GA',
     agents:['Desk clerk', 'Stock agent'],
     asks:['Do you have a monstera?', 'Any pothos?', 'Do you have a snake plant?', 'Any terracotta pots?'],
@@ -736,8 +751,14 @@ async function askClerk(text){
     shop.inventory.filter(i => i.inStock).map(i => i.name).join(', ') + '.' };
   return { canned: true, reply: item.inStock
     ? 'Good news, ' + item.name + ' is in stock.'
-    : 'We\'re out of ' + item.name + ' right now. It\'ll be back ' + item.restock + '.' };
+    : 'We\'re out of ' + item.name + ' right now. ' + backWords(item) };
 }
+
+// The printed list's restock words, as the clerk says them: "Friday" or "tomorrow morning at 7"
+// follow "It'll be back"; a note like "the next tray in a few minutes" or "made to order, about
+// two days" stands as its own sentence (the record shows it as the shop's note).
+const noteLike = words => /^(the next|made to)\b/i.test(words || '');
+const backWords = item => noteLike(item.restock) ? cap(item.restock) + '.' : 'It\'ll be back ' + item.restock + '.';
 
 /* A list, checked all at once. Resolves to { reply, audioUrl, list: { shop, at, items } }, plus
    canned: true when it is the printed list's answer; never throws. items is the record, one
@@ -753,8 +774,10 @@ async function askList(items){
   await wait(Math.max(0, 1500 - (performance.now() - t0)));   // the hand-off shows as long as for a question
   const printed = items.map(query => {
     const item = printedItem(shop, query);
+    const back = !item || item.inStock ? null : item.restock || null;   // its restock words, or null
     return item ? { query, found: true, product: item.name, inStock: item.inStock, onHand: null,
-                    nextRestockText: item.inStock ? null : item.restock || null, typicalRestockDays: null }
+                    nextRestockText: back && !noteLike(back) ? back : null,
+                    restockNote: back && noteLike(back) ? cap(back) + '.' : null, typicalRestockDays: null }
                 : { query, found: false };
   });
   return { canned: true, reply: printedListReply(shop, printed), list: { shop: shop.name, at: new Date(), items: printed } };
@@ -790,7 +813,8 @@ function printedListReply(shop, record){
   const or = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' or ' + a.at(-1) : a[0];
   const said = [];
   if (have.length) said.push('Good news, ' + and(have.map(e => e.product)) + (have.length > 1 ? ' are' : ' is') + ' in stock.');
-  for (const e of out) said.push(cap(e.product) + ' is out right now' + (e.nextRestockText ? ', back ' + e.nextRestockText : '') + '.');
+  for (const e of out) said.push(cap(e.product) + ' is out right now' + (e.nextRestockText ? ', back ' + e.nextRestockText : '') + '.' +
+    (e.restockNote ? ' ' + e.restockNote : ''));
   if (missing.length){
     const instead = shop.inventory.filter(i => i.inStock && !named.has(i.name)).map(i => i.name);
     said.push('We don\'t carry ' + or(missing) + (instead.length ? ', but we do have ' + and(instead) : '') + '.');
