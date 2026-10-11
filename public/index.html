@@ -695,18 +695,20 @@ let doorTarget = 0, doorValue = 0, state = 'listening', tween = null;
 // Per-shop dressing, display only, kept out of SHOPS (which the server, the seed and the settings
 // drawer read): the hours on the card on the door, the floor's kind, the sign's typeface, the
 // light (sun colour and strength; sky and ground colours and strength of the soft light; the
-// room light's strength), the counter's woods (body, top, trim), the storefront's paint and the
-// ceiling fixture. A shop without an entry gets the bakery's.
+// room light's strength), the counter's woods (body, top, trim), the storefront's paint, the shape
+// of its front (brick: the shared brick and wood; flat: block, steel and no coping; glass: glass
+// panels and a gable where the brick was) and the ceiling fixture. A shop without an entry gets
+// the bakery's.
 const DECOR = {
   bakery: { hours:['Open daily', '7 am to 5 pm'], floor:'tile', font:'Georgia, "Times New Roman", serif',
             sun:['#ffe0b2', 1.7], sky:['#fde7c8', '#8b7355', 0.9], room:2.6,
-            counter:['#5a3a22', '#c9915a', '#3b2314'], frame:'#5b3a1e', fixture:'pendants' },
+            counter:['#5a3a22', '#c9915a', '#3b2314'], frame:'#5b3a1e', front:'brick', fixture:'pendants' },
   paint:  { hours:['Open daily', '8 am to 6 pm'], floor:'concrete', font:'"Arial Black", Impact, "Arial Narrow", sans-serif',
             sun:['#f8fafc', 2.0], sky:['#e0f2fe', '#94a3b8', 1.05], room:3.2,
-            counter:['#334155', '#64748b', '#1e293b'], frame:'#1e3a8a', fixture:'tubes' },
+            counter:['#334155', '#64748b', '#1e293b'], frame:'#1e3a8a', front:'flat', fixture:'tubes' },
   plants: { hours:['Open daily', '9 am to 6 pm'], floor:'quarry', font:'"Trebuchet MS", Verdana, sans-serif',
             sun:['#fff7ed', 1.35], sky:['#ecfccb', '#4d7c0f', 1.15], room:2.3,
-            counter:['#6b4a2b', '#a8795a', '#4a3220'], frame:'#14532d', fixture:'skylight' } };
+            counter:['#6b4a2b', '#a8795a', '#4a3220'], frame:'#14532d', front:'glass', fixture:'skylight' } };
 const decorOf = shop => DECOR[shop.id] || DECOR.bakery;
 
 const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
@@ -930,6 +932,17 @@ function brickTexture(tones, mortar){   // a metre square: four bricks across, t
     x.fillStyle = '#facc15'; x.fillRect(0, 0, w, h); x.fillStyle = '#111827';
     for (let i = -64; i < w; i += 64){ x.beginPath(); x.moveTo(i, h); x.lineTo(i + 32, h); x.lineTo(i + 96, 0); x.lineTo(i + 64, 0); x.closePath(); x.fill(); }
   }, true));
+  // The paint store's front: painted concrete block (a metre: two and a half blocks by five courses)
+  // and the roll-up shutter's slats (eight to the tile).
+  TEX.block = shared(canvasTexture(512, 512, (x, w, h) => {
+    x.fillStyle = '#8b949e'; x.fillRect(0, 0, w, h);
+    const rows = 5, cols = 2.5, bh = h / rows, bw = w / cols;
+    for (let r = 0; r < rows; r++) for (let c = -1; c < cols + 1; c++){ x.fillStyle = pick(['#b4bcc5', '#adb5be', '#bcc3cb', '#a7afb8']); x.fillRect(c * bw + (r % 2 ? bw / 2 : 0) + 3, r * bh + 3, bw - 6, bh - 6); }
+    speckle(x, w, h, 6000, 3, ['#000000', '#ffffff'], 0.1);
+  }, true));
+  TEX.slats = shared(canvasTexture(64, 256, (x, w, h) => {
+    for (let i = 0; i < 8; i++){ const g = x.createLinearGradient(0, i * 32, 0, i * 32 + 32); g.addColorStop(0, '#cbd5e1'); g.addColorStop(0.45, '#94a3b8'); g.addColorStop(1, '#475569'); x.fillStyle = g; x.fillRect(0, i * 32, w, 32); }
+  }, true));
   TEX.dropcloth = shared(canvasTexture(512, 512, (x, w, h) => {
     x.fillStyle = '#e7dcc6'; x.fillRect(0, 0, w, h); speckle(x, w, h, 6000, 4, ['#d6c9b0', '#f3ecdc'], 0.5);
     for (let i = 0; i < 40; i++){ x.fillStyle = pick(PAINT); x.globalAlpha = R(0.5, 0.9); x.beginPath(); x.ellipse(rnd() * w, rnd() * h, R(6, 40), R(5, 28), rnd() * 3, 0, Math.PI * 2); x.fill(); }
@@ -1075,11 +1088,16 @@ for (const [x, tex, tint, h2] of [[-5.8, TEX.brickDark, '#ffffff', 3.4], [5.8, T
 // taller building would hide the skyline from the street); between the piers a painted wooden
 // shop front in the shop's colour, with bulkheads under two open window bays (no glass: the
 // street looks in), a door frame and a header. The bays beside the doors show the shop inside.
-solid(scene, mat('stone', '#ffffff', { map:TEX.brick }), [[TexBox(1.0, 2.8, 0.4), -2.9, 1.6, 0], [TexBox(1.0, 2.8, 0.4), 2.9, 1.6, 0],
+// Each shop's props then give the front its own shape (DECOR.front): the bakery keeps the brick
+// and arches its windows under a deep awning; the paint store hides brick, coping and wood for a
+// flat block front with a steel window grid; the plant shop hides brick and coping for glass panels
+// and a glass gable. The doors, the door cue's mark (0, 2.0, 3.9) and the camera stations never move.
+const facade = {};
+facade.brick = solid(scene, mat('stone', '#ffffff', { map:TEX.brick }), [[TexBox(1.0, 2.8, 0.4), -2.9, 1.6, 0], [TexBox(1.0, 2.8, 0.4), 2.9, 1.6, 0],
   [TexBox(6.8, 1.6, 0.4), 0, 3.8, 0]], 0, 0, 3.8, { cast:true, receive:true });
-solid(scene, stoneTrim, [[Box(7.0, 0.14, 0.5), 0, 4.67, 0], [Box(7.0, 0.1, 0.46), 0, 3.05, 0]], 0, 0, 3.8, { cast:true });
+facade.coping = solid(scene, stoneTrim, [[Box(7.0, 0.14, 0.5), 0, 4.67, 0], [Box(7.0, 0.1, 0.46), 0, 3.05, 0]], 0, 0, 3.8, { cast:true });
 const frameMat = mat('paint', '#5b3a1e');
-solid(scene, frameMat, [
+facade.wood = solid(scene, frameMat, [
   [Box(1.6, 0.65, 0.3), -1.6, 0.525, 0], [Box(1.6, 0.65, 0.3), 1.6, 0.525, 0],         // bulkheads under the windows
   [Box(1.3, 0.4, 0.04), -1.6, 0.52, 0.17], [Box(1.3, 0.4, 0.04), 1.6, 0.52, 0.17],     // their raised panels
   [Box(1.7, 0.06, 0.46), -1.6, 0.88, 0], [Box(1.7, 0.06, 0.46), 1.6, 0.88, 0],         // sills
@@ -1128,23 +1146,24 @@ function drawSign(shop){
   x.globalAlpha = 1; signTex.needsUpdate = true;
 }
 
-// Awning: 14 stripes in the shop's two colours drawn on one canvas, a scalloped fringe, and two
-// side panels; the whole thing is three meshes.
+// Awnings: 14 stripes in the shop's two colours drawn on one canvas, a scalloped valance and two
+// side panels, three meshes, built by the shop that wants one (awningAt, from its props) and drawn
+// again for each shop (drawAwning).
 const awningTex = canvasTexture(1024, 256, () => {}), fringeTex = canvasTexture(1024, 64, () => {});
 const awningMat = mat('cloth', '#ffffff', { map:awningTex, side:THREE.DoubleSide });
 const fringeMat = mat('cloth', '#ffffff', { map:fringeTex, transparent:true, alphaTest:0.5, side:THREE.DoubleSide });
 const awningSide = mat('cloth', '#b45309', { side:THREE.DoubleSide });
-const awning = group(scene, 0, 2.9, 4.0), SLOPE = Math.PI / 3.8;
-put(awning, new THREE.PlaneGeometry(3.8, 1.3), awningMat, 0, 0, 0.4875, { rx:-SLOPE, cast:true });
-put(awning, new THREE.PlaneGeometry(3.8, 0.22), fringeMat, 0, -0.5, 1.105);
-{
-  const yT = 0.65 * Math.cos(SLOPE), zT = 0.4875 - 0.65 * Math.sin(SLOPE), zB = 0.4875 + 0.65 * Math.sin(SLOPE), sides = new THREE.BufferGeometry();
-  const v = [];
-  for (const x of [-1.9, 1.9]) v.push(x, yT, zT, x, -yT, zB, x, -yT, zT);
+function awningAt(g, w, d, drop, y0, z0){   // w wide, d deep, meeting the wall at (y0, z0), falling `drop` radians below level
+  const a = group(g, 0, y0, z0), dy = d * Math.sin(drop), dz = d * Math.cos(drop);
+  put(a, new THREE.PlaneGeometry(w, d), awningMat, 0, -dy / 2, dz / 2, { rx:drop - Math.PI / 2, cast:true });
+  put(a, new THREE.PlaneGeometry(w, 0.22), fringeMat, 0, -dy - 0.11, dz);
+  const sides = new THREE.BufferGeometry(), v = [];
+  for (const x of [-w / 2, w / 2]) v.push(x, 0, 0, x, -dy, dz, x, -dy, 0);
   sides.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
   sides.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(12).fill(0), 2));
   sides.computeVertexNormals();
-  put(awning, sides, awningSide);
+  put(a, sides, awningSide);
+  return a;
 }
 function drawAwning(L){
   const x = awningTex.image.getContext('2d'), f = fringeTex.image.getContext('2d'), n = 14, sw = 1024 / n;
@@ -1402,6 +1421,38 @@ function bakeryProps(g, shop, anims){
   BREAD.push([Cyl(0.12, 0.12, 0.07, 18), -1.95, 1.14, 3.15, { color:'#5c3a1e' }], [Cyl(0.12, 0.12, 0.012, 18), -1.95, 1.18, 3.15, { color:'#fde68a' }]);
   WICKER.push([Cyl(0.2, 0.16, 0.12, 12, 1, true), -1.25, 1.05, 3.15], [Cyl(0.16, 0.16, 0.012, 12), -1.25, 0.996, 3.15]);
   for (const [dx, dz] of [[-0.06, -0.05], [0.06, -0.05], [0, 0.06], [-0.05, 0.08]]) baked(BREAD, 'roll', -1.25 + dx, 1.02, 3.15 + dz, 0.9);
+  // The front: a brick arch over each window bay (spandrels fill the square head's corners, a
+  // fanlight of mullions under it, a pale keystone), a deep striped awning across the whole front,
+  // and a round sign with a wheat sheaf hanging from a bracket on the left pier. The café table is below.
+  const ARCH = [], FRAME = [], ar = 0.72, ay = 2.6 - ar;
+  for (const bx of [-1.55, 1.55]){
+    for (const s of [-1, 1]){
+      const sh = new THREE.Shape();
+      sh.moveTo(s * ar, 0); sh.lineTo(s * ar, ar); sh.lineTo(0, ar); sh.absarc(0, 0, ar, Math.PI / 2, s < 0 ? Math.PI : 0, s > 0);
+      ARCH.push([new THREE.ExtrudeGeometry(sh, { depth:0.3, bevelEnabled:false }), bx, ay, 3.66]);
+    }
+    FRAME.push([Box(2 * ar + 0.1, 0.05, 0.06), bx, ay, 3.99], [new THREE.TorusGeometry(ar - 0.02, 0.02, 6, 24, Math.PI), bx, ay, 3.99]);
+    for (let i = 1; i < 6; i++){ const a = i * Math.PI / 6; FRAME.push([Box(0.03, ar - 0.05, 0.05), bx + Math.cos(a) * ar / 2, ay + Math.sin(a) * ar / 2, 3.99, { rz:a - Math.PI / 2 }]); }
+    WHITE.push([Box(0.16, 0.3, 0.46), bx, 2.66, 3.8]);
+  }
+  solid(g, mat('stone', '#ffffff', { map:TEX.brick }), ARCH, 0, 0, 0, { cast:true });
+  solid(g, mat('paint', decorOf(shop).frame), FRAME);
+  awningAt(g, 4.8, 1.8, 0.44, 3.1, 4.0);
+  const wheat = canvasTexture(256, 256, (x, w, h) => {
+    x.clearRect(0, 0, w, h);
+    x.fillStyle = '#7c2d12'; x.beginPath(); x.arc(128, 128, 128, 0, Math.PI * 2); x.fill();
+    x.strokeStyle = '#fde68a'; x.lineWidth = 5; x.beginPath(); x.arc(128, 128, 116, 0, Math.PI * 2); x.stroke();
+    x.strokeStyle = x.fillStyle = '#fcd34d'; x.lineWidth = 5; x.lineCap = 'round';
+    x.beginPath(); x.moveTo(128, 190); x.lineTo(128, 60); x.stroke();
+    for (let i = 0; i < 6; i++) for (const s of [-1, 1]){ x.save(); x.translate(128 + s * 10, 74 + i * 17); x.rotate(s * 0.55); x.beginPath(); x.ellipse(0, 0, 7, 13, 0, 0, Math.PI * 2); x.fill(); x.restore(); }
+    x.beginPath(); x.ellipse(128, 56, 7, 13, 0, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#fde68a'; x.font = 'bold 24px ' + FONT; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('BAKERY', 128, 214);
+  });
+  const sx = -2.9, sy = 2.38, sz = 4.72;
+  solid(g, mat('paint', '#ffffff', { map:wheat, transparent:true, alphaTest:0.5, roughness:0.6 }),
+    [[new THREE.PlaneGeometry(0.8, 0.8), sx + 0.016, sy, sz, { ry:Math.PI / 2 }], [new THREE.PlaneGeometry(0.8, 0.8), sx - 0.016, sy, sz, { ry:-Math.PI / 2 }]]);
+  BLACK.push([Cyl(0.41, 0.41, 0.03, 32, 1, true), sx, sy, sz, { rz:Math.PI / 2 }], [Box(0.05, 0.05, 0.95), sx, 3.0, 4.47], [Box(0.05, 0.05, 0.72), sx, 2.8, 4.3, { rx:-0.59 }],
+    [Cyl(0.006, 0.006, 0.2, 4), sx, 2.89, 4.52], [Cyl(0.006, 0.006, 0.2, 4), sx, 2.89, 4.92]);
   const tx = -1.9, tz = 5.3;
   BLACK.push([Cyl(0.03, 0.03, 0.72, 8), tx, 0.56, tz], [Cyl(0.26, 0.3, 0.03, 16), tx, 0.215, tz], [Cyl(0.36, 0.36, 0.03, 20), tx, 0.935, tz]);
   for (const side of [-1, 1]){
@@ -1457,6 +1508,7 @@ function paintProps(g, shop, anims){
   const cans = [];
   const row = (y, n, r, h) => { for (let i = 0; i < n; i++) cans.push([hx - 1.05 + i * 2.1 / (n - 1), y + 0.02 + h / 2, hz + 0.02, PAINT[(i * 3 + n) % 8], r / 0.085, h / 0.19]); };
   row(1.15, 8, 0.085, 0.19); row(1.6, 10, 0.06, 0.12);
+  for (let r = 0, n = 4; n > 0; r++, n--) for (let i = 0; i < n; i++) cans.push([-1.6 + (i - (n - 1) / 2) * 0.19, 1.085 + r * 0.19, 3.15, PAINT[(i * 3 + r) % 8], 1, 1]);   // the window's pyramid of gallons
   instanced(g, Cyl(0.085, 0.085, 0.19, 16), mat('steel', '#cbd5e1'), cans.map(([x, y, z, , sr, sh]) => [x, y, z, null, { s:[sr, sh, sr] }]));
   instanced(g, Cyl(0.0865, 0.0865, 0.075, 16, 1, true), mat('paint', '#ffffff'), cans.map(([x, y, z, c, sr, sh]) => [x, y + 0.035 * sh, z, c, { s:[sr, sh, sr] }]));
   instanced(g, Cyl(0.0865, 0.0865, 0.06, 16, 1, true), mat('paint', '#ffffff', { map:TEX.canLabel }), cans.map(([x, y, z, , sr, sh]) => [x, y - 0.035 * sh, z, null, { ry:Math.PI, s:[sr, sh, sr] }]));
@@ -1509,6 +1561,23 @@ function paintProps(g, shop, anims){
     [Box(0.22, 0.01, 0.3), 0.25, 1.23, 0.25, { ry:-0.15, color:'#7c4a2a' }], [Box(0.19, 0.004, 0.26), 0.25, 1.238, 0.25, { ry:-0.15, color:'#ffffff' }], [Box(0.08, 0.02, 0.03), 0.27, 1.245, 0.11, { ry:-0.15, color:'#94a3b8' }],
     [Box(0.35, 0.08, 0.45), 1.32, 1.265, 0.2, { color:'#0284c7' }]);
   CHIPS.push([Cyl(0.04, 0.04, 0.45, 10), 0.9, 1.27, 0.25, { rz:Math.PI / 2, color:'#2563eb' }], [Cyl(0.012, 0.012, 0.22, 6), 1.1, 1.26, 0.38, { rx:Math.PI / 2, color:'#1e293b' }]);
+  // The front: flat and industrial. Painted block piers, band and bulkheads where the brick and wood
+  // were (hidden for this shop), a steel cap for a parapet, a dark steel window grid, each bay's
+  // roll-up shutter housing with its slat edge showing, a flat steel canopy on two struts over the
+  // doors, the pyramid of gallons on a table in the left window and the colour poster in the right;
+  // the sandwich board is below.
+  solid(g, mat('stone', '#cbd5e1', { map:TEX.block }), [[TexBox(1.0, 4.4, 0.4), -2.9, 2.4, 3.8], [TexBox(1.0, 4.4, 0.4), 2.9, 2.4, 3.8], [TexBox(4.8, 1.6, 0.4), 0, 3.8, 3.8],
+    [TexBox(1.6, 0.68, 0.3), -1.6, 0.54, 3.8], [TexBox(1.6, 0.68, 0.3), 1.6, 0.54, 3.8]], 0, 0, 0, { cast:true, receive:true });
+  const DARK = [[Box(7.0, 0.1, 0.5), 0, 4.65, 3.8], [Box(4.8, 0.4, 0.42), 0, 2.8, 3.8], [Box(2.6, 0.06, 1.0), 0, 3.08, 4.5],
+    [Box(0.05, 0.05, 1.05), -1.2, 2.84, 4.5, { rx:-0.42 }], [Box(0.05, 0.05, 1.05), 1.2, 2.84, 4.5, { rx:-0.42 }]];
+  for (const x of [-2.35, -0.75, 0.75, 2.35]) DARK.push([Box(0.1, 2.5, 0.42), x, 1.45, 3.8]);
+  for (const bx of [-1.55, 1.55]) DARK.push([Box(1.7, 0.06, 0.46), bx, 0.9, 3.8], [Box(1.5, 0.06, 0.08), bx, 1.55, 3.8], [Box(1.5, 0.06, 0.08), bx, 2.12, 3.8],
+    [Box(0.05, 1.7, 0.08), bx - 0.5, 1.75, 3.8], [Box(0.05, 1.7, 0.08), bx + 0.5, 1.75, 3.8], [Box(1.7, 0.3, 0.3), bx, 2.75, 4.1], [Box(1.62, 0.06, 0.08), bx, 2.07, 4.05]);
+  solid(g, mat('paint', '#1e293b', { roughness:0.45 }), DARK, 0, 0, 0, { cast:true });
+  solid(g, mat('paint', '#ffffff', { map:TEX.slats, roughness:0.5 }), [-1.55, 1.55].map(bx => [new THREE.PlaneGeometry(1.6, 0.5), bx, 2.35, 4.03, { uv:[1, 1.04] }]));
+  METAL.push([Box(1.3, 0.04, 0.5), -1.6, 0.97, 3.15, { color:'#64748b' }], ...[[-0.6, -0.2], [0.6, -0.2], [-0.6, 0.2], [0.6, 0.2]].map(([dx, dz]) => [Box(0.04, 0.75, 0.04), -1.6 + dx, 0.585, 3.15 + dz, { color:'#64748b' }]));
+  const poster = canvasTexture(512, 352, (x, w, h) => swatchCanvas(x, w, h, L.accent));
+  put(g, new THREE.PlaneGeometry(0.9, 0.62), mat('paint', '#ffffff', { map:poster, roughness:0.6 }), 1.55, 1.75, 3.35, { rx:-0.08 });
   // Outside: a sandwich board by the right window.
   const sb = canvasTexture(512, 768, (x, w, h) => {
     x.fillStyle = '#0f172a'; x.fillRect(0, 0, w, h); x.strokeStyle = '#94a3b8'; x.lineWidth = 10; x.strokeRect(20, 20, w - 40, h - 40);
@@ -1595,14 +1664,36 @@ function plantsProps(g, shop, anims){
   }
   solid(g, basic('#fef3c7'), Array.from({ length:11 }, (_, i) => [Sph(0.025, 8, 6), -2.4 + i * 0.48, 3.22, -2.2]));
   // Crates of plants: along the right wall and the left, two stacked in the window, two outside.
-  for (const [x, z, a, b] of [[2.7, -0.3, 'fern', 'snake'], [2.7, 0.45, 'pothos', 'monstera'], [-2.6, 0.6, 'snake', 'fern'], [-2.6, 1.4, 'monstera', 'succulent'], [-2.4, 4.7, 'fern', 'pothos'], [1.9, 4.8, 'snake', 'monstera']]){
+  for (const [x, z, a, b] of [[2.7, -0.3, 'fern', 'snake'], [2.7, 0.45, 'pothos', 'monstera'], [-2.6, 0.6, 'snake', 'fern'], [-2.6, 1.4, 'monstera', 'succulent'], [-2.75, 4.55, 'fern', 'pothos'], [1.9, 4.8, 'snake', 'monstera']]){
     crate(W, x, 0.21, z); potted(P, D, F, S, a, x - 0.12, 0.24, z - 0.05, 0.75); potted(P, D, F, S, b, x + 0.13, 0.24, z + 0.08, 0.75);
   }
   crate(W, -1.6, 0.21, 3.2, 0.7, 0.5, 0.3); crate(W, -1.6, 0.51, 3.2, 0.7, 0.5, 0.3);
   potted(P, D, F, S, 'monstera', -1.75, 0.81, 3.2, 0.9); potted(P, D, F, S, 'fern', -1.4, 0.81, 3.3, 0.8);
-  STEEL.push([Cyl(0.006, 0.006, 0.4, 4), -3.2, 2.5, 6.55, { color:'#d6c9a8' }]);
-  P.push([Cyl(0.13, 0.1, 0.2, 12), -3.2, 2.2, 6.55, { color:pick(CLAYS) }]); D.push([Cyl(0.12, 0.12, 0.01, 12), -3.2, 2.296, 6.55]);
-  for (const a of [0.5, 2.6, 4.6]) vine(F, S, -3.2 + Math.cos(a) * 0.11, 2.28, 6.55 + Math.sin(a) * 0.11, 0.5, a);
+  // The front: a greenhouse. Where the brick piers and band were (hidden for this shop), posts in
+  // the frame's green with tall glass panels either side of the bays, and over the whole front a
+  // glass gable on two rafters, with mullions and a rail, the skyline showing through it. On the
+  // pavement a big fern and a snake plant flank the doors, a crate of herbs sits under the left
+  // window, and a basket of pothos hangs from a bracket on the lamp post.
+  const GF = [[Box(7.0, 0.12, 0.4), 0, 3.06, 3.8], [Box(0.3, 0.14, 0.5), 0, 5.0, 3.8], [Box(3.9, 0.06, 0.08), 0, 3.9, 3.8]], GG = [];
+  for (const s of [-1, 1]){
+    GF.push([Box(0.14, 2.9, 0.4), s * 2.47, 1.65, 3.8], [Box(0.14, 2.9, 0.4), s * 3.33, 1.65, 3.8], [Box(1.0, 0.7, 0.4), s * 2.9, 0.55, 3.8], [Box(0.74, 0.06, 0.1), s * 2.9, 2.0, 3.85],
+      [Box(Math.hypot(3.4, 1.88), 0.1, 0.16), s * 1.7, 4.06, 3.8, { rz:-s * Math.atan2(1.88, 3.4) }]);
+    GG.push([Box(0.74, 2.1, 0.02), s * 2.9, 1.95, 3.8]);
+  }
+  for (const x of [-2.72, -2.04, -1.36, -0.68, 0, 0.68, 1.36, 2.04, 2.72]){ const hh = 1.83 - Math.abs(x) * (1.88 / 3.4); GF.push([Box(0.06, hh, 0.08), x, 3.12 + hh / 2, 3.8]); }
+  const gable = new THREE.Shape(); gable.moveTo(-3.4, 3.12); gable.lineTo(3.4, 3.12); gable.lineTo(0, 5.0);
+  GG.push([new THREE.ShapeGeometry(gable), 0, 0, 3.78]);
+  solid(g, mat('paint', decorOf(shop).frame, { roughness:0.45 }), GF, 0, 0, 0, { cast:true });
+  solid(g, glass(), GG);
+  potted(P, D, F, S, 'fern', -1.3, 0.2, 4.5, 1.4); potted(P, D, F, S, 'snake', 1.3, 0.2, 4.5, 1.3);
+  crate(W, -1.9, 0.2, 5.15, 0.7, 0.45, 0.26);
+  for (const [dx, dz] of [[-0.22, -0.1], [0, -0.1], [0.22, -0.1], [-0.22, 0.12], [0, 0.12], [0.22, 0.12]]){ P.push([Cyl(0.06, 0.045, 0.1, 10), -1.9 + dx, 0.32, 5.15 + dz, { color:pick(CLAYS) }]); plant(F, S, 'fern', -1.9 + dx, 0.37, 5.15 + dz, 0.32); }
+  STEEL.push([Box(0.04, 0.04, 0.5), -3.2, 2.9, 6.45, { color:'#1e293b' }], [Box(0.05, 0.05, 0.56), -3.2, 2.72, 6.43, { rx:-0.68, color:'#1e293b' }]);
+  for (const a of [0.3, 2.4, 4.4]) STEEL.push([Cyl(0.004, 0.004, 0.36, 4), -3.2 + Math.cos(a) * 0.17, 2.72, 6.68 + Math.sin(a) * 0.17, { color:'#94a3b8' }]);
+  solid(g, mat('wood', '#ffffff', { map:TEX.wicker, roughness:0.85, side:THREE.DoubleSide }), [[Cyl(0.2, 0.13, 0.2, 12, 1, true), -3.2, 2.45, 6.68], [Cyl(0.13, 0.13, 0.012, 12), -3.2, 2.355, 6.68]]);
+  D.push([Cyl(0.19, 0.19, 0.01, 12), -3.2, 2.54, 6.68]);
+  plant(F, S, 'pothos', -3.2, 2.55, 6.68, 0.9);
+  for (const a of [0.4, 1.6, 2.9, 4.1, 5.3]) vine(F, S, -3.2 + Math.cos(a) * 0.19, 2.53, 6.68 + Math.sin(a) * 0.19, R(0.5, 0.75), a);
   // The potting bench along the right wall: soil, a trowel, a stack of pots, bags of compost; a
   // hose reel on the wall by it.
   W.push([Box(0.6, 0.05, 1.2), 2.9, 1.1, -2.4], [Box(0.6, 0.03, 1.2), 2.9, 0.5, -2.4], [Box(0.03, 0.5, 1.2), 3.2, 1.4, -2.4]);
@@ -1664,6 +1755,9 @@ function build(shop){
   counterMat.color.set(D.counter[0]); topMat.color.set(D.counter[1]); counterTrim.color.set(D.counter[2]); trimMat.color.set(D.counter[2]);
   sun.color.set(D.sun[0]); sun.intensity = D.sun[1]; hemi.color.set(D.sky[0]); hemi.groundColor.set(D.sky[1]); hemi.intensity = D.sky[2];
   drawSign(shop); drawAwning(L); drawHours(shop);
+  const front = D.front || 'brick';          // the shared front's parts this shop keeps; its props build the rest
+  facade.brick.visible = facade.coping.visible = front === 'brick';
+  facade.wood.visible = front !== 'flat';
   props.traverse(o => { if (o.isMesh){
     o.geometry.dispose();
     for (const t of [o.material.map, o.material.emissiveMap, o.material.alphaMap]) if (t && !t.userData.shared) t.dispose();
