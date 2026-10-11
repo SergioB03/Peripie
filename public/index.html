@@ -3189,10 +3189,18 @@ function findProduct(text, preferred){
   return best;
 }
 
+// Guard rails: a stray letter from a re-armed recognizer is ignored, and so is the same final twice
+// within 2 s (a recognizer that reports it again). Interim words never reach here (mic.js), a question
+// keeps mic.js's 300-character cap, and nothing heard is ever logged.
+const DEDUP_MS = 2000;
+let lastHeard = '', lastHeardAt = 0;
 function route(raw){
   if (!prefs.handsfree) return false;
   const text = normalize(String(raw || ''));
-  if (!text) return true;
+  if (text.length < 2) return true;
+  const now = performance.now();
+  if (text === lastHeard && now - lastHeardAt < DEDUP_MS) return true;
+  lastHeard = text; lastHeardAt = now;
   const where = document.body.dataset.where, street = where === 'street', inside = where === 'inside';
   const took = p => { $('q').value = ''; Promise.resolve(p).catch(() => {}); return true; };   // a command: the words leave the ask box
   if (!street && !inside) return took(null);                     // walking in or out: nothing is done
