@@ -153,6 +153,17 @@
     #enter{flex:none;border-radius:9999px}
   }
 
+  /* First visit (script section 5): three lines under the header, clear of the door cue and the dock;
+     Close, Escape or Enter removes it. Not a dialog: it holds no focus and stops no tap. */
+  #welcome{position:fixed;left:12px;right:12px;top:120px;z-index:15;max-width:440px;margin:0 auto;display:flex;flex-direction:column;
+    gap:2px;padding:12px 14px;border-radius:16px;font-size:13px;line-height:18px;color:var(--s300);animation:slideUp .4s var(--out) both}
+  #welcome p{margin:0}
+  #welcome p:first-child{font-size:14px;font-weight:600;color:#fff}
+  #welcome-close{align-self:flex-end;margin-top:6px;min-height:32px;padding:4px 14px;border-radius:9999px;background:rgb(41 37 36/.8);
+    border:1px solid rgb(68 64 60/.6);color:var(--s200);font-size:12px;font-weight:600;transition:background-color .15s,color .15s}
+  #welcome-close:hover{background:var(--s800);color:#fff}
+  body:not([data-where=street]) #welcome{display:none}
+
   /* While the camera walks: a small pill at the bottom, clear of the doors */
   #walking{position:fixed;left:50%;bottom:calc(var(--bottom) + 12px);transform:translateX(-50%);z-index:30;
     display:none;align-items:center;gap:10px;padding:12px 20px;border-radius:16px;background:rgb(28 25 23/.85);
@@ -439,6 +450,9 @@
   html.big #q{font-size:20px;line-height:28px}
   html.big #f button{font-size:17.5px}
   html.big :is(#rehearse,#no-rush,#tagline){font-size:16px;line-height:22px}
+  html.big #welcome{font-size:16px;line-height:22px}
+  html.big #welcome p:first-child{font-size:17.5px}
+  html.big #welcome-close{font-size:15px}
   html.big .list-label{font-size:14px;line-height:20px}
   html.big .carry-chip{font-size:14px}
   html.big .pick{font-size:15px}
@@ -456,7 +470,7 @@
   html.hc :is(.glass,.solid,.dock-card,#walking,#door-cue,#hint,#scene-toast,#settings,#a11y){background:rgb(12 10 9/.97);
     border:2px solid #fbbf24;-webkit-backdrop-filter:none;backdrop-filter:none}
   html.hc .reply-card{background:#0c0a09;border-color:var(--s500)}
-  html.hc :is(#leave,#replay,#list-edit,#chips button,#a11y [role=switch],#a11y .tools button){background:#1c1917;border-color:var(--s400)}
+  html.hc :is(#leave,#replay,#list-edit,#welcome-close,#chips button,#a11y [role=switch],#a11y .tools button){background:#1c1917;border-color:var(--s400)}
   html.hc :is(.carry-chip,.pick){background:#1c1917}
   html.hc .carry-chip{border-color:var(--s300)}
   html.hc #q{border-color:var(--s300)}
@@ -553,6 +567,14 @@
 <p id="hint">Drag to look around</p>
 
 <button id="door-cue" type="button" aria-describedby="shop-name"><span class="ping"></span>Tap here to walk in<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
+
+<!-- First visit (script section 5): three lines under the header on the street, once, until Close, Escape or Enter; in memory only -->
+<div id="welcome" class="glass" role="region" aria-labelledby="welcome-1">
+  <p id="welcome-1">Walk into a small shop's website and ask the clerk.</p>
+  <p>Make a list, check it all at once, take the answer with you.</p>
+  <p>Nothing about you is stored.</p>
+  <button id="welcome-close" type="button">Close</button>
+</div>
 
 <div id="dock">
   <div class="dock-card glass">
@@ -2252,6 +2274,27 @@ function removeFromList(name){
   announce(name + ' removed. ' + (items.length ? howMany(items.length) + ' on your list.' : 'Your list is empty.'));
 }
 
+/* First visit: a card on the street with three lines, shown once until Close, Escape or Enter.
+   In memory only, so a reload shows it again. It sits under the header, clear of the door cue
+   and the dock, holds no focus (not a dialog) and stops no tap: Enter hides it only after the
+   audio unlock and the first footsteps, so the walk-in starts exactly as before. */
+const welcome = $('welcome');
+function placeWelcome(){
+  const head = $('top').getBoundingClientRect(), hint = $('hint').getBoundingClientRect();
+  welcome.style.top = Math.round(Math.max(head.bottom, hint.height ? hint.bottom : 0) + 8) + 'px';
+}
+function closeWelcome(){
+  if (welcome.hidden) return;
+  const had = welcome.contains(document.activeElement);   // Close pressed from the keyboard: focus moves on to Enter shop
+  welcome.hidden = true;
+  if (had) $('enter').focus();
+}
+placeWelcome(); addEventListener('resize', placeWelcome);
+$('welcome-close').onclick = closeWelcome;
+addEventListener('keydown', e => {                              // Escape on the street, when no drawer is open (they take it)
+  if (e.key === 'Escape' && document.body.dataset.where === 'street' && !settings.open && !a11y.open) closeWelcome();
+});
+
 // Both ways in (the Enter button and the door cue on the doors) run this inside the tap: a click
 // event, so iOS counts it as a tap. The greeting has the walk-in (2600 + 700 + 2400 ms) plus 2 s
 // to arrive; under Reduce motion the walk is a cut, so the wait at the counter is longer instead.
@@ -2260,6 +2303,7 @@ async function enterShop(){
   if (document.body.dataset.where !== 'street' || tween) return;
   unlockAudio();                                                // first, while still inside the tap
   sfx.footsteps();                                              // makes the effects' context in the tap too
+  welcome.hidden = true;                                        // the first-visit card has done its job
   const shop = current;
   const greeting = callClerk({ shop: shop.id, greet: true });   // in flight during the walk-in
   const tapped = performance.now();
