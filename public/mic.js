@@ -131,6 +131,9 @@ function attach(form, input){
 
   label(false);
   btn.addEventListener('click', () => live ? stop(live) : start());
+  // Hands-free (the page's script section 7): start the mic as a tap would, drop the words in
+  // flight, and whether it is listening now. Nothing here runs unless the page calls it.
+  window.PP_MIC = { start: () => { if (!live) start(); return !!live; }, cancel, live: () => !!live };
   input.addEventListener('input', () => { hint.textContent = ''; cancel(); });   // typing wins
   form.addEventListener('submit', () => { if (!ours) cancel(); });               // Ask, Enter or a chip
   const replay = $('replay');
