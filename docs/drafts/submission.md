@@ -56,4 +56,4 @@ JavaScript, Node.js, Express, Three.js, Gemini API, ElevenLabs, Tiger Data (Post
 | Best Use of Gemini API | Gemini runs the clerk, and its first move on every question is the stock tool. |
 | Best Use of Tiger Data | Restock history as time-series data: "usually about 4.5 days" is a LAG over sixty days of counts. |
 | Zero Data challenge | No accounts, tracking, profiles or stored personal data; the visitor's text is never logged. |
-| GoDaddy Registry | A domain for the project (still to register). |
+| GoDaddy Registry | allyou.select: "all you select, checked at once", the list feature in a domain; registered at HackLanta and pointed at the app. |

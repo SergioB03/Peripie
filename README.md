@@ -6,7 +6,7 @@ Peripie (say "PAIR-ih-pie") is a small shop's website you walk into: the clerk g
 
 ## Try it in 60 seconds
 
-**Live:** https://peripie.replit.app (opens on the bakery; sound on). Built solo at HackLanta '26. Demo video and Devpost page: coming Sunday morning.
+**Live:** https://peripie.replit.app (opens on the bakery; sound on). **Domain:** allyou.select, "all you select, checked at once", pointing at the same app (DNS settling Sunday morning). Built solo at HackLanta '26. Demo video and Devpost page: coming Sunday morning.
 
 1. Tap **Enter shop**, or the doors. The camera walks you in and the clerk says hello out loud.
 2. Tap the chip **Do you have sourdough?** The clerk turns to the stock room, then tells you it is on the shelf, and how many.
