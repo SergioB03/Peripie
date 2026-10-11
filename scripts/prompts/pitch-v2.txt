@@ -1,0 +1,10 @@
+Rewrite the two-minute pitch for the project in the plan above. Markdown only, no preamble. HARD LIMIT: 200 spoken words in total across all beats, because about 40 seconds of the two minutes are live waits the speaker cannot talk over (a 6-second walk-in, a greeting, two or three answers). Sergio speaks in first person. Plain words, short sentences, no exclamation marks, no marketing adjectives.
+
+Beats and the exact facts to use:
+1. (0:00, under 35 words) I run a painting company; my customers call to ask one thing: do you have it. And some days I am the customer who will not ask, especially with a large order.
+2. (0:15) Live: open the bakery, tap Enter, let the greeting play. Then ask by voice "do you still have any croissants today?" The clerk answers in a bakery's words: the next tray comes out of the oven in a few minutes. Say one sentence on why that line matters: it is real stock, in the shop's own words, and you can see the stock room's record under it.
+3. (0:50) Live: the list. Add three things, Check my list, one spoken summary, then Take this with you. One sentence: this is the one I would use; I would rather do this than ask three times.
+4. (1:20) Switch to the paint store: ask for rollers; the clerk says the supplier's truck comes Friday and they are usually back in about four days, which comes from sixty days of shelf counts in Tiger Data. One sentence on the two agents: Gemini is the clerk and must check the stock room before it speaks; ElevenLabs is the voice; nothing about the visitor is stored.
+5. (1:45) Close: "Each shop is one settings file. The builder we're making next lets an owner edit it by dragging things around." Business model in one sentence: a free shop with one clerk, paid add-on agents.
+
+Output: a heading per beat with its time stamp and word count in parentheses, then the lines to say. After the script, a section "## Cuts if a judge interrupts" with the three sentences to drop first.
