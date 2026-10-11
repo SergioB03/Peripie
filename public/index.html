@@ -138,7 +138,9 @@
   .zero{display:inline-flex;align-items:center;gap:4px;font-size:11px;line-height:16px;font-weight:500;
     color:var(--s400);white-space:nowrap}
   .zero .i{width:12px;height:12px;color:#34d399}
-  #rehearse{font-size:11px;line-height:16px;font-weight:500;color:var(--s300);text-wrap:balance}   /* wraps on a phone */
+  /* Two quiet lines under the staff line: what the list does, and the reassurance (13 px, 16 with Larger text) */
+  #tagline{margin-top:2px;font-size:13px;line-height:18px;font-weight:600;color:var(--s200)}
+  #rehearse{font-size:13px;line-height:18px;font-weight:500;color:var(--s300);text-wrap:balance}   /* wraps on a phone */
   #enter{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 20px;
     border-radius:12px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;letter-spacing:.025em;
     box-shadow:var(--sh-lg);transition:filter .15s,transform .15s,background-color .3s}
@@ -268,7 +270,7 @@
   #f button:hover{filter:brightness(1.1)}
   #f button .i{width:14px;height:14px}
   #f:has(#q:placeholder-shown) button,body:not([data-state=listening]) #f button{opacity:.4;cursor:default}
-  #no-rush{margin:-4px 0 0;font-size:11px;line-height:16px;font-weight:500;color:var(--s400);text-align:center}
+  #no-rush{margin:-4px 0 0;font-size:13px;line-height:18px;font-weight:500;color:var(--s400);text-align:center}
   /* My list (script section 5). What the shop carries: round dashed chips with a plus, unlike the
      question chips; one already on the list shows a tick. The list: the shop's colour, a remove button
      each, then Check my list. The list sits above the chips: the panel grows upward from the bottom,
@@ -328,7 +330,7 @@
     .dock-card{flex-direction:row;align-items:center;justify-content:space-between;padding:6px 6px 6px 10px;
       border-radius:9999px}
     #enter{flex:none;min-height:40px;border-radius:9999px}
-    #chips,#avatar,#who,#no-rush,#rehearse,#carry .list-label{display:none}
+    #chips,#avatar,#who,#no-rush,#rehearse,#tagline,#carry .list-label{display:none}
     .reply-card{position:relative}                          /* Replay keeps the card's top-right corner */
     .who{position:absolute;top:8px;right:8px}
     .reply-card:has(#replay:not([hidden])) #reply{padding-right:84px}
@@ -436,7 +438,8 @@
   html.big #chips button{font-size:14px}
   html.big #q{font-size:20px;line-height:28px}
   html.big #f button{font-size:17.5px}
-  html.big :is(#rehearse,#no-rush,.list-label){font-size:14px;line-height:20px}
+  html.big :is(#rehearse,#no-rush,#tagline){font-size:16px;line-height:22px}
+  html.big .list-label{font-size:14px;line-height:20px}
   html.big .carry-chip{font-size:14px}
   html.big .pick{font-size:15px}
   html.big :is(#check-list,#take){font-size:15px}
@@ -561,6 +564,7 @@
           <span class="duty" id="duty">Desk clerk and stock agent on duty</span>
           <span class="zero"><svg class="i" aria-hidden="true"><use href="#i-shield-check"/></svg>No account. Nothing stored.</span>
         </div>
+        <span id="tagline">All you select, checked at once.</span>
         <span id="rehearse">Rehearse the question here; walk in knowing the answer.</span>
       </div>
     </div>
