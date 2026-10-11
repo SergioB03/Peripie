@@ -77,7 +77,7 @@
   #skyline[aria-pressed=true]{color:#fcd34d;border-color:#fbbf24;background:rgb(69 26 3/.8);
     box-shadow:0 0 0 2px rgb(251 191 36/.5),var(--sh-lg)}
   #sound .i{color:#34d399}
-  #sound[aria-pressed=true] .i{color:var(--s500)}
+  #sound[aria-pressed=false] .i{color:var(--s500)}   /* sound effects off; the clerk's voice still plays */
   #shops{grid-area:tabs;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;
     border-radius:16px}
   #shops button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px;
@@ -297,7 +297,7 @@
   <nav id="shops" class="solid" aria-label="Shops"></nav>
   <div id="actions">
     <button id="skyline" class="solid pill-btn" type="button" aria-pressed="false" title="Look up at the skyline"><svg class="i" aria-hidden="true"><use href="#i-building-2"/></svg><span id="skyline-label">Skyline</span></button>
-    <button id="sound" class="solid pill-btn" type="button" aria-pressed="false" aria-label="Mute sound" title="Mute sound and voice"><svg class="i" aria-hidden="true"><use href="#i-volume-2"/></svg></button>
+    <button id="sound" class="solid pill-btn" type="button" aria-pressed="true" aria-label="Sound effects" title="Sound effects"><svg class="i" aria-hidden="true"><use href="#i-volume-2"/></svg></button>
   </div>
 </header>
 <p id="hint">Drag to look around</p>
@@ -900,7 +900,7 @@ const player = new Audio();
 const hasTTS = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
 let endSay = () => {};          // resolves the reply being spoken now (Leave uses it)
 let visit = 0;                  // bumped by Leave, so an answer that arrives after it is dropped
-let muted = false;              // the sound button; kept in memory only
+let effectsOff = false;         // the sound-effects button (never the clerk's voice); kept in memory only
 
 function silentWav(samples){    // 16-bit mono PCM at 8 kHz: a 44-byte header, then zero samples
   const b = new Uint8Array(44 + samples * 2), v = new DataView(b.buffer);
@@ -931,7 +931,7 @@ function say(reply){
     const arm = ms => { clearTimeout(timer); timer = setTimeout(finish, ms); };
     const speak = () => {        // the browser's voice
       if (done) return;
-      if (!hasTTS || muted) return arm(2500);
+      if (!hasTTS) return arm(2500);
       const u = new SpeechSynthesisUtterance(reply.reply); u.onend = finish; u.onerror = finish;
       speechSynthesis.speak(u); arm(12000);
     };
@@ -952,7 +952,7 @@ const sfx = (() => {
   let ctx = null;
   const run = fn => () => {
     try {
-      if (muted) return;
+      if (effectsOff) return;
       const C = window.AudioContext || window.webkitAudioContext;
       if (!ctx && C) ctx = new C();
       if (!ctx) return;
@@ -1104,12 +1104,14 @@ function setSkyline(on, keepView){
 }
 $('skyline').onclick = () => setSkyline(!skyline);
 
-// Sound: mutes the effects and the clerk's voice. The answers still show and the states still advance.
+// Sound effects: turns the footsteps, the door chime and the stock room's rustle off and on. The
+// clerk's voice (the shared Audio element and the browser's voice) always plays: a muted
+// greeting would be a failed step 2 of the demo. Pressed means the effects are on.
 $('sound').onclick = () => {
-  muted = !muted; player.muted = muted;
-  if (muted){ if (hasTTS) speechSynthesis.cancel(); } else sfx.unlock();
-  $('sound').setAttribute('aria-pressed', muted);
-  $('sound').querySelector('use').setAttribute('href', muted ? '#i-volume-x' : '#i-volume-2');
+  effectsOff = !effectsOff;
+  if (!effectsOff) sfx.unlock();
+  $('sound').setAttribute('aria-pressed', !effectsOff);
+  $('sound').querySelector('use').setAttribute('href', effectsOff ? '#i-volume-x' : '#i-volume-2');
 };
 
 build(SHOPS[0]);
