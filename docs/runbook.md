@@ -30,7 +30,7 @@ Rules from here:
 
 1. Re-run `db/seed.sql` against Tiger (the second Docker command in db/README.md) so "tomorrow" moves to Monday and the history ends today.
 2. Warm the public link from the second device; ask one question so the first judge does not pay the cold start.
-3. Rehearse the pitch out loud twice; the Q&A is at the bottom of pitch.md.
+3. Rehearse the pitch out loud twice with the slides (https://claude.ai/artifact/Gu3infzvexEQmrrWRwK5Lr; export PPTX or PDF from its Share menu as a backup); the judge Q&A and failure drills are in docs/demo-day.md.
 4. The top-right button mutes sound effects only; the clerk's voice cannot be muted from the page.
 4b. **Check the demo phone's motion setting.** The page follows the device: with iOS Reduce Motion (Settings > Accessibility > Motion) or Windows "Animation effects" off, the walk-in becomes doors-open-then-cut-to-the-counter and captions turn on by default. For the demo you probably want the full walk-in, so make sure Reduce Motion is off on the phone you present with; the Accessibility drawer (top right) can also switch it per visit.
 5. Submit by 8:30 am.
