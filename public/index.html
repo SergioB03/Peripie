@@ -138,6 +138,7 @@
   .zero{display:inline-flex;align-items:center;gap:4px;font-size:11px;line-height:16px;font-weight:500;
     color:var(--s400);white-space:nowrap}
   .zero .i{width:12px;height:12px;color:#34d399}
+  #rehearse{font-size:11px;line-height:16px;font-weight:500;color:var(--s300);text-wrap:balance}   /* wraps on a phone */
   #enter{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 20px;
     border-radius:12px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;letter-spacing:.025em;
     box-shadow:var(--sh-lg);transition:filter .15s,transform .15s,background-color .3s}
@@ -167,6 +168,12 @@
   .panel-card{pointer-events:auto;width:100%;max-width:576px;display:flex;flex-direction:column;gap:10px;
     padding:12px;border-radius:24px;background:rgb(28 25 23/.9);box-shadow:var(--sh-2xl);
     -webkit-backdrop-filter:blur(40px);backdrop-filter:blur(40px);animation:slideUp .4s var(--out) both}
+  /* Never taller than the screen under the header (a list's answer with Larger text on a phone): it
+     scrolls instead. Its rows keep their height; without this a flex column would squash them. The
+     page itself keeps the list's chips still while it scrolls (holdCarry), so no browser anchoring. */
+  .panel-card{max-height:calc(100vh - var(--bottom) - 72px);max-height:calc(100dvh - var(--bottom) - 72px);
+    overflow:hidden auto;overscroll-behavior:contain;overflow-anchor:none}
+  .panel-card>*{flex-shrink:0}
   .panel-top{display:flex;align-items:center;justify-content:space-between;gap:6px;padding-bottom:8px;
     border-bottom:1px solid var(--s800)}
   .st{display:flex;align-items:center;gap:8px;min-width:0}
@@ -219,6 +226,21 @@
   #stock-note:empty{display:none}
   #stock-note .tag{font-weight:600;color:#fcd34d}   /* the stock room's amber, as in its status chip */
   #stock-note.canned{font-style:italic}
+  /* A list's answer, under that caption: a line per item (a tick: in stock, a cross: out, a dash: not
+     carried; each line says it in words too), then Take this with you, which shares or copies them */
+  #record{display:flex;flex-direction:column;gap:2px;margin:0;padding:0 0 0 32px;list-style:none;font-size:12.5px;
+    line-height:18px;font-weight:500;color:var(--s200)}
+  #record li{display:flex;gap:6px;min-width:0;overflow-wrap:anywhere}
+  #record .mk{flex:none;width:12px;font-weight:800;text-align:center}
+  #record .in .mk{color:#34d399}
+  #record .out .mk{color:#fca5a5}
+  #record .none .mk{color:var(--s400)}
+  #take{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;margin:2px 0 0 32px;min-height:32px;
+    padding:4px 14px;border-radius:9999px;background:var(--accent);color:#fff;font-size:12px;font-weight:700;
+    box-shadow:var(--sh-md);transition:filter .15s}
+  #take-text{margin:0 0 0 32px;padding:8px 10px;border-radius:10px;background:var(--s950);border:1px solid var(--s800);
+    color:var(--s100);font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;
+    -webkit-user-select:text;user-select:text}
   .typing{display:none;align-self:flex-start;align-items:center;gap:6px;margin-left:32px;padding:8px 14px;
     border-radius:16px;background:rgb(28 25 23/.9);border:1px solid var(--s800);
     box-shadow:inset 0 2px 4px 0 rgb(0 0 0/.05)}
@@ -246,13 +268,46 @@
   #f button:hover{filter:brightness(1.1)}
   #f button .i{width:14px;height:14px}
   #f:has(#q:placeholder-shown) button,body:not([data-state=listening]) #f button{opacity:.4;cursor:default}
+  #no-rush{margin:-4px 0 0;font-size:11px;line-height:16px;font-weight:500;color:var(--s400);text-align:center}
+  /* My list (script section 5). What the shop carries: round dashed chips with a plus, unlike the
+     question chips; one already on the list shows a tick. The list: the shop's colour, a remove button
+     each, then Check my list. The list sits above the chips: the panel grows upward from the bottom,
+     so a list that appears or wraps moves only what is above it and the chips being tapped stay put.
+     While the clerk checks or answers the whole area steps aside, so the panel is no taller than for
+     a question and the hand-off stays in view. */
+  #list-area{display:flex;flex-direction:column;gap:6px}
+  body:not([data-state=listening]) #list-area{display:none}
+  .list-label{font-size:11px;line-height:16px;font-weight:600;color:var(--s300)}
+  .list-label .sub{font-weight:500;color:var(--s400)}
+  #carry{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+  #carry .list-label{flex:1 0 100%}
+  .carry-chip{display:inline-flex;align-items:center;gap:4px;min-height:30px;padding:4px 10px 4px 8px;border-radius:9999px;
+    background:rgb(12 10 9/.35);border:1px dashed rgb(168 162 158/.7);color:var(--s200);font-size:11px;font-weight:600;
+    white-space:nowrap;transition:border-color .15s,color .15s}
+  .carry-chip .i{width:12px;height:12px}
+  .carry-chip:hover{border-color:var(--s200);color:#fff}
+  .carry-chip[aria-disabled=true]{border-style:solid;border-color:rgb(68 64 60/.9);color:var(--s400);cursor:default}
+  .carry-chip[aria-disabled=true] .i{color:#34d399}
+  #mylist{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+  .pick{display:inline-flex;align-items:center;gap:2px;min-height:30px;padding:0 2px 0 10px;border-radius:9999px;
+    background:rgb(41 37 36/.9);border:1px solid var(--accent);color:#fff;font-size:12px;font-weight:600;white-space:nowrap}
+  .pick button{display:grid;place-items:center;width:26px;height:26px;border-radius:9999px;color:var(--s300);
+    transition:background-color .15s,color .15s}
+  .pick button:hover{background:rgb(68 64 60/.8);color:#fff}
+  .pick .i{width:12px;height:12px}
+  #check-list{display:inline-flex;align-items:center;gap:6px;margin-left:auto;min-height:32px;padding:4px 14px;
+    border-radius:9999px;background:var(--accent);color:#fff;font-size:12px;font-weight:700;box-shadow:var(--sh-md);
+    transition:filter .15s}
+  #check-list:hover,#take:hover{filter:brightness(1.1)}
+  #check-list .i,#take .i{width:14px;height:14px}
   @media (min-width:400px){
     #status{gap:8px;padding:4px 12px;font-size:12px;letter-spacing:.025em}
     #leave{gap:6px;padding:4px 12px;font-size:12px}
   }
   @media (min-width:640px){
     #panel{bottom:max(20px,env(safe-area-inset-bottom));padding:0 16px}
-    .panel-card{gap:12px;padding:16px}
+    .panel-card{gap:12px;padding:16px;max-height:calc(100vh - max(20px,env(safe-area-inset-bottom)) - 76px);
+      max-height:calc(100dvh - max(20px,env(safe-area-inset-bottom)) - 76px)}
   }
   @media (hover:hover) and (pointer:fine){#q{font-size:14px}}
   /* Phones held sideways: one header row and a one-line dock, so the shop front stays in view */
@@ -267,7 +322,7 @@
     .dock-card{flex-direction:row;align-items:center;justify-content:space-between;padding:6px 6px 6px 10px;
       border-radius:9999px}
     #enter{flex:none;min-height:40px;border-radius:9999px}
-    #chips,#avatar,#who{display:none}
+    #chips,#avatar,#who,#no-rush,#rehearse,#carry .list-label{display:none}
     .reply-card{position:relative}                          /* Replay keeps the card's top-right corner */
     .who{position:absolute;top:8px;right:8px}
     .reply-card:has(#replay:not([hidden])) #reply{padding-right:84px}
@@ -354,7 +409,9 @@
     font-weight:600;text-align:center;overflow-wrap:anywhere;pointer-events:none;opacity:0;visibility:hidden;
     transition:opacity .5s,visibility .5s}
   html.cc body[data-state=answering] #cc:not(:empty){opacity:1;visibility:visible}
+  #cc.long{font-size:16px}   /* a list's answer runs longer: smaller type, so the strip stays on screen */
   html.hc #cc{background:#000}
+  html.quiet body .bars{display:none}   /* Clerk voice off (drawer): nothing is spoken, so no sound bars */
   @media (min-width:640px){#cc{left:16px;right:16px}}
   @media (max-height:520px) and (orientation:landscape){#cc{font-size:16px;padding:6px 12px}}
 
@@ -373,6 +430,12 @@
   html.big #chips button{font-size:14px}
   html.big #q{font-size:20px;line-height:28px}
   html.big #f button{font-size:17.5px}
+  html.big :is(#rehearse,#no-rush,.list-label){font-size:14px;line-height:20px}
+  html.big .carry-chip{font-size:14px}
+  html.big .pick{font-size:15px}
+  html.big :is(#check-list,#take){font-size:15px}
+  html.big #record{font-size:15.5px;line-height:22px}
+  html.big #take-text{font-size:15px}
   @media (min-width:400px){html.big :is(#status,#leave){font-size:15px}}
   @media (hover:hover) and (pointer:fine){html.big #q{font-size:17.5px}}
 
@@ -384,11 +447,13 @@
     border:2px solid #fbbf24;-webkit-backdrop-filter:none;backdrop-filter:none}
   html.hc .reply-card{background:#0c0a09;border-color:var(--s500)}
   html.hc :is(#leave,#replay,#chips button,#a11y [role=switch],#a11y .tools button){background:#1c1917;border-color:var(--s400)}
+  html.hc :is(.carry-chip,.pick){background:#1c1917}
+  html.hc .carry-chip{border-color:var(--s300)}
   html.hc #q{border-color:var(--s300)}
   html.hc #status.listening{background:#022c22;border-color:#34d399}
   html.hc #status.checking{background:#451a03;border-color:#fbbf24}
   html.hc #status.answering{background:#172554;border-color:#60a5fa}
-  html.hc :is(#enter,#f button,#settings-close,#a11y-close,#shops button.on,.tile,#avatar){
+  html.hc :is(#enter,#f button,#settings-close,#a11y-close,#shops button.on,.tile,#avatar,#check-list,#take){
     background:color-mix(in srgb,var(--accent) 70%,#000)}
   /* The mic (mic.js) turns red while it listens, and the rule above outranks mic.js's own rule, so the red
      is restated here; the white ring shows that it is listening without relying on colour or motion */
@@ -448,6 +513,11 @@
   <symbol id="i-locate-fixed" viewBox="0 0 24 24"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/></symbol>
   <symbol id="i-scan-eye" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="1"/><path d="M18.944 12.33a1 1 0 0 0 0-.66 7.5 7.5 0 0 0-13.888 0 1 1 0 0 0 0 .66 7.5 7.5 0 0 0 13.888 0"/></symbol>
   <symbol id="i-accessibility" viewBox="0 0 24 24"><circle cx="16" cy="4" r="1"/><path d="m18 19 1-7-6 1"/><path d="m5 8 3-3 5.5 3-2.36 3.5"/><path d="M4.24 14.5a5 5 0 0 0 6.88 6"/><path d="M13.76 17.5a5 5 0 0 0-6.88-6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-list-checks" viewBox="0 0 24 24"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 2v13"/><path d="m16 6-4-4-4 4"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/></symbol>
 </svg>
 
 <canvas id="c" role="img" aria-label="A shop front on a city street; inside, a clerk behind the counter" aria-describedby="scene-desc"></canvas>
@@ -484,6 +554,7 @@
           <span class="duty" id="duty">Desk clerk and stock agent on duty</span>
           <span class="zero"><svg class="i" aria-hidden="true"><use href="#i-shield-check"/></svg>No account. Nothing stored.</span>
         </div>
+        <span id="rehearse">Rehearse the question here; walk in knowing the answer.</span>
       </div>
     </div>
     <button id="enter" type="button" aria-describedby="shop-name">Enter shop<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
@@ -505,13 +576,22 @@
       <div class="who"><span id="avatar" aria-hidden="true"></span><span id="who"></span><button id="replay" type="button" hidden title="Hear the clerk again"><svg class="i" aria-hidden="true"><use href="#i-rotate-ccw"/></svg>Replay</button></div>
       <p id="reply" aria-live="polite" aria-atomic="true"></p>
       <p id="stock-note"></p>
+      <ul id="record" aria-label="Your list, item by item" hidden></ul>
+      <button id="take" type="button" hidden><svg class="i" aria-hidden="true"><use href="#i-share"/></svg><span>Take this with you</span></button>
+      <p id="take-text" hidden></p>
       <span class="typing" aria-hidden="true"><i></i><i></i><i></i></span>
     </div>
     <div id="chips" role="group" aria-label="Questions to try"></div>
+    <!-- My list (script section 5): what the shop carries, and the visitor's list, checked all at once -->
+    <div id="list-area">
+      <div id="mylist" role="group" aria-labelledby="mylist-label" hidden><span class="list-label" id="mylist-label">My list</span><button id="check-list" type="button"><svg class="i" aria-hidden="true"><use href="#i-list-checks"/></svg>Check my list</button></div>
+      <div id="carry" role="group" aria-labelledby="carry-label"><span class="list-label" id="carry-label">What we carry <span class="sub">· tap to add to your list</span></span></div>
+    </div>
     <form id="f">
       <input id="q" placeholder="Ask for a product" autocomplete="off" maxlength="300" aria-label="Ask the clerk">
       <button>Ask<svg class="i" aria-hidden="true"><use href="#i-send"/></svg></button>
     </form>
+    <p id="no-rush">Take your time. No one is waiting behind you.</p>
   </div>
 </div>
 
@@ -525,7 +605,7 @@
   </div>
 </dialog>
 
-<!-- Accessibility drawer: four switches, kept in memory for this visit only (script section 6) -->
+<!-- Accessibility drawer: five switches, kept in memory for this visit only (script section 6) -->
 <dialog id="a11y" aria-labelledby="a11y-title">
   <div class="sheet">
     <h2 id="a11y-title">Accessibility</h2>
@@ -534,6 +614,7 @@
       <button type="button" role="switch" aria-checked="false" data-pref="big" aria-labelledby="pf-big" aria-describedby="pf-big-d"><span class="pf"><span class="pf-name" id="pf-big">Larger text</span><span class="pf-hint" id="pf-big-d">Bigger words on the shop card and the counter panel</span></span><span class="sw" aria-hidden="true"></span></button>
       <button type="button" role="switch" aria-checked="false" data-pref="contrast" aria-labelledby="pf-hc" aria-describedby="pf-hc-d"><span class="pf"><span class="pf-name" id="pf-hc">High contrast</span><span class="pf-hint" id="pf-hc-d">Solid panels, no blur, stronger borders</span></span><span class="sw" aria-hidden="true"></span></button>
       <button type="button" role="switch" aria-checked="false" data-pref="calm" aria-labelledby="pf-calm" aria-describedby="pf-calm-d"><span class="pf"><span class="pf-name" id="pf-calm">Reduce motion</span><span class="pf-hint" id="pf-calm-d">No camera walk, swaying or mist: a cut straight to the counter</span></span><span class="sw" aria-hidden="true"></span></button>
+      <button type="button" role="switch" aria-checked="true" data-pref="voice" aria-labelledby="pf-voice" aria-describedby="pf-voice-d"><span class="pf"><span class="pf-name" id="pf-voice">Clerk voice</span><span class="pf-hint" id="pf-voice-d">Off: the clerk's words are shown, never spoken, for a quiet room</span></span><span class="sw" aria-hidden="true"></span></button>
     </div>
     <div class="tools">
       <button type="button" id="a11y-describe" aria-describedby="a11y-describe-d"><svg class="i" aria-hidden="true"><use href="#i-scan-eye"/></svg>Describe this view</button>
@@ -602,17 +683,24 @@ const SHOPS = [
              audioUrl: an mp3 data URL, or null to use the browser's voice;
              stock: the last check_stock result that found a product, or null; display only,
              as the stock room's record under the answer (the reply is what is spoken)
-   Errors:   400 { error: "bad_shop" | "bad_text" }, 502 { error: "clerk_unavailable" }
+   List:     POST { shop: "bakery", items: ["sourdough", "croissant"] }   1 to 12 items, 1 to 60
+             characters each; sent by Check my list (section 5). The 200 adds stocks: one entry
+             per item, in list order, { query, found: true, product, inStock, onHand,
+             nextRestockText, typicalRestockDays, ... } or { query, found: false, ... }.
+   Errors:   400 { error: "bad_shop" | "bad_text" | "bad_items" }, 502 { error: "clerk_unavailable" }
    Fallback: a network error, a non-2xx status, no answer within 15 s, or a body without a
-             string reply counts as no answer. A question then gets the canned answer below,
-             and the greeting gets the local welcome line in the browser's voice. */
+             string reply counts as no answer (for a list, also a body without one stocks
+             entry per item). A question then gets the canned answer below, a list the printed
+             list's line for each item, and the greeting the local welcome line in the
+             browser's voice. */
 if (window.CLERK_ENDPOINT === undefined) window.CLERK_ENDPOINT = '/api/clerk';
 const MAX_TEXT = 300, CLERK_TIMEOUT_MS = 15000;
 
 // The stock room's record in a reply: the contract's found shape (it names a product), or null.
 const stockOf = s => s && typeof s === 'object' && typeof s.product === 'string' && s.product.trim() ? s : null;
 
-// One POST to the clerk. Resolves to { reply, audioUrl, stock } or null; never throws.
+// One POST to the clerk. Resolves to { reply, audioUrl, stock, stocks } or null; never throws.
+// stocks is the list request's per-item array as sent (checked by recordOf), else null.
 async function callClerk(body){
   if (!window.CLERK_ENDPOINT) return null;
   const abort = new AbortController(), timer = setTimeout(() => abort.abort(), CLERK_TIMEOUT_MS);
@@ -624,7 +712,7 @@ async function callClerk(body){
     const data = r.ok ? await r.json() : null;
     if (typeof data?.reply === 'string' && data.reply.trim())
       return { reply: data.reply, audioUrl: (typeof data.audioUrl === 'string' && data.audioUrl) || null,
-               stock: stockOf(data.stock) };
+               stock: stockOf(data.stock), stocks: Array.isArray(data.stocks) ? data.stocks : null };
     why = r.ok ? 'no reply in the body' : 'HTTP ' + r.status;
   } catch (err){ why = err.name; }            // AbortError after 15 s, TypeError when offline
   finally { clearTimeout(timer); }
@@ -632,18 +720,82 @@ async function callClerk(body){
   return null;
 }
 
+// The printed list's entry that a question or a list item names, or undefined (canned answers only).
+function printedItem(shop, text){
+  const t = text.toLowerCase();
+  return shop.inventory.find(i => t.includes(i.name) || t.includes(i.name.replace(/s$/,'')));
+}
+
 async function askClerk(text){
   const shop = current, t0 = performance.now();
   const live = await callClerk({ shop: shop.id, text });
   if (live) return live;                                        // { reply, audioUrl, stock }
   await wait(Math.max(0, 1500 - (performance.now() - t0)));   // canned answers, as before
-  const t = text.toLowerCase();                                 // canned: true marks the printed list
-  const item = shop.inventory.find(i => t.includes(i.name) || t.includes(i.name.replace(/s$/,'')));
+  const item = printedItem(shop, text);                         // canned: true marks the printed list
   if (!item) return { canned: true, reply: 'I checked with the back. We don\'t carry that, but we do have ' +
     shop.inventory.filter(i => i.inStock).map(i => i.name).join(', ') + '.' };
   return { canned: true, reply: item.inStock
     ? 'Good news, ' + item.name + ' is in stock.'
     : 'We\'re out of ' + item.name + ' right now. It\'ll be back ' + item.restock + '.' };
+}
+
+/* A list, checked all at once. Resolves to { reply, audioUrl, list: { shop, at, items } }, plus
+   canned: true when it is the printed list's answer; never throws. items is the record, one
+   entry per item in list order: { query, found: true, product, inStock, onHand, nextRestockText,
+   typicalRestockDays } (null for what the record lacks) or { query, found: false }. at is when the
+   answer came, for the Take this with you card. Nothing here is stored. */
+async function askList(items){
+  const shop = current, t0 = performance.now();
+  const live = await callClerk({ shop: shop.id, items });
+  const record = live && recordOf(live.stocks, items);
+  if (record) return { reply: live.reply, audioUrl: live.audioUrl, list: { shop: shop.name, at: new Date(), items: record } };
+  if (live) console.warn('Clerk endpoint: no stocks for the list; using the fallback');
+  await wait(Math.max(0, 1500 - (performance.now() - t0)));   // the hand-off shows as long as for a question
+  const printed = items.map(query => {
+    const item = printedItem(shop, query);
+    return item ? { query, found: true, product: item.name, inStock: item.inStock, onHand: null,
+                    nextRestockText: item.inStock ? null : item.restock || null, typicalRestockDays: null }
+                : { query, found: false };
+  });
+  return { canned: true, reply: printedListReply(shop, printed), list: { shop: shop.name, at: new Date(), items: printed } };
+}
+
+// The response's stocks as the record, or null unless there is one well-formed entry per item.
+// query is the visitor's own item as sent.
+function recordOf(stocks, items){
+  if (!Array.isArray(stocks) || stocks.length !== items.length) return null;
+  const record = [];
+  for (const [i, s] of stocks.entries()){
+    const query = items[i];
+    if (s?.found === false){ record.push({ query, found: false }); continue; }
+    if (s?.found !== true || !stockOf(s) || typeof s.inStock !== 'boolean') return null;
+    record.push({ query, found: true, product: s.product, inStock: s.inStock,
+      onHand: Number.isFinite(s.onHand) ? s.onHand : null,
+      nextRestockText: typeof s.nextRestockText === 'string' && s.nextRestockText.trim() ? s.nextRestockText : null,
+      typicalRestockDays: Number.isFinite(s.typicalRestockDays) ? s.typicalRestockDays : null });
+  }
+  return record;
+}
+
+// What the clerk says for the printed list: "Good news, sourdough and concha are in stock.
+// Croissant is out right now, back Tuesday morning." Each product once, in list order.
+function printedListReply(shop, record){
+  const named = new Set(), have = [], out = [], missing = [];
+  for (const e of record){
+    if (!e.found){ if (!missing.some(m => m.toLowerCase() === e.query.toLowerCase())) missing.push(e.query); continue; }
+    if (named.has(e.product)) continue;
+    named.add(e.product); (e.inStock ? have : out).push(e);
+  }
+  const and = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a.at(-1) : a[0];
+  const or = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' or ' + a.at(-1) : a[0];
+  const said = [];
+  if (have.length) said.push('Good news, ' + and(have.map(e => e.product)) + (have.length > 1 ? ' are' : ' is') + ' in stock.');
+  for (const e of out) said.push(cap(e.product) + ' is out right now' + (e.nextRestockText ? ', back ' + e.nextRestockText : '') + '.');
+  if (missing.length){
+    const instead = shop.inventory.filter(i => i.inStock && !named.has(i.name)).map(i => i.name);
+    said.push('We don\'t carry ' + or(missing) + (instead.length ? ', but we do have ' + and(instead) : '') + '.');
+  }
+  return said.join(' ');
 }
 
 /* ---------- 3. SCENE: the street and the shop, in plain Three.js ----------
@@ -1660,9 +1812,9 @@ function build(shop){
 
 /* ---------- 4. MOTION ---------- */
 // The accessibility drawer's switches (section 6), for this visit only and never stored. They start
-// from the classes the script in <head> set from the system's settings.
+// from the classes the script in <head> set from the system's settings; Clerk voice starts on.
 const prefOn = c => document.documentElement.classList.contains(c);
-const prefs = { captions:prefOn('cc'), big:prefOn('big'), contrast:prefOn('hc'), calm:prefOn('calm') };
+const prefs = { captions:prefOn('cc'), big:prefOn('big'), contrast:prefOn('hc'), calm:prefOn('calm'), voice:true };
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const ease = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(2 - 2 * k, 3) / 2;   // easeInOutCubic, as in AI Studio
 const basePos = new THREE.Vector3(), lookNow = new THREE.Vector3();
@@ -1740,8 +1892,8 @@ const LABEL = { listening:'Listening', checking:'Checking with the stock room', 
 const coarse = matchMedia('(pointer:coarse)').matches;   // phones: keep the keyboard down so the hand-off stays in view
 function setState(s){
   state = s; $('status').textContent = LABEL[s]; $('status').className = s;
-  document.body.dataset.state = s;                  // the CSS keys the dots, bars and chips on it
-  $('replay').disabled = s !== 'listening';         // no replay while the clerk checks or talks
+  document.body.dataset.state = s;                  // the CSS keys the dots, bars, chips and My list on it
+  $('replay').disabled = s !== 'listening' || !prefs.voice;   // no replay while the clerk checks or talks, or with Clerk voice off
   if (s === 'checking'){ sfx.rustle(); targetYaw = targetPitch = 0; }   // face the hand-off
 }
 const setWhere = w => { document.body.dataset.where = w; };   // street, entering, inside, leaving
@@ -1775,6 +1927,10 @@ function unlockAudio(){          // call synchronously inside the tap, before an
 }
 function silence(){ player.pause(); if (hasTTS) speechSynthesis.cancel(); }
 
+// Clerk voice off (accessibility drawer): the words stay on screen, and the clerk "answers" for
+// about as long as reading them takes (1.2 s plus 35 ms a character, at most 8 s).
+const readingMs = text => Math.min(8000, 1200 + 35 * text.length);
+
 function say(reply){
   $('reply').textContent = reply.reply;
   silence();
@@ -1789,6 +1945,7 @@ function say(reply){
       speechSynthesis.speak(u); arm(12000);
     };
     endSay = finish;
+    if (!prefs.voice) return arm(readingMs(reply.reply));   // shown, never spoken: no mp3, no browser voice
     if (!reply.audioUrl) return speak();
     let started = false, failed = false;   // the clerk's mp3; the browser's voice if it won't start
     const fail = () => { if (done || failed) return; failed = true; started ? finish() : speak(); };
@@ -1799,25 +1956,71 @@ function say(reply){
   });
 }
 
+// How long a product usually stays out, from typicalRestockDays (null if it never sold out):
+// 'usually about 3 days', 'usually under a day', or '' when there is no history.
+function usually(days){
+  const d = Number.isFinite(days) ? Math.round(days * 10) / 10 : 0;
+  return d <= 0 ? '' : d < 1 ? 'usually under a day' : 'usually about ' + d + (d === 1 ? ' day' : ' days');
+}
+
 // Under the clerk's words, as plain text after the reply: the stock room's record behind a live
 // answer ("Stock room · croissant · 0 on hand · back Tuesday, October 13 · usually about 3 days"),
 // or, for an answer from the canned list, where it came from. Nothing for a greeting, for a
-// reply whose stock is null, or for null (a question in flight).
+// reply whose stock is null, or for null (a question in flight). A list's answer gets its
+// record line by line (showRecord) under the caption.
 function showStock(reply){
   const note = $('stock-note'), s = reply?.stock;
+  showRecord(reply);
   note.classList.toggle('canned', !!reply?.canned);
   if (reply?.canned){ note.textContent = 'From the printed list at the counter (stock room unreachable)'; return; }
+  const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'Stock room';
+  if (reply?.list){ note.replaceChildren(tag, ' · your list, checked ' + clock(reply.list.at)); return; }
   if (!s){ note.replaceChildren(); return; }
-  const parts = [s.product], n = s.onHand, days = s.typicalRestockDays;   // days: null if it never sold out
+  const parts = [s.product], n = s.onHand;
   if (s.inStock) parts.push(Number.isFinite(n) ? 'in stock, ' + n + ' on hand' : 'in stock');
   else {
     parts.push(Number.isFinite(n) ? n + ' on hand' : 'out of stock');
     if (typeof s.nextRestockText === 'string' && s.nextRestockText) parts.push('back ' + s.nextRestockText);
-    const d = Number.isFinite(days) ? Math.round(days * 10) / 10 : 0;
-    if (d > 0) parts.push(d < 1 ? 'usually under a day' : 'usually about ' + d + (d === 1 ? ' day' : ' days'));
+    if (usually(s.typicalRestockDays)) parts.push(usually(s.typicalRestockDays));
   }
-  const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'Stock room';
   note.replaceChildren(tag, ' · ' + parts.join(' · '));
+}
+
+// The visitor's local time, as on the card: "7:40 am" (or "07:40" where clocks run 24 hours).
+const clock = at => at.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })
+  .replace(/\s+/g, ' ').replace(/\b(AM|PM)\b/, m => m.toLowerCase());
+
+// One item of a list's answer, for the panel ([kind, mark, product or query, the rest]) and for the
+// card (one plain line). Out of stock with a date: "✗ croissant · back Tuesday, October 13 · usually
+// about 3 days" here, "✗ croissant, back Tuesday, October 13 (usually about 3 days)" on the card.
+function recordLine(e){
+  if (!e.found) return ['none', '–', e.query, ' · not carried'];
+  if (e.inStock) return ['in', '✓', e.product, ' · in stock' + (e.onHand !== null ? ', ' + e.onHand + ' on hand' : '')];
+  const usual = usually(e.typicalRestockDays);
+  return ['out', '✗', e.product, (e.nextRestockText ? ' · back ' + e.nextRestockText : ' · out of stock') + (usual ? ' · ' + usual : '')];
+}
+function cardLine(e){
+  if (!e.found) return '– ' + e.query + ', not carried';
+  if (e.inStock) return '✓ ' + e.product + (e.onHand !== null ? ', ' + e.onHand + ' on hand' : ', in stock');
+  const usual = usually(e.typicalRestockDays);
+  return '✗ ' + e.product + (e.nextRestockText ? ', back ' + e.nextRestockText : ', out of stock') + (usual ? ' (' + usual + ')' : '');
+}
+
+// The record under a list's answer, and Take this with you; both gone for anything else. The marks
+// are hidden from screen readers: each line says in words what its mark shows.
+function showRecord(reply){
+  const list = reply?.list || null, rec = $('record');
+  rec.replaceChildren(...(list ? list.items.map(e => {
+    const [kind, mark, name, rest] = recordLine(e), li = document.createElement('li');
+    const mk = document.createElement('span'); mk.className = 'mk'; mk.setAttribute('aria-hidden', 'true'); mk.textContent = mark;
+    const words = document.createElement('span'); words.append(name);
+    if (kind === 'out' && e.nextRestockText){   // "back Tuesday" alone does not say it is out now
+      const sr = document.createElement('span'); sr.className = 'sr-only'; sr.textContent = ', out of stock'; words.append(sr);
+    }
+    words.append(rest); li.className = kind; li.append(mk, words); return li;
+  }) : []));
+  rec.hidden = $('take').hidden = !list;
+  $('take-text').hidden = true; tookBack();
 }
 
 /* Sound effects from the AI Studio design (soundEffects.ts): synthesised with Web Audio, no files.
@@ -1897,6 +2100,13 @@ function showShop(shop){         // the page around the scene: accent colour, na
     const b = document.createElement('button'); b.type = 'button'; b.textContent = text;
     b.onclick = () => askChip(text); return b;
   }));
+  $('carry').replaceChildren($('carry-label'), ...shop.inventory.map(({ name }) => {   // names only, never stock
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'carry-chip'; b.dataset.item = name;
+    b.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-plus"/></svg><span></span>';
+    b.lastChild.textContent = name;
+    b.onclick = () => addToList(name); return b;
+  }));
+  renderList();
   for (const b of bar.children) b.setAttribute('aria-pressed', b.dataset.id === shop.id);
   setSkyline(false);
 }
@@ -1904,6 +2114,62 @@ function askChip(text){          // through the form, so the trim, the cap and t
   if (state !== 'listening') return;
   $('q').value = text;
   $('f').dispatchEvent(new Event('submit', { cancelable:true }));
+}
+
+/* My list: tap what you need from what the shop carries, then Check my list asks the stock room
+   about all of it at once (section 2, askList). One list per shop, in memory only, for this visit:
+   Leave keeps it, another shop has its own, a reload clears it. It leaves the page only in that
+   POST's body. Up to 12 items (the contract's limit); an item already on it is ignored. */
+const MAX_ITEMS = 12;
+const lists = new Map();                      // shop id -> item names, in the order tapped
+const listFor = shop => { if (!lists.has(shop.id)) lists.set(shop.id, []); return lists.get(shop.id); };
+const howMany = n => n + (n === 1 ? ' item' : ' items');
+const carryChip = name => [...$('carry').children].find(b => b.dataset.item === name);
+
+function renderList(){
+  const items = listFor(current), row = $('mylist');
+  for (const b of $('carry').querySelectorAll('.carry-chip')){   // a chip already on the list shows a tick
+    const on = items.includes(b.dataset.item);
+    b.querySelector('use').setAttribute('href', on ? '#i-check' : '#i-plus');
+    b.setAttribute('aria-label', on ? b.dataset.item + ', on your list' : 'Add ' + b.dataset.item + ' to your list');
+    if (on) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
+  }
+  row.querySelectorAll('.pick').forEach(p => p.remove());
+  for (const name of items){
+    const p = document.createElement('span'), x = document.createElement('button');
+    p.className = 'pick'; x.type = 'button'; x.setAttribute('aria-label', 'Remove ' + name);
+    x.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-x"/></svg>';
+    x.onclick = () => removeFromList(name);
+    p.append(name, x); row.insertBefore(p, $('check-list'));
+  }
+  row.hidden = !items.length;
+}
+// The chip under the visitor's finger must still be the chip they meant. The list sits above the
+// chips and the panel grows upward from the bottom, so a list that appears or wraps moves only what
+// is above it. Once the panel is as tall as the screen allows it scrolls instead (Larger text on a
+// phone) and the change would push the chips down; the scroll takes it up, so they stay put there too.
+function holdCarry(change){
+  const card = $('carry').closest('.panel-card'), was = $('carry').getBoundingClientRect().top;
+  change();
+  const moved = $('carry').getBoundingClientRect().top - was;
+  if (moved) card.scrollTop += moved;
+}
+function addToList(name){
+  if (state !== 'listening') return;
+  const items = listFor(current);
+  if (items.includes(name)) return announce(name + ' is already on your list');
+  if (items.length >= MAX_ITEMS) return announce('Your list is full: ' + MAX_ITEMS + ' items');
+  items.push(name); holdCarry(renderList);
+  announce(name + ' added. ' + howMany(items.length) + ' on your list.');
+}
+function removeFromList(name){
+  if (state !== 'listening') return;
+  const items = listFor(current), at = items.indexOf(name);
+  if (at < 0) return;
+  items.splice(at, 1); holdCarry(renderList);
+  const xs = $('mylist').querySelectorAll('.pick button');   // its button is gone: the next one, else that chip
+  (xs[at] || xs[at - 1] || carryChip(name))?.focus();
+  announce(name + ' removed. ' + (items.length ? howMany(items.length) + ' on your list.' : 'Your list is empty.'));
 }
 
 // Both ways in (the Enter button and the door cue on the doors) run this inside the tap: a click
@@ -1953,11 +2219,67 @@ $('f').onsubmit = async e => {
   setState('answering'); showStock(reply); await say(reply); setState('listening'); if (!coarse) $('q').focus();
 };
 
+// Check my list: the same hand-off as a question (the clerk turns, the stock agent comes out,
+// "Checking with the stock room"), with the items named under it while the stock room looks.
+$('check-list').onclick = async () => {
+  const items = [...listFor(current)];                          // as it is now; edits wait for the answer
+  if (!items.length || state !== 'listening' || $('panel').hidden) return;
+  const here = visit;
+  setState('checking'); $('reply').textContent = ''; showStock(null);   // My list steps aside (CSS)
+  $('stock-note').textContent = 'Checking ' + (items.length > 1 ? 'your ' + items.length + ' items: ' : 'your item: ') + listOf(items);
+  const reply = await askList(items);                           // never throws; the printed list on failure
+  if (here !== visit) return;                                   // the visitor left while we checked
+  lastAnswer = reply; $('replay').hidden = false;
+  setState('answering'); showStock(reply); await say(reply); setState('listening');
+  if (here === visit && focusLost()) $('take').focus();         // the button they pressed has gone: the next step
+};
+
+/* Take this with you: the list's answer as plain text, one line per item, to show at the counter
+   or send to whoever goes in. Shared through the device's share sheet where there is one, else
+   copied; the button then says "Shared" or "Copied" for 2 s, and so does the screen reader. Where
+   neither works it is shown here to copy by hand. It is made from the answer on screen when
+   pressed and kept nowhere. */
+const SITE = 'peripie.replit.app';
+function cardText(answer){
+  const { shop, at, items } = answer.list;
+  return [shop + ' · checked ' + clock(at), ...items.map(cardLine),
+          (answer.canned ? 'From the printed list at the counter' : 'From the shop\'s stock room') + ' via ' + SITE].join('\n');
+}
+let tookTimer = 0;
+function tookBack(){                          // the button's own words again
+  clearTimeout(tookTimer);
+  $('take').querySelector('use').setAttribute('href', '#i-share');
+  $('take').lastChild.textContent = 'Take this with you';
+}
+function took(word){                          // "Shared" or "Copied", with a tick, for 2 s
+  tookBack(); $('take').querySelector('use').setAttribute('href', '#i-check'); $('take').lastChild.textContent = word;
+  announce(word);
+  tookTimer = setTimeout(tookBack, 2000);
+}
+$('take').onclick = async () => {
+  const answer = lastAnswer;
+  if (!answer?.list) return;
+  const text = cardText(answer);
+  if (typeof navigator.share === 'function' && (!navigator.canShare || navigator.canShare({ text }))){
+    try { await navigator.share({ text }); if (answer === lastAnswer) took('Shared'); return; }
+    catch (err){ if (err?.name === 'AbortError') return; }      // closed without sharing: nothing to do
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    if (answer !== lastAnswer) return;
+    took('Copied');
+  } catch {                                                     // no clipboard here (plain http): show it instead
+    if (answer !== lastAnswer) return;
+    $('take-text').textContent = text; $('take-text').hidden = false;
+  }
+};
+
 // Replay, for a loud room: the greeting, or the last answer once there is one, again through
 // say(), so the cached mp3 plays on the shared Audio element (inside this tap, which iOS needs),
-// else the browser's voice. It is kept in memory for this visit only; Leave drops it.
+// else the browser's voice. It is kept in memory for this visit only; Leave drops it. With Clerk
+// voice off there is nothing to hear, so it is disabled.
 $('replay').onclick = async () => {
-  if (!lastAnswer || state !== 'listening' || $('panel').hidden) return;
+  if (!lastAnswer || state !== 'listening' || $('panel').hidden || !prefs.voice) return;
   const here = visit, btn = $('replay'), refocus = document.activeElement === btn;
   setState('answering');                                        // disables the button and the form
   await say(lastAnswer);
@@ -2068,8 +2390,9 @@ settings.addEventListener('click', e => {                       // a tap on the 
 settings.addEventListener('close', () => $('brand').focus());  // Close, Escape or a tap outside
 
 // Sound effects: turns the footsteps, the door chime and the stock room's rustle off and on. The
-// clerk's voice (the shared Audio element and the browser's voice) always plays: a muted
-// greeting would be a failed step 2 of the demo. Pressed means the effects are on.
+// clerk's voice (the shared Audio element and the browser's voice) is not touched here: a muted
+// greeting would be a failed step 2 of the demo, so only the accessibility drawer's Clerk voice
+// switch, which starts on, turns it off. Pressed means the effects are on.
 $('sound').onclick = () => {
   effectsOff = !effectsOff;
   if (!effectsOff) sfx.unlock();
@@ -2078,19 +2401,27 @@ $('sound').onclick = () => {
 };
 
 /* ---------- 6. ACCESSIBILITY: the AI Studio app's tools, rebuilt for this page ----------
-   The header's Accessibility button opens a drawer of four switches: Captions, Larger text, High
-   contrast and Reduce motion. Each is a class on <html> (cc, big, hc, calm) plus `prefs`, in memory
-   for this visit only: nothing is stored, so a reload goes back to the system's settings. A switch
-   applies at once and announces nothing beyond its own on or off. The drawer is a native modal
-   dialog, like the settings drawer: Escape, Close or a tap outside closes it, and focus goes back
-   to the button. */
+   The header's Accessibility button opens a drawer of five switches: Captions, Larger text, High
+   contrast, Reduce motion and Clerk voice. Each is a class on <html> (cc, big, hc, calm; quiet when
+   Clerk voice is off) plus `prefs`, in memory for this visit only: nothing is stored, so a reload
+   goes back to the system's settings, with Clerk voice on. A switch applies at once and announces
+   nothing beyond its own on or off. Clerk voice off: say() shows the clerk's words (and captions)
+   without the mp3 or the browser's voice, the greeting too, and Replay is disabled; turned off
+   while the clerk is talking, the clerk stops. The drawer is a native modal dialog, like the
+   settings drawer: Escape, Close or a tap outside closes it, and focus goes back to the button. */
 const a11y = $('a11y'), PREF_CLASS = { captions:'cc', big:'big', contrast:'hc', calm:'calm' };
 const switches = [...a11y.querySelectorAll('[role=switch]')];
 function applyPrefs(){
   for (const [k, c] of Object.entries(PREF_CLASS)) document.documentElement.classList.toggle(c, prefs[k]);
+  document.documentElement.classList.toggle('quiet', !prefs.voice);
   for (const s of switches) s.setAttribute('aria-checked', prefs[s.dataset.pref]);
+  $('replay').disabled = state !== 'listening' || !prefs.voice;
+  $('replay').title = prefs.voice ? 'Hear the clerk again' : 'Clerk voice is off (Accessibility)';
 }
-for (const s of switches) s.onclick = () => { prefs[s.dataset.pref] = !prefs[s.dataset.pref]; applyPrefs(); };
+for (const s of switches) s.onclick = () => {
+  prefs[s.dataset.pref] = !prefs[s.dataset.pref]; applyPrefs();
+  if (s.dataset.pref === 'voice' && !prefs.voice && state === 'answering'){ silence(); endSay(); }   // stop mid-sentence
+};
 applyPrefs();
 $('a11y-open').onclick = () => {
   if (a11y.open || typeof a11y.showModal !== 'function') return;
@@ -2126,9 +2457,10 @@ function markBusy(){
     if (busy) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
 }
 
-// Captions: #cc copies whatever say() writes into #reply; the CSS shows it while the clerk speaks.
+// Captions: #cc copies whatever say() writes into #reply; the CSS shows it while the clerk speaks,
+// in smaller type past 160 characters (a list's answer) so the strip stays on a phone's screen.
 const cc = $('cc'), replyText = $('reply');
-new MutationObserver(() => { cc.textContent = replyText.textContent; })
+new MutationObserver(() => { cc.textContent = replyText.textContent; cc.classList.toggle('long', cc.textContent.length > 160); })
   .observe(replyText, { childList:true, characterData:true, subtree:true });
 
 /* Describe this view (header button, or the drawer): a few sentences on what the 3D view shows now,
