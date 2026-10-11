@@ -15,7 +15,7 @@ sequenceDiagram
     participant L as Shelf list
     V->>C: Picks the bakery, taps Enter shop, walks in
     C->>Vo: Says the welcome line, recorded once for this shop
-    Vo-->>V: "Welcome to Rosa’s Bakery. Take your time,<br/>and ask me about anything on the shelves whenever you’re ready."
+    Vo-->>V: "Welcome to Rosa's Bakery. Take your time,<br/>and ask me about anything on the shelves whenever you're ready."
     V->>C: Types "do you have croissants?"
     C->>S: Turns to the stock room: "Do we have croissants?"
     S->>L: Looks up croissant on the bakery list
@@ -89,7 +89,7 @@ Each person and place above is one part of the code.
 | Welcome line | `{ shop, greet: true }`: fixed text per shop, no Gemini; the mp3 is kept in server memory per shop |
 | Plainer voice | The browser's built-in speech, used when `audioUrl` is null or the mp3 will not play |
 | Printed list at the counter | The canned answers in `SHOPS` in `public/index.html`: four products per shop, with rough times |
-| Copy of the morning list | The built-in seed in `db/seed-data.js`, rebuilt each day; used when `TIGER_DATABASE_URL` is unset or the database cannot be reached |
+| Copy of the morning list | The built-in seed in `db/seed-data.js`, rebuilt each day; used when neither `TIGER_DATABASE_URL` nor `DATABASE_URL` is set, or the database cannot be reached |
 
 ## The same question, for engineers
 

@@ -47,7 +47,7 @@ Rosa's Bakery, as loaded on Sunday, October 11:
 | coffee | 60 | tomorrow | |
 | birthday cake | 0 | made to order, two days out | Cakes are made to order; the next one we can do is {when}. |
 
-The stock room fills in {when} from the clock before the clerk sees the line: "in about 18 minutes", "today at 2 pm", "tomorrow at 7 am", or a day such as "Sunday, October 18".
+The stock room fills in {when} from the clock before the clerk sees the line: "in about 18 minutes", "today at 2 pm", "tomorrow at 7 am", or a day such as "Tuesday, October 13".
 
 Southside Paint Supply and Fern & Pot keep the same kind of list, nine products each. The paint store's supplier truck comes on Fridays, the plant shop's grower on Saturdays. Every product also carries the other words people use for it (bread or loaf for the sourdough, pot for the terracotta pot) and a price, which the clerk says only when asked.
 

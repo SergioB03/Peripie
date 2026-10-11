@@ -42,7 +42,7 @@ The solid path is a normal visit. The dotted path is what happens when the conne
 6. **The answer.** The clerk turns back and says it: in stock and how many, or out and when the next tray comes out of the oven, in the shop's own words. At the paint store, where the truck comes on a weekday, the clerk may add how long that item usually takes to come back.
 7. **Again, or leave.** Ask again when the label reads **Listening**. Or tap **Leave shop**: the view walks you back out, the doors close, and you can pick another shop.
 
-Not every question names a product. Say hello and the clerk greets you back. Ask for something the shop does not carry, and the clerk says so and names what is in stock. Ask for "bread" and the clerk finds the sourdough and names the other loaves. Ask what something costs and you get the price; ask when the shop closes and you get the hours. Ask for delivery, a hold or to pay, and the clerk says plainly that it cannot do that here.
+Not every question names a product. Say hello and the clerk greets you back. Ask for something the shop does not carry, and the clerk says so and names what is in stock. Ask for "bread" and the clerk finds the sourdough and names the other things the word fits. Ask what something costs and you get the price; ask when the shop closes and you get the hours. Ask for delivery, a hold or to pay, and the clerk says plainly that it cannot do that here.
 
 ## Three things a visitor notices
 

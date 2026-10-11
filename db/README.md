@@ -29,7 +29,7 @@ Tiger CLI equivalents: `tiger db query <service-id> -f db/schema.sql`, then the 
 
 ## Sunday morning
 
-Re-run `seed.sql` before the demo. Restock dates are computed from `current_date`, so re-seeding moves the baguette's "tomorrow" to Monday and ends the stock history at demo time.
+Re-run `seed.sql` before the demo. Restock dates are computed from `current_date`, so re-seeding keeps the sourdough's "tomorrow" and the cake's two days true and ends the stock history at demo time; the bakery's tray and batch times come from the clock at the moment of the question, so they never need a reseed.
 
 ## Checking it worked
 
