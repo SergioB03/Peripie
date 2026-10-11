@@ -138,6 +138,9 @@
   .zero{display:inline-flex;align-items:center;gap:4px;font-size:11px;line-height:16px;font-weight:500;
     color:var(--s400);white-space:nowrap}
   .zero .i{width:12px;height:12px;color:#34d399}
+  /* Two quiet lines under the staff line: what the list does, and the reassurance (13 px, 16 with Larger text) */
+  #tagline{margin-top:2px;font-size:13px;line-height:18px;font-weight:600;color:var(--s200)}
+  #rehearse{font-size:13px;line-height:18px;font-weight:500;color:var(--s300);text-wrap:balance}   /* wraps on a phone */
   #enter{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 20px;
     border-radius:12px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;letter-spacing:.025em;
     box-shadow:var(--sh-lg);transition:filter .15s,transform .15s,background-color .3s}
@@ -149,6 +152,17 @@
       border-radius:9999px}
     #enter{flex:none;border-radius:9999px}
   }
+
+  /* First visit (script section 5): three lines under the header, clear of the door cue and the dock;
+     Close, Escape or Enter removes it. Not a dialog: it holds no focus and stops no tap. */
+  #welcome{position:fixed;left:12px;right:12px;top:120px;z-index:15;max-width:440px;margin:0 auto;display:flex;flex-direction:column;
+    gap:2px;padding:12px 14px;border-radius:16px;font-size:13px;line-height:18px;color:var(--s300);animation:slideUp .4s var(--out) both}
+  #welcome p{margin:0}
+  #welcome p:first-child{font-size:14px;font-weight:600;color:#fff}
+  #welcome-close{align-self:flex-end;margin-top:6px;min-height:32px;padding:4px 14px;border-radius:9999px;background:rgb(41 37 36/.8);
+    border:1px solid rgb(68 64 60/.6);color:var(--s200);font-size:12px;font-weight:600;transition:background-color .15s,color .15s}
+  #welcome-close:hover{background:var(--s800);color:#fff}
+  body:not([data-where=street]) #welcome{display:none}
 
   /* While the camera walks: a small pill at the bottom, clear of the doors */
   #walking{position:fixed;left:50%;bottom:calc(var(--bottom) + 12px);transform:translateX(-50%);z-index:30;
@@ -167,6 +181,16 @@
   .panel-card{pointer-events:auto;width:100%;max-width:576px;display:flex;flex-direction:column;gap:10px;
     padding:12px;border-radius:24px;background:rgb(28 25 23/.9);box-shadow:var(--sh-2xl);
     -webkit-backdrop-filter:blur(40px);backdrop-filter:blur(40px);animation:slideUp .4s var(--out) both}
+  /* Never taller than the screen under the header (a list's answer with Larger text on a phone): its
+     middle (.panel-mid: the answer, the chips, the list) scrolls instead, and the status row and the
+     input stay in view. Rows keep their height; without this a flex column would squash them. The
+     page itself keeps the list's chips still while it scrolls (holdCarry), so no browser anchoring. */
+  .panel-card{max-height:calc(100vh - var(--bottom) - 72px);max-height:calc(100dvh - var(--bottom) - 72px);
+    overflow:hidden auto;overscroll-behavior:contain;overflow-anchor:none}
+  .panel-card>*{flex-shrink:0}
+  .panel-mid{display:flex;flex-direction:column;gap:inherit;flex-shrink:1;min-height:0;margin:-4px;padding:4px;
+    overflow:hidden auto;overscroll-behavior:contain;overflow-anchor:none}   /* the 4 px: room for the focus rings */
+  .panel-mid>*{flex-shrink:0}
   .panel-top{display:flex;align-items:center;justify-content:space-between;gap:6px;padding-bottom:8px;
     border-bottom:1px solid var(--s800)}
   .st{display:flex;align-items:center;gap:8px;min-width:0}
@@ -219,6 +243,21 @@
   #stock-note:empty{display:none}
   #stock-note .tag{font-weight:600;color:#fcd34d}   /* the stock room's amber, as in its status chip */
   #stock-note.canned{font-style:italic}
+  /* A list's answer, under that caption: a line per item (a tick: in stock, a cross: out, a dash: not
+     carried; each line says it in words too), then Take this with you, which shares or copies them */
+  #record{display:flex;flex-direction:column;gap:2px;margin:0;padding:0 0 0 32px;list-style:none;font-size:12.5px;
+    line-height:18px;font-weight:500;color:var(--s200)}
+  #record li{display:flex;gap:6px;min-width:0;overflow-wrap:anywhere}
+  #record .mk{flex:none;width:12px;font-weight:800;text-align:center}
+  #record .in .mk{color:#34d399}
+  #record .out .mk{color:#fca5a5}
+  #record .none .mk{color:var(--s400)}
+  #take{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;margin:2px 0 0 32px;min-height:32px;
+    padding:4px 14px;border-radius:9999px;background:var(--accent);color:#fff;font-size:12px;font-weight:700;
+    box-shadow:var(--sh-md);transition:filter .15s}
+  #take-text{margin:0 0 0 32px;padding:8px 10px;border-radius:10px;background:var(--s950);border:1px solid var(--s800);
+    color:var(--s100);font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;
+    -webkit-user-select:text;user-select:text}
   .typing{display:none;align-self:flex-start;align-items:center;gap:6px;margin-left:32px;padding:8px 14px;
     border-radius:16px;background:rgb(28 25 23/.9);border:1px solid var(--s800);
     box-shadow:inset 0 2px 4px 0 rgb(0 0 0/.05)}
@@ -246,14 +285,56 @@
   #f button:hover{filter:brightness(1.1)}
   #f button .i{width:14px;height:14px}
   #f:has(#q:placeholder-shown) button,body:not([data-state=listening]) #f button{opacity:.4;cursor:default}
+  #no-rush{margin:-4px 0 0;font-size:13px;line-height:18px;font-weight:500;color:var(--s400);text-align:center}
+  /* My list (script section 5). What the shop carries: round dashed chips with a plus, unlike the
+     question chips; one already on the list shows a tick. The list: the shop's colour, a remove button
+     each, then Check my list. The list sits above the chips: the panel grows upward from the bottom,
+     so a list that appears or wraps moves only what is above it and the chips being tapped stay put.
+     While the clerk checks or answers the whole area steps aside, so the panel is no taller than for
+     a question and the hand-off stays in view. */
+  #list-area{display:flex;flex-direction:column;gap:6px}
+  body:not([data-state=listening]) #list-area{display:none}
+  .list-label{font-size:11px;line-height:16px;font-weight:600;color:var(--s300)}
+  .list-label .sub{font-weight:500;color:var(--s400)}
+  #carry{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+  #carry .list-label{flex:1 0 100%}
+  .carry-chip{display:inline-flex;align-items:center;gap:4px;min-height:30px;padding:4px 10px 4px 8px;border-radius:9999px;
+    background:rgb(12 10 9/.35);border:1px dashed rgb(168 162 158/.7);color:var(--s200);font-size:11px;font-weight:600;
+    white-space:nowrap;transition:border-color .15s,color .15s}
+  .carry-chip .i{width:12px;height:12px}
+  .carry-chip:hover{border-color:var(--s200);color:#fff}
+  .carry-chip[aria-disabled=true]{border-style:solid;border-color:rgb(68 64 60/.9);color:var(--s400);cursor:default}
+  .carry-chip[aria-disabled=true] .i{color:#34d399}
+  #mylist{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+  .pick{display:inline-flex;align-items:center;gap:2px;min-height:30px;padding:0 2px 0 10px;border-radius:9999px;
+    background:rgb(41 37 36/.9);border:1px solid var(--accent);color:#fff;font-size:12px;font-weight:600;white-space:nowrap}
+  .pick button{display:grid;place-items:center;width:26px;height:26px;border-radius:9999px;color:var(--s300);
+    transition:background-color .15s,color .15s}
+  .pick button:hover{background:rgb(68 64 60/.8);color:#fff}
+  .pick .i{width:12px;height:12px}
+  #check-list{display:inline-flex;align-items:center;gap:6px;margin-left:auto;min-height:32px;padding:4px 14px;
+    border-radius:9999px;background:var(--accent);color:#fff;font-size:12px;font-weight:700;box-shadow:var(--sh-md);
+    transition:filter .15s}
+  #check-list:hover,#take:hover{filter:brightness(1.1)}
+  #check-list .i,#take .i{width:14px;height:14px}
+  /* After a list's answer the area folds to one line, "3 items checked · Edit list", so the panel
+     stops covering the clerk on a phone; Edit list opens it again */
+  #list-folded{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11px;line-height:16px;font-weight:600;color:var(--s300)}
+  #list-edit{min-height:30px;padding:4px 10px;border-radius:9999px;background:rgb(41 37 36/.8);border:1px solid rgb(68 64 60/.6);
+    color:var(--s200);font-size:11px;font-weight:600;transition:background-color .15s,color .15s}
+  #list-edit:hover{background:var(--s800);color:#fff}
   @media (min-width:400px){
     #status{gap:8px;padding:4px 12px;font-size:12px;letter-spacing:.025em}
     #leave{gap:6px;padding:4px 12px;font-size:12px}
   }
   @media (min-width:640px){
     #panel{bottom:max(20px,env(safe-area-inset-bottom));padding:0 16px}
-    .panel-card{gap:12px;padding:16px}
+    .panel-card{gap:12px;padding:16px;max-height:calc(100vh - max(20px,env(safe-area-inset-bottom)) - 76px);
+      max-height:calc(100dvh - max(20px,env(safe-area-inset-bottom)) - 76px)}
   }
+  /* Portrait: the 'tall' camera pose (script section 3) puts the clerk's chin at 37% of the height, so the
+     card stops at 37% plus a little and its middle scrolls, whatever the answer and the list add up to */
+  @media (orientation:portrait){.panel-card{max-height:calc(62vh - var(--bottom));max-height:calc(62dvh - var(--bottom))}}
   @media (hover:hover) and (pointer:fine){#q{font-size:14px}}
   /* Phones held sideways: one header row and a one-line dock, so the shop front stays in view */
   @media (max-height:520px) and (orientation:landscape){
@@ -267,11 +348,12 @@
     .dock-card{flex-direction:row;align-items:center;justify-content:space-between;padding:6px 6px 6px 10px;
       border-radius:9999px}
     #enter{flex:none;min-height:40px;border-radius:9999px}
-    #chips,#avatar,#who{display:none}
+    #chips,#avatar,#who,#no-rush,#rehearse,#tagline,#carry .list-label{display:none}
     .reply-card{position:relative}                          /* Replay keeps the card's top-right corner */
     .who{position:absolute;top:8px;right:8px}
     .reply-card:has(#replay:not([hidden])) #reply{padding-right:84px}
-    .panel-card{gap:8px;padding:10px}
+    /* The 'short' pose also puts the chin at 37% of the height (the panel's bottom is 20 px from 640 px up) */
+    .panel-card{gap:8px;padding:10px;max-height:calc(58vh - 20px);max-height:calc(58dvh - 20px)}
   }
   @media (max-height:520px) and (orientation:landscape) and (max-width:699px){
     #brand{display:none}
@@ -354,7 +436,9 @@
     font-weight:600;text-align:center;overflow-wrap:anywhere;pointer-events:none;opacity:0;visibility:hidden;
     transition:opacity .5s,visibility .5s}
   html.cc body[data-state=answering] #cc:not(:empty){opacity:1;visibility:visible}
+  #cc.long{font-size:16px}   /* a list's answer runs longer: smaller type, so the strip stays on screen */
   html.hc #cc{background:#000}
+  html.quiet body .bars{display:none}   /* Clerk voice off (drawer): nothing is spoken, so no sound bars */
   @media (min-width:640px){#cc{left:16px;right:16px}}
   @media (max-height:520px) and (orientation:landscape){#cc{font-size:16px;padding:6px 12px}}
 
@@ -373,6 +457,17 @@
   html.big #chips button{font-size:14px}
   html.big #q{font-size:20px;line-height:28px}
   html.big #f button{font-size:17.5px}
+  html.big :is(#rehearse,#no-rush,#tagline){font-size:16px;line-height:22px}
+  html.big #welcome{font-size:16px;line-height:22px}
+  html.big #welcome p:first-child{font-size:17.5px}
+  html.big #welcome-close{font-size:15px}
+  html.big .list-label{font-size:14px;line-height:20px}
+  html.big .carry-chip{font-size:14px}
+  html.big .pick{font-size:15px}
+  html.big :is(#check-list,#take){font-size:15px}
+  html.big #list-folded,html.big #list-edit{font-size:14px;line-height:20px}
+  html.big #record{font-size:15.5px;line-height:22px}
+  html.big #take-text{font-size:15px}
   @media (min-width:400px){html.big :is(#status,#leave){font-size:15px}}
   @media (hover:hover) and (pointer:fine){html.big #q{font-size:17.5px}}
 
@@ -383,12 +478,14 @@
   html.hc :is(.glass,.solid,.dock-card,#walking,#door-cue,#hint,#scene-toast,#settings,#a11y){background:rgb(12 10 9/.97);
     border:2px solid #fbbf24;-webkit-backdrop-filter:none;backdrop-filter:none}
   html.hc .reply-card{background:#0c0a09;border-color:var(--s500)}
-  html.hc :is(#leave,#replay,#chips button,#a11y [role=switch],#a11y .tools button){background:#1c1917;border-color:var(--s400)}
+  html.hc :is(#leave,#replay,#list-edit,#welcome-close,#chips button,#a11y [role=switch],#a11y .tools button){background:#1c1917;border-color:var(--s400)}
+  html.hc :is(.carry-chip,.pick){background:#1c1917}
+  html.hc .carry-chip{border-color:var(--s300)}
   html.hc #q{border-color:var(--s300)}
   html.hc #status.listening{background:#022c22;border-color:#34d399}
   html.hc #status.checking{background:#451a03;border-color:#fbbf24}
   html.hc #status.answering{background:#172554;border-color:#60a5fa}
-  html.hc :is(#enter,#f button,#settings-close,#a11y-close,#shops button.on,.tile,#avatar){
+  html.hc :is(#enter,#f button,#settings-close,#a11y-close,#shops button.on,.tile,#avatar,#check-list,#take){
     background:color-mix(in srgb,var(--accent) 70%,#000)}
   /* The mic (mic.js) turns red while it listens, and the rule above outranks mic.js's own rule, so the red
      is restated here; the white ring shows that it is listening without relying on colour or motion */
@@ -448,6 +545,11 @@
   <symbol id="i-locate-fixed" viewBox="0 0 24 24"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/></symbol>
   <symbol id="i-scan-eye" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="1"/><path d="M18.944 12.33a1 1 0 0 0 0-.66 7.5 7.5 0 0 0-13.888 0 1 1 0 0 0 0 .66 7.5 7.5 0 0 0 13.888 0"/></symbol>
   <symbol id="i-accessibility" viewBox="0 0 24 24"><circle cx="16" cy="4" r="1"/><path d="m18 19 1-7-6 1"/><path d="m5 8 3-3 5.5 3-2.36 3.5"/><path d="M4.24 14.5a5 5 0 0 0 6.88 6"/><path d="M13.76 17.5a5 5 0 0 0-6.88-6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-list-checks" viewBox="0 0 24 24"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 2v13"/><path d="m16 6-4-4-4 4"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/></symbol>
 </svg>
 
 <canvas id="c" role="img" aria-label="A shop front on a city street; inside, a clerk behind the counter" aria-describedby="scene-desc"></canvas>
@@ -474,6 +576,14 @@
 
 <button id="door-cue" type="button" aria-describedby="shop-name"><span class="ping"></span>Tap here to walk in<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
 
+<!-- First visit (script section 5): three lines under the header on the street, once, until Close, Escape or Enter; in memory only -->
+<div id="welcome" class="glass" role="region" aria-labelledby="welcome-1">
+  <p id="welcome-1">Walk into a small shop's website and ask the clerk.</p>
+  <p>Make a list, check it all at once, take the answer with you.</p>
+  <p>Nothing about you is stored.</p>
+  <button id="welcome-close" type="button">Close</button>
+</div>
+
 <div id="dock">
   <div class="dock-card glass">
     <div class="dock-id">
@@ -484,6 +594,8 @@
           <span class="duty" id="duty">Desk clerk and stock agent on duty</span>
           <span class="zero"><svg class="i" aria-hidden="true"><use href="#i-shield-check"/></svg>No account. Nothing stored.</span>
         </div>
+        <span id="tagline">All you select, checked at once.</span>
+        <span id="rehearse">Rehearse the question here; walk in knowing the answer.</span>
       </div>
     </div>
     <button id="enter" type="button" aria-describedby="shop-name">Enter shop<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
@@ -501,17 +613,29 @@
       <span class="st"><span id="status" class="listening" role="status" aria-live="polite">Listening</span><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span></span>
       <button id="leave" type="button"><svg class="i" aria-hidden="true"><use href="#i-corner-up-left"/></svg>Leave shop</button>
     </div>
+    <div class="panel-mid"><!-- what scrolls when the card is at its max-height; the status row and the input stay put -->
     <div class="reply-card">
       <div class="who"><span id="avatar" aria-hidden="true"></span><span id="who"></span><button id="replay" type="button" hidden title="Hear the clerk again"><svg class="i" aria-hidden="true"><use href="#i-rotate-ccw"/></svg>Replay</button></div>
       <p id="reply" aria-live="polite" aria-atomic="true"></p>
       <p id="stock-note"></p>
+      <ul id="record" aria-label="Your list, item by item" hidden></ul>
+      <button id="take" type="button" hidden><svg class="i" aria-hidden="true"><use href="#i-share"/></svg><span>Take this with you</span></button>
+      <p id="take-text" hidden></p>
       <span class="typing" aria-hidden="true"><i></i><i></i><i></i></span>
     </div>
     <div id="chips" role="group" aria-label="Questions to try"></div>
+    <!-- My list (script section 5): what the shop carries, and the visitor's list, checked all at once -->
+    <div id="list-area">
+      <div id="list-folded" hidden><span id="list-folded-text">Your list checked</span><span aria-hidden="true">·</span><button id="list-edit" type="button">Edit list</button></div>
+      <div id="mylist" role="group" aria-labelledby="mylist-label" hidden><span class="list-label" id="mylist-label">My list</span><button id="check-list" type="button"><svg class="i" aria-hidden="true"><use href="#i-list-checks"/></svg>Check my list</button></div>
+      <div id="carry" role="group" aria-labelledby="carry-label"><span class="list-label" id="carry-label">What we carry <span class="sub">· tap to add to your list</span></span></div>
+    </div>
+    </div>
     <form id="f">
       <input id="q" placeholder="Ask for a product" autocomplete="off" maxlength="300" aria-label="Ask the clerk">
       <button>Ask<svg class="i" aria-hidden="true"><use href="#i-send"/></svg></button>
     </form>
+    <p id="no-rush">Take your time. No one is waiting behind you.</p>
   </div>
 </div>
 
@@ -525,7 +649,7 @@
   </div>
 </dialog>
 
-<!-- Accessibility drawer: four switches, kept in memory for this visit only (script section 6) -->
+<!-- Accessibility drawer: five switches, kept in memory for this visit only (script section 6) -->
 <dialog id="a11y" aria-labelledby="a11y-title">
   <div class="sheet">
     <h2 id="a11y-title">Accessibility</h2>
@@ -534,6 +658,7 @@
       <button type="button" role="switch" aria-checked="false" data-pref="big" aria-labelledby="pf-big" aria-describedby="pf-big-d"><span class="pf"><span class="pf-name" id="pf-big">Larger text</span><span class="pf-hint" id="pf-big-d">Bigger words on the shop card and the counter panel</span></span><span class="sw" aria-hidden="true"></span></button>
       <button type="button" role="switch" aria-checked="false" data-pref="contrast" aria-labelledby="pf-hc" aria-describedby="pf-hc-d"><span class="pf"><span class="pf-name" id="pf-hc">High contrast</span><span class="pf-hint" id="pf-hc-d">Solid panels, no blur, stronger borders</span></span><span class="sw" aria-hidden="true"></span></button>
       <button type="button" role="switch" aria-checked="false" data-pref="calm" aria-labelledby="pf-calm" aria-describedby="pf-calm-d"><span class="pf"><span class="pf-name" id="pf-calm">Reduce motion</span><span class="pf-hint" id="pf-calm-d">No camera walk, swaying or mist: a cut straight to the counter</span></span><span class="sw" aria-hidden="true"></span></button>
+      <button type="button" role="switch" aria-checked="true" data-pref="voice" aria-labelledby="pf-voice" aria-describedby="pf-voice-d"><span class="pf"><span class="pf-name" id="pf-voice">Clerk voice</span><span class="pf-hint" id="pf-voice-d">Off: the clerk's words are shown, never spoken, for a quiet room</span></span><span class="sw" aria-hidden="true"></span></button>
     </div>
     <div class="tools">
       <button type="button" id="a11y-describe" aria-describedby="a11y-describe-d"><svg class="i" aria-hidden="true"><use href="#i-scan-eye"/></svg>Describe this view</button>
@@ -559,9 +684,14 @@ const SHOPS = [
     products:[0xe8c07a,0xd99a4e,0xf5e1b5,0xa86a3a],
     inventory:[
       {name:'sourdough', inStock:true},
-      {name:'croissant', inStock:false, restock:'Tuesday morning'},
+      {name:'croissant', inStock:false, restock:'the next tray in a few minutes'},
       {name:'concha', inStock:true},
-      {name:'baguette', inStock:false, restock:'tomorrow at 7am'} ],
+      {name:'baguette', inStock:false, restock:'the next batch at 7 am or 2 pm'},
+      {name:'gluten-free loaf', inStock:true},
+      {name:'cinnamon roll', inStock:true},
+      {name:'pan de muerto', inStock:false, restock:'tomorrow morning at 7'},
+      {name:'coffee', inStock:true},
+      {name:'birthday cake', inStock:false, restock:'made to order, about two days'} ],
     area:'Atlanta, GA',
     agents:['Desk clerk', 'Stock agent'],
     asks:['Do you have sourdough?', 'Do you have croissants?', 'Any conchas today?', 'Is there a baguette?'],
@@ -573,7 +703,12 @@ const SHOPS = [
       {name:'primer', inStock:true},
       {name:'eggshell white', inStock:true},
       {name:'roller', inStock:false, restock:'Friday'},
-      {name:'painter\'s tape', inStock:true} ],
+      {name:'painter\'s tape', inStock:true},
+      {name:'drop cloth', inStock:true},
+      {name:'paint brush set', inStock:true},
+      {name:'ceiling white', inStock:false, restock:'Friday'},
+      {name:'deck stain', inStock:true},
+      {name:'sandpaper', inStock:true} ],
     area:'Atlanta, GA',
     agents:['Desk clerk', 'Stock agent', 'Support agent'],
     asks:['Which primer for a bathroom?', 'Do you have a roller?', 'Any painter\'s tape?', 'Any eggshell white?'],
@@ -582,10 +717,15 @@ const SHOPS = [
   { id:'plants', name:'Fern & Pot', wall:0xe9f2e4, floor:0x9a8468, accent:0x3f7d4f,
     products:[0x4f9d5d,0x7cc48a,0xc47a4a,0x2f6b3f],
     inventory:[
-      {name:'monstera', inStock:false, restock:'next Saturday'},
+      {name:'monstera', inStock:false, restock:'Saturday'},
       {name:'pothos', inStock:true},
       {name:'snake plant', inStock:true},
-      {name:'terracotta pot', inStock:true} ],
+      {name:'terracotta pot', inStock:true},
+      {name:'fiddle-leaf fig', inStock:false, restock:'Saturday'},
+      {name:'succulent', inStock:true},
+      {name:'potting soil', inStock:true},
+      {name:'basil', inStock:true},
+      {name:'orchid', inStock:true} ],
     area:'Atlanta, GA',
     agents:['Desk clerk', 'Stock agent'],
     asks:['Do you have a monstera?', 'Any pothos?', 'Do you have a snake plant?', 'Any terracotta pots?'],
@@ -597,22 +737,32 @@ const SHOPS = [
    Endpoint: window.CLERK_ENDPOINT, '/api/clerk' on the same origin by default. Set it (before
    this script, or later from the console) to another URL, or to '' for canned answers only.
    Question: POST { shop: "bakery", text: "do you have croissants?" }   text is 1 to 300 characters
+   Memory:   a question after the first adds history: [{ q, a }], the last three exchanges of
+             this visit (at most 3 pairs, each string trimmed to 300 characters), so "and the
+             sourdough?" resolves. Kept in memory only and dropped by Leave; never stored.
    Greeting: POST { shop: "bakery", greet: true }   sent on the Enter tap, during the walk-in
    200:      { reply, audioUrl, stock }   reply: the clerk's words, always a string;
              audioUrl: an mp3 data URL, or null to use the browser's voice;
              stock: the last check_stock result that found a product, or null; display only,
              as the stock room's record under the answer (the reply is what is spoken)
-   Errors:   400 { error: "bad_shop" | "bad_text" }, 502 { error: "clerk_unavailable" }
+   List:     POST { shop: "bakery", items: ["sourdough", "croissant"] }   1 to 12 items, 1 to 60
+             characters each; sent by Check my list (section 5). The 200 adds stocks: one entry
+             per item, in list order, { query, found: true, product, inStock, onHand,
+             nextRestockText, typicalRestockDays, ... } or { query, found: false, ... }.
+   Errors:   400 { error: "bad_shop" | "bad_text" | "bad_items" }, 502 { error: "clerk_unavailable" }
    Fallback: a network error, a non-2xx status, no answer within 15 s, or a body without a
-             string reply counts as no answer. A question then gets the canned answer below,
-             and the greeting gets the local welcome line in the browser's voice. */
+             string reply counts as no answer (for a list, also a body without one stocks
+             entry per item). A question then gets the canned answer below, a list the printed
+             list's line for each item, and the greeting the local welcome line in the
+             browser's voice. */
 if (window.CLERK_ENDPOINT === undefined) window.CLERK_ENDPOINT = '/api/clerk';
 const MAX_TEXT = 300, CLERK_TIMEOUT_MS = 15000;
 
 // The stock room's record in a reply: the contract's found shape (it names a product), or null.
 const stockOf = s => s && typeof s === 'object' && typeof s.product === 'string' && s.product.trim() ? s : null;
 
-// One POST to the clerk. Resolves to { reply, audioUrl, stock } or null; never throws.
+// One POST to the clerk. Resolves to { reply, audioUrl, stock, stocks } or null; never throws.
+// stocks is the list request's per-item array as sent (checked by recordOf), else null.
 async function callClerk(body){
   if (!window.CLERK_ENDPOINT) return null;
   const abort = new AbortController(), timer = setTimeout(() => abort.abort(), CLERK_TIMEOUT_MS);
@@ -624,7 +774,7 @@ async function callClerk(body){
     const data = r.ok ? await r.json() : null;
     if (typeof data?.reply === 'string' && data.reply.trim())
       return { reply: data.reply, audioUrl: (typeof data.audioUrl === 'string' && data.audioUrl) || null,
-               stock: stockOf(data.stock) };
+               stock: stockOf(data.stock), stocks: Array.isArray(data.stocks) ? data.stocks : null };
     why = r.ok ? 'no reply in the body' : 'HTTP ' + r.status;
   } catch (err){ why = err.name; }            // AbortError after 15 s, TypeError when offline
   finally { clearTimeout(timer); }
@@ -632,18 +782,103 @@ async function callClerk(body){
   return null;
 }
 
+// The printed list's entry that a question or a list item names, or undefined (canned answers only).
+function printedItem(shop, text){
+  const t = text.toLowerCase();
+  return shop.inventory.find(i => t.includes(i.name) || t.includes(i.name.replace(/s$/,'')));
+}
+
+// The visit's memory for follow-ups: the last three { q, a } exchanges, each trimmed to 300
+// characters, sent as history with every question after the first. In memory only; Leave
+// clears it, and nothing is stored.
+const HISTORY_PAIRS = 3;
+const history = [];
+function remember(q, a){
+  history.push({ q: q.trim().slice(0, MAX_TEXT), a: a.trim().slice(0, MAX_TEXT) });
+  if (history.length > HISTORY_PAIRS) history.splice(0, history.length - HISTORY_PAIRS);
+}
+
 async function askClerk(text){
   const shop = current, t0 = performance.now();
-  const live = await callClerk({ shop: shop.id, text });
+  const live = await callClerk(history.length ? { shop: shop.id, text, history: history.slice() } : { shop: shop.id, text });
   if (live) return live;                                        // { reply, audioUrl, stock }
   await wait(Math.max(0, 1500 - (performance.now() - t0)));   // canned answers, as before
-  const t = text.toLowerCase();                                 // canned: true marks the printed list
-  const item = shop.inventory.find(i => t.includes(i.name) || t.includes(i.name.replace(/s$/,'')));
+  const item = printedItem(shop, text);                         // canned: true marks the printed list
   if (!item) return { canned: true, reply: 'I checked with the back. We don\'t carry that, but we do have ' +
     shop.inventory.filter(i => i.inStock).map(i => i.name).join(', ') + '.' };
   return { canned: true, reply: item.inStock
     ? 'Good news, ' + item.name + ' is in stock.'
-    : 'We\'re out of ' + item.name + ' right now. It\'ll be back ' + item.restock + '.' };
+    : 'We\'re out of ' + item.name + ' right now. ' + backWords(item) };
+}
+
+// The printed list's restock words, as the clerk says them: "Friday" or "tomorrow morning at 7"
+// follow "It'll be back"; a note like "the next tray in a few minutes" or "made to order, about
+// two days" stands as its own sentence (the record shows it as the shop's note).
+const noteLike = words => /^(the next|made to)\b/i.test(words || '');
+const backWords = item => noteLike(item.restock) ? cap(item.restock) + '.' : 'It\'ll be back ' + item.restock + '.';
+
+/* A list, checked all at once. Resolves to { reply, audioUrl, list: { shop, at, items } }, plus
+   canned: true when it is the printed list's answer; never throws. items is the record, one
+   entry per item in list order: { query, found: true, product, inStock, onHand, lowStock, price,
+   nextRestockText, restockNote, typicalRestockDays } (null for what the record lacks) or
+   { query, found: false }. at is when the answer came, for the Take this with you card. Nothing
+   here is stored. */
+async function askList(items){
+  const shop = current, t0 = performance.now();
+  const live = await callClerk({ shop: shop.id, items });
+  const record = live && recordOf(live.stocks, items);
+  if (record) return { reply: live.reply, audioUrl: live.audioUrl, list: { shop: shop.name, at: new Date(), items: record } };
+  if (live) console.warn('Clerk endpoint: no stocks for the list; using the fallback');
+  await wait(Math.max(0, 1500 - (performance.now() - t0)));   // the hand-off shows as long as for a question
+  const printed = items.map(query => {
+    const item = printedItem(shop, query);
+    const back = !item || item.inStock ? null : item.restock || null;   // its restock words, or null
+    return item ? { query, found: true, product: item.name, inStock: item.inStock, onHand: null, lowStock: false, price: null,
+                    nextRestockText: back && !noteLike(back) ? back : null,
+                    restockNote: back && noteLike(back) ? cap(back) + '.' : null, typicalRestockDays: null }
+                : { query, found: false };
+  });
+  return { canned: true, reply: printedListReply(shop, printed), list: { shop: shop.name, at: new Date(), items: printed } };
+}
+
+// The response's stocks as the record, or null unless there is one well-formed entry per item.
+// query is the visitor's own item as sent.
+function recordOf(stocks, items){
+  if (!Array.isArray(stocks) || stocks.length !== items.length) return null;
+  const record = [];
+  for (const [i, s] of stocks.entries()){
+    const query = items[i];
+    if (s?.found === false){ record.push({ query, found: false }); continue; }
+    if (s?.found !== true || !stockOf(s) || typeof s.inStock !== 'boolean') return null;
+    const str = v => typeof v === 'string' && v.trim() ? v.trim() : null;
+    record.push({ query, found: true, product: s.product, inStock: s.inStock,
+      onHand: Number.isFinite(s.onHand) ? s.onHand : null, lowStock: s.lowStock === true, price: str(s.price),
+      nextRestockText: str(s.nextRestockText), restockNote: str(s.restockNote),
+      typicalRestockDays: Number.isFinite(s.typicalRestockDays) ? s.typicalRestockDays : null });
+  }
+  return record;
+}
+
+// What the clerk says for the printed list: "Good news, sourdough and concha are in stock.
+// Croissant is out right now, back Tuesday morning." Each product once, in list order.
+function printedListReply(shop, record){
+  const named = new Set(), have = [], out = [], missing = [];
+  for (const e of record){
+    if (!e.found){ if (!missing.some(m => m.toLowerCase() === e.query.toLowerCase())) missing.push(e.query); continue; }
+    if (named.has(e.product)) continue;
+    named.add(e.product); (e.inStock ? have : out).push(e);
+  }
+  const and = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a.at(-1) : a[0];
+  const or = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' or ' + a.at(-1) : a[0];
+  const said = [];
+  if (have.length) said.push('Good news, ' + and(have.map(e => e.product)) + (have.length > 1 ? ' are' : ' is') + ' in stock.');
+  for (const e of out) said.push(cap(e.product) + ' is out right now' + (e.nextRestockText ? ', back ' + e.nextRestockText : '') + '.' +
+    (e.restockNote ? ' ' + e.restockNote : ''));
+  if (missing.length){
+    const instead = shop.inventory.filter(i => i.inStock && !named.has(i.name)).map(i => i.name);
+    said.push('We don\'t carry ' + or(missing) + (instead.length ? ', but we do have ' + and(instead) : '') + '.');
+  }
+  return said.join(' ');
 }
 
 /* ---------- 3. SCENE: the street and the shop, in plain Three.js ----------
@@ -695,18 +930,26 @@ let doorTarget = 0, doorValue = 0, state = 'listening', tween = null;
 // Per-shop dressing, display only, kept out of SHOPS (which the server, the seed and the settings
 // drawer read): the hours on the card on the door, the floor's kind, the sign's typeface, the
 // light (sun colour and strength; sky and ground colours and strength of the soft light; the
-// room light's strength), the counter's woods (body, top, trim), the storefront's paint and the
-// ceiling fixture. A shop without an entry gets the bakery's.
+// room light's strength), the counter's woods (body, top, trim), the storefront's paint, the shape
+// of its front (brick: the shared brick and wood; flat: block, steel and no coping; glass: glass
+// panels and a gable where the brick was) and the ceiling fixture. A shop without an entry gets
+// the bakery's.
 const DECOR = {
-  bakery: { hours:['Daily', '7 am – 6 pm'], floor:'tile', font:'Georgia, "Times New Roman", serif',
+  bakery: { hours:['Open daily', '7 am to 5 pm'], floor:'tile', font:'Georgia, "Times New Roman", serif',
             sun:['#ffe0b2', 1.7], sky:['#fde7c8', '#8b7355', 0.9], room:2.6,
-            counter:['#5a3a22', '#c9915a', '#3b2314'], frame:'#5b3a1e', fixture:'pendants' },
-  paint:  { hours:['Mon–Sat 7 am – 7 pm', 'Sun 9 am – 5 pm'], floor:'concrete', font:'"Arial Black", Impact, "Arial Narrow", sans-serif',
+            counter:['#5a3a22', '#c9915a', '#3b2314'], frame:'#5b3a1e', front:'brick', fixture:'pendants', case:'pastry', top:'marble',
+            staff:{ skin:'#f3cfae', hair:'#3b2314', shirt:'#bfdbfe', apron:'#fafaf9', cap:'toque', agentSkin:'#e0ac69', agentHair:'#1c1917',
+                    agentShirt:'#fafaf9', agentApron:'#78350f', agentHat:'cap', carries:'tray' } },
+  paint:  { hours:['Open daily', '8 am to 6 pm'], floor:'concrete', font:'"Arial Black", Impact, "Arial Narrow", sans-serif',
             sun:['#f8fafc', 2.0], sky:['#e0f2fe', '#94a3b8', 1.05], room:3.2,
-            counter:['#334155', '#64748b', '#1e293b'], frame:'#1e3a8a', fixture:'tubes' },
-  plants: { hours:['Daily', '9 am – 6 pm'], floor:'quarry', font:'"Trebuchet MS", Verdana, sans-serif',
+            counter:['#334155', '#64748b', '#1e293b'], frame:'#1e3a8a', front:'flat', fixture:'tubes', case:'bench', top:'steel',
+            staff:{ skin:'#c68642', hair:'#1c1917', shirt:'#f1f5f9', apron:'#1e3a8a', straps:true, cap:'cap', agentSkin:'#f3cfae', agentHair:'#78350f',
+                    agentShirt:'#e2e8f0', agentApron:'#1e3a8a', vest:true, agentHat:'beanie', carries:'clipboard' } },
+  plants: { hours:['Open daily', '9 am to 6 pm'], floor:'quarry', font:'"Trebuchet MS", Verdana, sans-serif',
             sun:['#fff7ed', 1.35], sky:['#ecfccb', '#4d7c0f', 1.15], room:2.3,
-            counter:['#6b4a2b', '#a8795a', '#4a3220'], frame:'#14532d', fixture:'skylight' } };
+            counter:['#6b4a2b', '#a8795a', '#4a3220'], frame:'#14532d', front:'glass', fixture:'skylight', case:'potting', top:'plank',
+            staff:{ skin:'#e0ac69', hair:'#4a2c17', shirt:'#fef3c7', apron:'#047857', cap:'hair', gloves:'#c9a66b', agentSkin:'#c68642', agentHair:'#1c1917',
+                    agentShirt:'#ecfccb', agentApron:'#365314', agentHat:'straw', carries:'can' } } };
 const decorOf = shop => DECOR[shop.id] || DECOR.bakery;
 
 const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
@@ -718,7 +961,9 @@ const basic = color => new THREE.MeshBasicMaterial({ color });
 const FAM = { wood:[0.72, 0], varnish:[0.38, 0.05], paint:[0.5, 0.05], steel:[0.35, 0.75], brass:[0.22, 0.9],
               cloth:[0.95, 0], stone:[0.92, 0], ceramic:[0.25, 0], plastic:[0.45, 0], leaf:[0.62, 0] };
 const PAINT = ['#1d4ed8', '#059669', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#ea580c', '#65a30d'];   // the paint store's hues
-const mat = (fam, color, o) => std(color, { roughness:FAM[fam][0], metalness:FAM[fam][1], ...o });
+// Metal (brass, steel) reflects a tiny six-colour room (TEX.env, made with the textures below): without
+// one a metalness near 1 has nothing to reflect and draws as a dark block.
+const mat = (fam, color, o) => std(color, { roughness:FAM[fam][0], metalness:FAM[fam][1], ...(FAM[fam][1] > 0.5 ? { envMap:TEX.env, envMapIntensity:0.9 } : {}), ...o });
 const vmat = (fam, o) => mat(fam, '#ffffff', { vertexColors:true, ...o });   // a colour per part, from merge()
 const glass = o => std('#ffffff', { roughness:0.05, metalness:0.1, transparent:true, opacity:0.22, depthWrite:false, ...o });
 const Box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
@@ -831,6 +1076,11 @@ function brickTexture(tones, mortar){   // a metre square: four bricks across, t
   }, true));
 }
 (function makeTextures(){
+  // The room the metals reflect: a cube of six flat colours (right, left, up, down, front, back), a
+  // cream ceiling over warm walls and a dark floor; the renderer blurs it per roughness on first use.
+  const face = c => { const cv = document.createElement('canvas'); cv.width = cv.height = 16; const x = cv.getContext('2d'); x.fillStyle = c; x.fillRect(0, 0, 16, 16); return cv; };
+  TEX.env = new THREE.CubeTexture(['#d9b58c', '#c2a079', '#fff6e0', '#3f3022', '#efe3d0', '#a9886a'].map(face));
+  TEX.env.colorSpace = THREE.SRGBColorSpace; TEX.env.needsUpdate = true; TEX.env.userData.shared = true;
   // Wood, light and neutral, grain along u: the material's colour sets the species. woodUp has the
   // grain along v, for posts and trunks.
   TEX.wood = shared(canvasTexture(1024, 512, (x, w, h) => {
@@ -922,6 +1172,17 @@ function brickTexture(tones, mortar){   // a metre square: four bricks across, t
   TEX.hazard = shared(canvasTexture(128, 64, (x, w, h) => {
     x.fillStyle = '#facc15'; x.fillRect(0, 0, w, h); x.fillStyle = '#111827';
     for (let i = -64; i < w; i += 64){ x.beginPath(); x.moveTo(i, h); x.lineTo(i + 32, h); x.lineTo(i + 96, 0); x.lineTo(i + 64, 0); x.closePath(); x.fill(); }
+  }, true));
+  // The paint store's front: painted concrete block (a metre: two and a half blocks by five courses)
+  // and the roll-up shutter's slats (eight to the tile).
+  TEX.block = shared(canvasTexture(512, 512, (x, w, h) => {
+    x.fillStyle = '#8b949e'; x.fillRect(0, 0, w, h);
+    const rows = 5, cols = 2.5, bh = h / rows, bw = w / cols;
+    for (let r = 0; r < rows; r++) for (let c = -1; c < cols + 1; c++){ x.fillStyle = pick(['#b4bcc5', '#adb5be', '#bcc3cb', '#a7afb8']); x.fillRect(c * bw + (r % 2 ? bw / 2 : 0) + 3, r * bh + 3, bw - 6, bh - 6); }
+    speckle(x, w, h, 6000, 3, ['#000000', '#ffffff'], 0.1);
+  }, true));
+  TEX.slats = shared(canvasTexture(64, 256, (x, w, h) => {
+    for (let i = 0; i < 8; i++){ const g = x.createLinearGradient(0, i * 32, 0, i * 32 + 32); g.addColorStop(0, '#cbd5e1'); g.addColorStop(0.45, '#94a3b8'); g.addColorStop(1, '#475569'); x.fillStyle = g; x.fillRect(0, i * 32, w, 32); }
   }, true));
   TEX.dropcloth = shared(canvasTexture(512, 512, (x, w, h) => {
     x.fillStyle = '#e7dcc6'; x.fillRect(0, 0, w, h); speckle(x, w, h, 6000, 4, ['#d6c9b0', '#f3ecdc'], 0.5);
@@ -1068,11 +1329,16 @@ for (const [x, tex, tint, h2] of [[-5.8, TEX.brickDark, '#ffffff', 3.4], [5.8, T
 // taller building would hide the skyline from the street); between the piers a painted wooden
 // shop front in the shop's colour, with bulkheads under two open window bays (no glass: the
 // street looks in), a door frame and a header. The bays beside the doors show the shop inside.
-solid(scene, mat('stone', '#ffffff', { map:TEX.brick }), [[TexBox(1.0, 2.8, 0.4), -2.9, 1.6, 0], [TexBox(1.0, 2.8, 0.4), 2.9, 1.6, 0],
+// Each shop's props then give the front its own shape (DECOR.front): the bakery keeps the brick
+// and arches its windows under a deep awning; the paint store hides brick, coping and wood for a
+// flat block front with a steel window grid; the plant shop hides brick and coping for glass panels
+// and a glass gable. The doors, the door cue's mark (0, 2.0, 3.9) and the camera stations never move.
+const facade = {};
+facade.brick = solid(scene, mat('stone', '#ffffff', { map:TEX.brick }), [[TexBox(1.0, 2.8, 0.4), -2.9, 1.6, 0], [TexBox(1.0, 2.8, 0.4), 2.9, 1.6, 0],
   [TexBox(6.8, 1.6, 0.4), 0, 3.8, 0]], 0, 0, 3.8, { cast:true, receive:true });
-solid(scene, stoneTrim, [[Box(7.0, 0.14, 0.5), 0, 4.67, 0], [Box(7.0, 0.1, 0.46), 0, 3.05, 0]], 0, 0, 3.8, { cast:true });
+facade.coping = solid(scene, stoneTrim, [[Box(7.0, 0.14, 0.5), 0, 4.67, 0], [Box(7.0, 0.1, 0.46), 0, 3.05, 0]], 0, 0, 3.8, { cast:true });
 const frameMat = mat('paint', '#5b3a1e');
-solid(scene, frameMat, [
+facade.wood = solid(scene, frameMat, [
   [Box(1.6, 0.65, 0.3), -1.6, 0.525, 0], [Box(1.6, 0.65, 0.3), 1.6, 0.525, 0],         // bulkheads under the windows
   [Box(1.3, 0.4, 0.04), -1.6, 0.52, 0.17], [Box(1.3, 0.4, 0.04), 1.6, 0.52, 0.17],     // their raised panels
   [Box(1.7, 0.06, 0.46), -1.6, 0.88, 0], [Box(1.7, 0.06, 0.46), 1.6, 0.88, 0],         // sills
@@ -1121,23 +1387,24 @@ function drawSign(shop){
   x.globalAlpha = 1; signTex.needsUpdate = true;
 }
 
-// Awning: 14 stripes in the shop's two colours drawn on one canvas, a scalloped fringe, and two
-// side panels; the whole thing is three meshes.
+// Awnings: 14 stripes in the shop's two colours drawn on one canvas, a scalloped valance and two
+// side panels, three meshes, built by the shop that wants one (awningAt, from its props) and drawn
+// again for each shop (drawAwning).
 const awningTex = canvasTexture(1024, 256, () => {}), fringeTex = canvasTexture(1024, 64, () => {});
 const awningMat = mat('cloth', '#ffffff', { map:awningTex, side:THREE.DoubleSide });
 const fringeMat = mat('cloth', '#ffffff', { map:fringeTex, transparent:true, alphaTest:0.5, side:THREE.DoubleSide });
 const awningSide = mat('cloth', '#b45309', { side:THREE.DoubleSide });
-const awning = group(scene, 0, 2.9, 4.0), SLOPE = Math.PI / 3.8;
-put(awning, new THREE.PlaneGeometry(3.8, 1.3), awningMat, 0, 0, 0.4875, { rx:-SLOPE, cast:true });
-put(awning, new THREE.PlaneGeometry(3.8, 0.22), fringeMat, 0, -0.5, 1.105);
-{
-  const yT = 0.65 * Math.cos(SLOPE), zT = 0.4875 - 0.65 * Math.sin(SLOPE), zB = 0.4875 + 0.65 * Math.sin(SLOPE), sides = new THREE.BufferGeometry();
-  const v = [];
-  for (const x of [-1.9, 1.9]) v.push(x, yT, zT, x, -yT, zB, x, -yT, zT);
+function awningAt(g, w, d, drop, y0, z0){   // w wide, d deep, meeting the wall at (y0, z0), falling `drop` radians below level
+  const a = group(g, 0, y0, z0), dy = d * Math.sin(drop), dz = d * Math.cos(drop);
+  put(a, new THREE.PlaneGeometry(w, d), awningMat, 0, -dy / 2, dz / 2, { rx:drop - Math.PI / 2, cast:true });
+  put(a, new THREE.PlaneGeometry(w, 0.22), fringeMat, 0, -dy - 0.11, dz);
+  const sides = new THREE.BufferGeometry(), v = [];
+  for (const x of [-w / 2, w / 2]) v.push(x, 0, 0, x, -dy, dz, x, -dy, 0);
   sides.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
   sides.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(12).fill(0), 2));
   sides.computeVertexNormals();
-  put(awning, sides, awningSide);
+  put(a, sides, awningSide);
+  return a;
 }
 function drawAwning(L){
   const x = awningTex.image.getContext('2d'), f = fringeTex.image.getContext('2d'), n = 14, sw = 1024 / n;
@@ -1163,58 +1430,117 @@ solid(scene, trimMat, [[Box(6.5, 0.12, 0.04), 0, 0.27, -4.63], [Box(0.04, 0.12, 
   [Box(0.1, 2.5, 0.12), 1.25, 1.45, -4.58], [Box(0.1, 2.5, 0.12), 2.55, 1.45, -4.58], [Box(1.4, 0.22, 0.12), 1.9, 2.72, -4.58]]);
 solid(scene, mat('wood', '#3b2314', { map:TEX.wood }), [-2, 0, 2].map(z => [TexBox(6.4, 0.2, 0.25), 0, 4.1, z]));
 put(scene, Box(1.2, 2.4, 0.1), mat('paint', '#ffffff', { map:TEX.stockDoor, emissiveMap:TEX.stockGlow, emissive:'#fff1b8', emissiveIntensity:1.1, roughness:0.55 }), 1.9, 1.4, -4.6);
+// The STOCK ROOM sign: on the wall beside the door, at head height, pointing at it. (On the lintel it
+// ran off the right of a 390 px phone's frame, and a phone held sideways hides the lintel behind the
+// header. x 0.5 to 1.1 at y 2.02 is in frame at every station on every screen, clear of the clerk's
+// head from a phone's high camera, under the pendants and above where the stock agent stops.)
 const stockLabel = canvasTexture(512, 128, x => {
   x.fillStyle = '#78350f'; x.fillRect(0, 0, 512, 128);
-  x.fillStyle = '#fef3c7'; x.font = 'bold 60px ' + FONT; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.fillText('STOCK ROOM', 256, 66);
+  x.strokeStyle = '#fde68a'; x.lineWidth = 6; x.strokeRect(10, 10, 492, 108);
+  x.fillStyle = '#fef3c7'; x.font = 'bold 60px ' + FONT; x.textAlign = 'left'; x.textBaseline = 'middle';
+  x.fillText('STOCK ROOM', 30, 66);
+  x.beginPath(); x.moveTo(418, 64); x.lineTo(470, 64); x.moveTo(446, 40); x.lineTo(472, 64); x.lineTo(446, 88);   // the arrow
+  x.strokeStyle = '#fef3c7'; x.lineWidth = 10; x.lineCap = 'round'; x.lineJoin = 'round'; x.stroke();
 });
-put(scene, new THREE.PlaneGeometry(0.9, 0.2), mat('paint', '#ffffff', { map:stockLabel }), 1.9, 2.72, -4.515);
+put(scene, new THREE.PlaneGeometry(0.6, 0.15), mat('paint', '#ffffff', { map:stockLabel }), 0.8, 2.02, -4.62);
 
-// Counter: a panelled wooden body, a thicker varnished top (at y 1.225), and on it the brass
-// register at the left end and the bell at the right; each shop sets the woods and adds its own things.
+// Counter: a panelled wooden body, a thicker top (at y 1.225), and on it the brass register at the
+// left end and the bell at the right. Each shop's props replace the body with their trade's own
+// (DECOR.case: the bakery's pastry case, the paint store's mixing bench, the plant shop's potting
+// bench; the shared body is hidden) and pick the top (DECOR.top: marble, steel or planks); the
+// register stays where it is, as do the clerk's spot and the stock agent's path.
 const counterMat = mat('wood', '#5a3a22', { map:TEX.wood }), topMat = mat('varnish', '#c9915a', { map:TEX.wood }), counterTrim = mat('paint', '#3b2314');
+const TOPS = { marble:mat('ceramic', '#f3ede3', { roughness:0.28 }), steel:mat('steel', '#cbd5e1', { roughness:0.42 }), plank:mat('wood', '#8c7a63', { map:TEX.wood, roughness:0.88 }) };
 const counter = group(scene, 0, 0.2, 0.2);
-put(counter, TexBox(3.2, 0.95, 0.85, 0.5), counterMat, 0, 0.475, 0, { cast:true, receive:true });
-put(counter, TexBox(3.4, 0.1, 1.0, 0.5), topMat, 0, 0.975, 0, { cast:true, receive:true });
-solid(counter, counterTrim, [[Box(3.22, 0.1, 0.87), 0, 0.05, 0], [Box(3.0, 0.05, 0.03), 0, 0.3, 0.44], [Box(3.0, 0.05, 0.03), 0, 0.82, 0.44],
+const counterBody = put(counter, TexBox(3.2, 0.95, 0.85, 0.5), counterMat, 0, 0.475, 0, { cast:true, receive:true });
+const counterTop = put(counter, TexBox(3.4, 0.1, 1.0, 0.5), topMat, 0, 0.975, 0, { cast:true, receive:true });
+const counterPanels = solid(counter, counterTrim, [[Box(3.22, 0.1, 0.87), 0, 0.05, 0], [Box(3.0, 0.05, 0.03), 0, 0.3, 0.44], [Box(3.0, 0.05, 0.03), 0, 0.82, 0.44],
   ...[-1.45, -0.5, 0.5, 1.45].map(x => [Box(0.05, 0.57, 0.03), x, 0.56, 0.44])]);
 const register = group(counter, -1.25, 1.025, 0), regBrass = mat('brass', '#d97706', { roughness:0.3 });
 put(register, Box(0.45, 0.25, 0.4), regBrass, 0, 0.125, 0, { cast:true });
 put(register, Box(0.35, 0.2, 0.3), regBrass, 0, 0.3, -0.04);
-put(register, Box(0.12, 0.1, 0.02), basic('#fef08a'), 0, 0.48, -0.04);
+const regDisplay = canvasTexture(128, 64, x => {   // the register's lit display
+  x.fillStyle = '#14291c'; x.fillRect(0, 0, 128, 64); x.fillStyle = '#86efac'; x.font = 'bold 40px ' + FONT;
+  x.textAlign = 'right'; x.textBaseline = 'middle'; x.fillText('0.00', 118, 34);
+});
+put(register, Box(0.16, 0.1, 0.02), new THREE.MeshBasicMaterial({ map:regDisplay }), 0, 0.48, -0.04);
 put(counter, Sph(0.08, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat('brass', '#f59e0b', { roughness:0.15 }), 0.65, 1.025, 0.15, { cast:true });
 put(counter, Cyl(0.015, 0.015, 0.04, 8), regBrass, 0.65, 1.105, 0.15);
 
-// The clerk faces the street; no legs, the counter hides them.
-const clerk = group(scene, 0, 0.2, -0.6);
-const shirt = mat('cloth', '#ffffff', { roughness:0.8 }), skin = std('#fed7aa', { roughness:0.6 });
-const apronMat = mat('cloth', '#ffffff', { roughness:0.85 });
-put(clerk, Cyl(0.22, 0.24, 0.7, 10), shirt, 0, 1.0, 0, { cast:true });
-put(clerk, Cyl(0.23, 0.25, 0.62, 10, 1, false, 0, Math.PI * 1.5), apronMat, 0, 0.98, 0, { ry:-Math.PI * 0.75 });
-const head = group(clerk, 0, 1.4, 0);
-put(head, Sph(0.18, 14, 14), skin, 0, 0.15, 0, { cast:true });
-put(head, Sph(0.19, 12, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), std('#451a03', { roughness:0.9 }), 0, 0.18, 0);
-const eyeGeo = Sph(0.025, 8, 8), eyeMat = basic('#1c1917');
-put(head, eyeGeo, eyeMat, -0.06, 0.16, 0.16);
-put(head, eyeGeo, eyeMat, 0.06, 0.16, 0.16);
-put(head, new THREE.TorusGeometry(0.04, 0.008, 6, 8, Math.PI), basic('#b91c1c'), 0, 0.08, 0.17, { rx:Math.PI / 2, rz:Math.PI });
-const armL = group(clerk, -0.28, 1.25, 0), armR = group(clerk, 0.28, 1.25, 0), armGeo = Cyl(0.06, 0.05, 0.45, 8);
-put(armL, armGeo, shirt, 0, -0.2, 0);
-put(armR, armGeo, shirt, 0, -0.2, 0);
-put(armR, Sph(0.06, 8, 8), skin, 0, -0.42, 0);
-
-// The stock agent, by the stock-room door; shown only while the clerk checks with it.
-const stocker = group(scene, 2.4, 0.2, -4.2), agentShirt = mat('cloth', '#f8fafc', { roughness:0.8 });
-const vestMat = mat('cloth', '#ffffff', { roughness:0.7 });
-put(stocker, Cyl(0.2, 0.22, 0.65, 8), agentShirt, 0, 0.95, 0, { cast:true });
-put(stocker, Cyl(0.21, 0.23, 0.58, 8), vestMat, 0, 0.95, 0);
-put(stocker, Sph(0.17, 10, 10), skin, 0, 1.48, 0);
-put(stocker, Cyl(0.18, 0.18, 0.1, 10), std('#334155'), 0, 1.58, 0);
-const agentArm = group(stocker, -0.25, 1.2, 0);
-put(agentArm, Cyl(0.05, 0.05, 0.4, 8), agentShirt, 0, -0.18, 0);
-put(agentArm, Box(0.25, 0.35, 0.02), mat('wood', '#78350f'), -0.05, -0.28, 0.15, { rx:-Math.PI / 4 });
-put(agentArm, Box(0.21, 0.3, 0.01), std('#ffffff'), -0.05, -0.28, 0.165, { rx:-Math.PI / 4 });
+// The staff: the clerk at the counter (facing the street; no legs, the counter hides them) and the
+// stock agent by the stock-room door, shown only while the clerk checks with it. Both are dressed
+// again for each shop (dressStaff, from DECOR.staff): a torso group that breathes, a head group
+// with a face drawn on a canvas (two eyes, a small smile, no brows), hair or a cap, and arms.
+// Section 4 animates clerk, head, armL, armR, stocker and agentArm; those groups stay, only what
+// is in them changes.
+const clerk = group(scene, 0, 0.2, -0.6), torso = group(clerk, 0, 1.0, 0), head = group(clerk, 0, 1.4, 0);
+const armL = group(clerk, -0.28, 1.25, 0), armR = group(clerk, 0.28, 1.25, 0);
+const stocker = group(scene, 2.4, 0.2, -4.2), agentTorso = group(stocker, 0, 0.95, 0), agentHead = group(stocker, 0, 1.48, 0), agentArm = group(stocker, -0.25, 1.2, 0);
 stocker.visible = false;
+// A face for a head sphere: the sphere's +z side is u 0.25 and its equator v 0.5. Two eyes a little
+// above the equator with a highlight each, soft cheeks, a small smile below; flour on a cheek for a baker.
+function faceTexture(skin, flour){
+  return canvasTexture(512, 256, (x, w, h) => {
+    x.fillStyle = skin; x.fillRect(0, 0, w, h);
+    x.fillStyle = 'rgba(239,108,100,.3)'; for (const s of [-1, 1]){ x.beginPath(); x.ellipse(128 + s * 36, 146, 13, 7, 0, 0, Math.PI * 2); x.fill(); }
+    if (flour){ x.fillStyle = 'rgba(255,255,255,.75)'; x.beginPath(); x.ellipse(162, 150, 15, 9, 0.4, 0, Math.PI * 2); x.fill(); }
+    x.fillStyle = '#1c1917'; for (const s of [-1, 1]){ x.beginPath(); x.ellipse(128 + s * 24, 112, 6, 9, 0, 0, Math.PI * 2); x.fill(); }
+    x.fillStyle = '#ffffff'; for (const s of [-1, 1]){ x.beginPath(); x.arc(128 + s * 24 - 2, 109, 2.2, 0, Math.PI * 2); x.fill(); }
+    x.strokeStyle = '#9a3412'; x.lineWidth = 3.5; x.lineCap = 'round'; x.beginPath(); x.arc(128, 126, 20, Math.PI * 0.22, Math.PI * 0.78); x.stroke();
+  });
+}
+function dressStaff(shop, anims){
+  const K = decorOf(shop).staff, L = shop.look || SHOPS[0].look;
+  for (const g of [torso, head, armL, armR, agentTorso, agentHead, agentArm]){
+    g.traverse(o => { if (o.isMesh){ o.geometry.dispose(); if (o.material.map) o.material.map.dispose(); o.material.dispose(); } });
+    g.clear(); g.scale.set(1, 1, 1);
+  }
+  const cloth = () => vmat('cloth', { roughness:0.85 });
+  // The clerk: shirt, apron (open at the back) with a bib, overall straps and buttons for the paint
+  // store; the face; a toque, a cap with a pencil behind the ear, or hair; arms with hands or gloves.
+  const TOR = [[Cyl(0.22, 0.24, 0.7, 12), 0, 0, 0, { color:K.shirt }], [Cyl(0.23, 0.25, 0.62, 12, 1, false, 0, Math.PI * 1.5), 0, -0.02, 0, { ry:-Math.PI * 0.75, color:K.apron }],
+    [Box(0.2, 0.26, 0.02), 0, 0.22, 0.228, { color:K.apron }]];
+  if (K.straps) for (const s of [-1, 1]) TOR.push([Box(0.04, 0.26, 0.02), s * 0.08, 0.4, 0.17, { rx:-0.6, color:K.apron }], [Sph(0.016, 6, 6), s * 0.08, 0.34, 0.24, { color:'#f59e0b' }]);
+  solid(torso, cloth(), TOR, 0, 0, 0, { cast:true });
+  put(head, Sph(0.18, 16, 14), std('#ffffff', { map:faceTexture(K.skin, K.cap === 'toque'), roughness:0.6 }), 0, 0.15, 0, { cast:true });
+  const HAT = [];
+  if (K.cap === 'toque') HAT.push([Cyl(0.19, 0.19, 0.09, 14, 1, true), 0, 0.3, 0, { color:L.apron }], [Sph(0.2, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), 0, 0.33, 0, { s:[1.06, 0.8, 1.06], color:'#fafaf9' }],
+    [Box(0.06, 0.04, 0.012), 0.1, 0.3, 0.162, { ry:0.55, color:'#ffffff' }]);
+  else if (K.cap === 'cap') HAT.push([Sph(0.186, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), 0, 0.19, 0, { color:L.apron }], [Cyl(0.21, 0.21, 0.012, 14, 1, false, -Math.PI / 2, Math.PI), 0, 0.2, 0.03, { color:L.apron }],
+    [Sph(0.02, 6, 6), 0, 0.375, 0, { color:L.apron }], [Cyl(0.008, 0.008, 0.16, 6), 0.175, 0.2, -0.01, { rx:Math.PI / 2, color:'#facc15' }], [Sph(0.185, 12, 10, 0, Math.PI * 2, Math.PI * 0.45, Math.PI * 0.12), 0, 0.17, -0.01, { color:K.hair }]);
+  else HAT.push([Sph(0.187, 12, 12, 0, Math.PI * 2, 0, Math.PI * 0.4), 0, 0.17, -0.015, { color:K.hair }], [Sph(0.06, 8, 8), 0, 0.3, -0.14, { color:K.hair }]);
+  solid(head, cloth(), HAT);
+  const hand = K.gloves ? [[Sph(0.06, 8, 8), 0, -0.42, 0, { color:K.gloves }], [Cyl(0.068, 0.06, 0.05, 8), 0, -0.4, 0, { color:K.gloves }]] : [[Sph(0.06, 8, 8), 0, -0.42, 0, { color:K.skin }]];
+  for (const arm of [armL, armR]) solid(arm, cloth(), [[Cyl(0.06, 0.05, 0.45, 8), 0, -0.2, 0, { color:K.shirt }], ...hand]);
+  // The stock agent: shirt and apron, or a vest open at the front, the face, a cap, beanie or straw
+  // hat, and in its arm what it carries: a tray of rolls, the clipboard, or a watering can.
+  const ATOR = [[Cyl(0.2, 0.22, 0.65, 10), 0, 0, 0, { color:K.agentShirt }],
+    [Cyl(0.21, 0.23, 0.58, 10, 1, false, 0, Math.PI * 1.5), 0, 0, 0, { ry:K.vest ? Math.PI * 0.25 : -Math.PI * 0.75, color:K.agentApron }]];
+  if (!K.vest) ATOR.push([Box(0.18, 0.22, 0.02), 0, 0.22, 0.208, { color:K.agentApron }]);
+  solid(agentTorso, cloth(), ATOR, 0, 0, 0, { cast:true });
+  put(agentHead, Sph(0.17, 14, 12), std('#ffffff', { map:faceTexture(K.agentSkin), roughness:0.6 }));
+  const AHAT = [[Sph(0.172, 12, 10, 0, Math.PI * 2, Math.PI * 0.42, Math.PI * 0.14), 0, 0.02, -0.01, { color:K.agentHair }]];
+  if (K.agentHat === 'straw') AHAT.push([Cyl(0.31, 0.31, 0.012, 16), 0, 0.09, 0, { color:'#e9d8a6' }], [Cyl(0.15, 0.165, 0.1, 12), 0, 0.14, 0, { color:'#e9d8a6' }], [Cyl(0.168, 0.168, 0.03, 12, 1, true), 0, 0.11, 0, { color:K.agentApron }]);
+  else if (K.agentHat === 'beanie') AHAT.push([Cyl(0.176, 0.176, 0.08, 12, 1, true), 0, 0.06, 0, { color:'#334155' }], [Sph(0.176, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), 0, 0.06, 0, { color:'#334155' }]);
+  else AHAT.push([Sph(0.175, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), 0, 0.03, 0, { color:'#fafaf9' }], [Cyl(0.2, 0.2, 0.012, 14, 1, false, -Math.PI / 2, Math.PI), 0, 0.04, 0.03, { color:'#fafaf9' }]);
+  solid(agentHead, cloth(), AHAT);
+  const ARM = [[Cyl(0.05, 0.05, 0.4, 8), 0, -0.18, 0, { color:K.agentShirt }], [Sph(0.055, 8, 8), 0, -0.4, 0.02, { color:K.agentSkin }]];
+  if (K.carries === 'tray'){   // held level while the arm swings forward in the checking pose (section 4 turns it -0.3)
+    ARM.push([Box(0.36, 0.015, 0.26), 0.25, -0.4, 0.26, { rx:0.3, color:'#92400e' }]);
+    for (const [dx, dz] of [[-0.1, -0.05], [0.02, 0.05], [0.12, -0.04]]) ARM.push([Sph(0.045, 8, 6), 0.25 + dx, -0.365 - 0.296 * dz, 0.26 + 0.955 * dz, { rx:0.3, s:[1.2, 0.75, 1], color:'#d7a45c' }]);
+  } else if (K.carries === 'can') ARM.push([Cyl(0.08, 0.1, 0.18, 10), 0, -0.56, 0.06, { color:'#9ca3af' }], [Cyl(0.012, 0.022, 0.22, 6), 0.1, -0.5, 0.12, { rz:-1.1, color:'#9ca3af' }], [new THREE.TorusGeometry(0.07, 0.01, 6, 10, Math.PI), 0, -0.47, 0.06, { color:'#9ca3af' }]);
+  else ARM.push([Box(0.25, 0.35, 0.02), -0.05, -0.28, 0.15, { rx:-Math.PI / 4, color:'#78350f' }], [Box(0.21, 0.3, 0.01), -0.05, -0.28, 0.165, { rx:-Math.PI / 4, color:'#ffffff' }], [Box(0.08, 0.03, 0.02), -0.05, -0.17, 0.26, { rx:-Math.PI / 4, color:'#94a3b8' }]);
+  solid(agentArm, cloth(), ARM);
+  // The idle, on both: a slow breath (1.5 percent across the chest at 0.25 Hz) and a small tilt of
+  // the head every nine to eleven seconds, eased in and out; both still under Reduce motion. The
+  // poses section 4 drives (turning to the stock room, the walk over, the answer) are untouched.
+  const tilt = (t, phase) => { const n = Math.floor((t + phase) / 10), u = (t + phase) - n * 10 - (n % 3) * 0.9; return u > 0 && u < 1.8 ? Math.sin(u / 1.8 * Math.PI) * 0.13 : 0; };
+  anims.push(t => {
+    const w = prefs.calm ? 0 : 1, b = 1 + Math.sin(t * Math.PI * 0.5) * 0.015 * w, b2 = 1 + Math.sin(t * Math.PI * 0.5 + 1.9) * 0.015 * w;
+    torso.scale.set(b, 1, b); agentTorso.scale.set(b2, 1, b2);
+    head.rotation.z = tilt(t, 0) * w; agentHead.rotation.z = tilt(t, 4.3) * w;
+  });
+}
 
 // Ceiling fixtures, one kind per shop: brass pendants on cords, fluorescent tubes on chains, or
 // a skylight with a soft shaft of light falling through it.
@@ -1233,8 +1559,8 @@ function fixtures(g, kind){
     shaft.setAttribute('color', new THREE.BufferAttribute(col, 3));
     put(g, shaft, new THREE.MeshBasicMaterial({ color:'#fff7d6', vertexColors:true, transparent:true, opacity:0.14, blending:THREE.AdditiveBlending,
       depthWrite:false, side:THREE.DoubleSide, fog:false }), sx - 0.45, 2.3, sz - 0.3, { rz:-0.22, rx:0.14 });
-  } else {                   // three brass pendants on long cords behind the clerk, clear of the STOCK ROOM sign
-    const xs = [-1.6, -0.5, 0.7], z = -2.2;
+  } else {                   // three brass pendants on long cords behind the clerk, clear of the line of sight to the STOCK ROOM sign
+    const xs = [-1.6, -0.5, 0.4], z = -2.2;
     solid(g, basic('#1c1917'), xs.map(x => [Cyl(0.008, 0.008, 1.9, 4), x, 3.26, z]));
     solid(g, mat('brass', '#d97706', { side:THREE.DoubleSide, emissive:'#92400e', emissiveIntensity:0.35 }), xs.map(x => [new THREE.ConeGeometry(0.24, 0.22, 16, 1, true), x, 2.2, z]));
     solid(g, basic('#fef3c7'), xs.map(x => [Sph(0.05, 10, 8), x, 2.13, z]));
@@ -1260,14 +1586,16 @@ function drawList(x, w, h, shop, s){      // s.listW: the share of the width the
   if (s.note){ x.fillStyle = s.noteColor || s.text; x.font = 'italic ' + Math.round(h * 0.055) + 'px ' + FONT; x.fillText(s.note, pad, h * 0.92); }
 }
 // A board hanging on two chains from the beams behind the clerk, tilted a little toward the
-// counter, with the shop's list in its own hand (a canvas per shop, disposed with its props).
-function hanging(g, shop, s){               // s.y: the board's centre height (2.65 unless the wall behind needs showing)
-  const W = 2.0, H = 0.7, x0 = -0.6, y0 = s.y || 2.65, z0 = -2.6;
+// counter, with the shop's list in its own hand (a canvas per shop, disposed with its props). Its
+// top stays under y 3.05: higher than that, at z -2.6, is behind the page's header at the counter
+// station, on a desktop and on a 390 px phone alike, and the heading is the first thing to go.
+function hanging(g, shop, s){               // s.y: the centre height (2.6); s.w, s.h: the size (2.0 by 0.7); s.x: the centre (-0.6)
+  const W = s.w || 2.0, H = s.h || 0.7, x0 = s.x ?? -0.6, y0 = s.y || 2.6, z0 = -2.6;
   const b = group(g, x0, y0, z0); b.rotation.x = 0.1;
   put(b, Box(W + 0.08, H + 0.08, 0.04), mat('wood', s.frame, { map:TEX.wood }));
-  const tex = canvasTexture(1024, 358, (x, w, h) => { drawList(x, w, h, shop, s); s.extra?.(x, w, h); });
+  const tex = canvasTexture(1024, Math.round(1024 * H / W), (x, w, h) => { drawList(x, w, h, shop, s); s.extra?.(x, w, h); });
   put(b, new THREE.PlaneGeometry(W, H), mat('paint', '#ffffff', { map:tex, roughness:s.rough ?? 0.9 }), 0, 0, 0.021);
-  solid(g, mat('steel', '#1c1917'), [-0.9, 0.9].map(dx => [Cyl(0.006, 0.006, 4.2 - (y0 + H / 2), 4), x0 + dx, (4.2 + y0 + H / 2) / 2, z0]));
+  solid(g, mat('steel', '#1c1917'), [-W * 0.45, W * 0.45].map(dx => [Cyl(0.006, 0.006, 4.2 - (y0 + H / 2), 4), x0 + dx, (4.2 + y0 + H / 2) / 2, z0]));
   return b;
 }
 // Baked goods as simple shapes, picked by the product's name (a name nothing matches is a bun):
@@ -1349,24 +1677,26 @@ function bakeryProps(g, shop, anims){
   W.push([Box(0.26, 0.36, 0.012), -1.43, 1.95, -2.05, { rz:-0.12 }]);
   for (const [dz, y] of [[-0.11, 0.26], [0, 0.26], [0.11, 0.26], [-0.055, 0.35], [0.055, 0.35]]) W.push([Cyl(0.05, 0.05, 0.5, 8), ox + 0.1, y, oz + 0.95 + dz, { rz:Math.PI / 2 }]);
   anims.push(t => { ovenLight.intensity = prefs.calm ? 1.5 : 1.5 + Math.sin(t * 8) * 0.25 + Math.cos(t * 13) * 0.12; });   // steady under Reduce motion
-  // The pastry case on the counter's left (clear of the clerk and of the line of sight to the stock
-  // room): a wooden base, brass posts, glass panes and a glass middle shelf; the shop's products on
-  // two tiers, two pieces each, smaller when there are many.
-  const cx = -0.725, cy = 1.225, cz = 0.25, cw = 0.85, cd = 0.46, ch = 0.36, top = cy + 0.03 + ch;
-  W.push([Box(cw, 0.03, cd), cx, cy + 0.015, cz]);
-  for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) BRASS.push([Box(0.02, ch, 0.02), cx + dx * (cw / 2 - 0.01), cy + 0.03 + ch / 2, cz + dz * (cd / 2 - 0.01)]);
-  BRASS.push([Box(cw, 0.02, 0.02), cx, top, cz - cd / 2 + 0.01], [Box(cw, 0.02, 0.02), cx, top, cz + cd / 2 - 0.01], [Box(0.02, 0.02, cd), cx - cw / 2 + 0.01, top, cz], [Box(0.02, 0.02, cd), cx + cw / 2 - 0.01, top, cz]);
-  GLASS.push([Box(cw, ch, 0.006), cx, cy + 0.03 + ch / 2, cz + cd / 2], [Box(cw, ch, 0.006), cx, cy + 0.03 + ch / 2, cz - cd / 2], [Box(0.006, ch, cd), cx - cw / 2, cy + 0.03 + ch / 2, cz],
-    [Box(0.006, ch, cd), cx + cw / 2, cy + 0.03 + ch / 2, cz], [Box(cw, 0.006, cd), cx, top, cz], [Box(cw - 0.04, 0.008, cd - 0.04), cx, cy + 0.03 + ch * 0.5, cz]);
-  const per = Math.ceil(names.length / 2), slot = (cw - 0.06) / per, k = Math.min(1, slot / 0.2);
-  names.forEach((name, i) => {
-    const tier = i < per ? 0 : 1, px = cx - cw / 2 + 0.03 + slot * (i % per + 0.5), py = cy + (tier ? 0.03 + ch * 0.5 + 0.008 : 0.03);
-    baked(BREAD, name, px - 0.01 * k, py, cz - 0.1, k); baked(BREAD, name, px + 0.02 * k, py, cz + 0.08, k);
-  });
-  // On the counter: a flour-dusted board with a rolling pin; at the right end a cake on a stand
-  // under a glass dome. Beside the counter, a floor basket of baguettes.
-  W.push([Box(0.45, 0.025, 0.32), 0.15, 1.238, 0.3], [Cyl(0.03, 0.03, 0.3, 10), 0.12, 1.28, 0.22, { rz:Math.PI / 2 }], [Cyl(0.012, 0.012, 0.44, 6), 0.12, 1.28, 0.22, { rz:Math.PI / 2 }]);
-  put(g, new THREE.PlaneGeometry(0.42, 0.3), mat('cloth', '#ffffff', { map:TEX.flour, transparent:true, depthWrite:false }), 0.17, 1.252, 0.32, { rx:-Math.PI / 2 });
+  // The counter is the pastry case (the shared wooden body is hidden for this shop): a wooden plinth
+  // and back, glass front, ends and middle shelf, brass posts and rails, and the shop's products on
+  // doilies on two tiers, facing the street; the marble top is the shared counter top.
+  W.push([Box(3.2, 0.24, 0.85), 0, 0.32, 0.2], [Box(3.2, 0.72, 0.08), 0, 0.8, -0.185]);
+  WHITE.push([Box(3.1, 0.02, 0.76), 0, 0.45, 0.22]);
+  GLASS.push([Box(3.1, 0.008, 0.7), 0, 0.78, 0.22], [Box(3.2, 0.72, 0.008), 0, 0.8, 0.62], [Box(0.008, 0.72, 0.85), -1.6, 0.8, 0.2], [Box(0.008, 0.72, 0.85), 1.6, 0.8, 0.2]);
+  for (const px of [-1.59, -0.55, 0.55, 1.59]) BRASS.push([Box(0.03, 0.72, 0.03), px, 0.8, 0.61]);
+  BRASS.push([Box(3.2, 0.025, 0.025), 0, 1.15, 0.61], [Box(3.2, 0.025, 0.025), 0, 0.455, 0.61]);
+  [0.46, 0.79].forEach((ty, tier) => { for (let i = 0; i < 7; i++){
+    const px = -1.4 + i * 0.467, name = names[(i + tier * 3) % names.length] || 'loaf';
+    WHITE.push([Cyl(0.14, 0.14, 0.004, 14), px, ty, 0.3]);
+    baked(BREAD, name, px - 0.06, ty + 0.004, 0.24, 1.1); baked(BREAD, name, px + 0.07, ty + 0.004, 0.33, 1.1); baked(BREAD, name, px - 0.01, ty + 0.004, 0.4, 1.1);
+  } });
+  // On the counter: a scale with a brass pan, a bread knife on a flour-dusted board; at the right
+  // end a cake on a stand under a glass dome. Beside the counter, a floor basket of baguettes.
+  WHITE.push([Cyl(0.11, 0.13, 0.05, 14), -0.45, 1.25, 0.28], [Box(0.1, 0.14, 0.06), -0.45, 1.34, 0.22]);
+  BRASS.push([Cyl(0.13, 0.11, 0.025, 14), -0.45, 1.42, 0.28], [Cyl(0.015, 0.015, 0.14, 6), -0.45, 1.34, 0.28]);
+  BLACK.push([Cyl(0.03, 0.03, 0.006, 10), -0.45, 1.345, 0.253, { rx:Math.PI / 2 }], [Box(0.24, 0.004, 0.028), 0.195, 1.262, 0.335, { ry:0.2 }]);
+  W.push([Box(0.42, 0.025, 0.28), 0.2, 1.238, 0.32], [Box(0.11, 0.022, 0.024), 0.37, 1.262, 0.3, { ry:0.2 }]);
+  put(g, new THREE.PlaneGeometry(0.4, 0.26), mat('cloth', '#ffffff', { map:TEX.flour, transparent:true, depthWrite:false }), 0.2, 1.252, 0.32, { rx:-Math.PI / 2 });
   WHITE.push([Cyl(0.16, 0.18, 0.02, 16), 1.3, 1.235, 0.2], [Cyl(0.03, 0.04, 0.1, 10), 1.3, 1.29, 0.2], [Cyl(0.19, 0.19, 0.015, 16), 1.3, 1.345, 0.2]);
   BREAD.push([Cyl(0.13, 0.13, 0.07, 18), 1.3, 1.39, 0.2, { color:'#f5e6c8' }], [Cyl(0.13, 0.13, 0.014, 18), 1.3, 1.432, 0.2, { color:'#f4b6c2' }]);
   GLASS.push([Sph(0.2, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), 1.3, 1.355, 0.2]);
@@ -1383,6 +1713,38 @@ function bakeryProps(g, shop, anims){
   BREAD.push([Cyl(0.12, 0.12, 0.07, 18), -1.95, 1.14, 3.15, { color:'#5c3a1e' }], [Cyl(0.12, 0.12, 0.012, 18), -1.95, 1.18, 3.15, { color:'#fde68a' }]);
   WICKER.push([Cyl(0.2, 0.16, 0.12, 12, 1, true), -1.25, 1.05, 3.15], [Cyl(0.16, 0.16, 0.012, 12), -1.25, 0.996, 3.15]);
   for (const [dx, dz] of [[-0.06, -0.05], [0.06, -0.05], [0, 0.06], [-0.05, 0.08]]) baked(BREAD, 'roll', -1.25 + dx, 1.02, 3.15 + dz, 0.9);
+  // The front: a brick arch over each window bay (spandrels fill the square head's corners, a
+  // fanlight of mullions under it, a pale keystone), a deep striped awning across the whole front,
+  // and a round sign with a wheat sheaf hanging from a bracket on the left pier. The café table is below.
+  const ARCH = [], FRAME = [], ar = 0.72, ay = 2.6 - ar;
+  for (const bx of [-1.55, 1.55]){
+    for (const s of [-1, 1]){
+      const sh = new THREE.Shape();
+      sh.moveTo(s * ar, 0); sh.lineTo(s * ar, ar); sh.lineTo(0, ar); sh.absarc(0, 0, ar, Math.PI / 2, s < 0 ? Math.PI : 0, s > 0);
+      ARCH.push([new THREE.ExtrudeGeometry(sh, { depth:0.3, bevelEnabled:false }), bx, ay, 3.66]);
+    }
+    FRAME.push([Box(2 * ar + 0.1, 0.05, 0.06), bx, ay, 3.99], [new THREE.TorusGeometry(ar - 0.02, 0.02, 6, 24, Math.PI), bx, ay, 3.99]);
+    for (let i = 1; i < 6; i++){ const a = i * Math.PI / 6; FRAME.push([Box(0.03, ar - 0.05, 0.05), bx + Math.cos(a) * ar / 2, ay + Math.sin(a) * ar / 2, 3.99, { rz:a - Math.PI / 2 }]); }
+    WHITE.push([Box(0.16, 0.3, 0.46), bx, 2.66, 3.8]);
+  }
+  solid(g, mat('stone', '#ffffff', { map:TEX.brick }), ARCH, 0, 0, 0, { cast:true });
+  solid(g, mat('paint', decorOf(shop).frame), FRAME);
+  awningAt(g, 4.8, 1.8, 0.44, 3.1, 4.0);
+  const wheat = canvasTexture(256, 256, (x, w, h) => {
+    x.clearRect(0, 0, w, h);
+    x.fillStyle = '#7c2d12'; x.beginPath(); x.arc(128, 128, 128, 0, Math.PI * 2); x.fill();
+    x.strokeStyle = '#fde68a'; x.lineWidth = 5; x.beginPath(); x.arc(128, 128, 116, 0, Math.PI * 2); x.stroke();
+    x.strokeStyle = x.fillStyle = '#fcd34d'; x.lineWidth = 5; x.lineCap = 'round';
+    x.beginPath(); x.moveTo(128, 190); x.lineTo(128, 60); x.stroke();
+    for (let i = 0; i < 6; i++) for (const s of [-1, 1]){ x.save(); x.translate(128 + s * 10, 74 + i * 17); x.rotate(s * 0.55); x.beginPath(); x.ellipse(0, 0, 7, 13, 0, 0, Math.PI * 2); x.fill(); x.restore(); }
+    x.beginPath(); x.ellipse(128, 56, 7, 13, 0, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#fde68a'; x.font = 'bold 24px ' + FONT; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('BAKERY', 128, 214);
+  });
+  const sx = -2.9, sy = 2.38, sz = 4.72;
+  solid(g, mat('paint', '#ffffff', { map:wheat, transparent:true, alphaTest:0.5, roughness:0.6 }),
+    [[new THREE.PlaneGeometry(0.8, 0.8), sx + 0.016, sy, sz, { ry:Math.PI / 2 }], [new THREE.PlaneGeometry(0.8, 0.8), sx - 0.016, sy, sz, { ry:-Math.PI / 2 }]]);
+  BLACK.push([Cyl(0.41, 0.41, 0.03, 32, 1, true), sx, sy, sz, { rz:Math.PI / 2 }], [Box(0.05, 0.05, 0.95), sx, 3.0, 4.47], [Box(0.05, 0.05, 0.72), sx, 2.8, 4.3, { rx:-0.59 }],
+    [Cyl(0.006, 0.006, 0.2, 4), sx, 2.89, 4.52], [Cyl(0.006, 0.006, 0.2, 4), sx, 2.89, 4.92]);
   const tx = -1.9, tz = 5.3;
   BLACK.push([Cyl(0.03, 0.03, 0.72, 8), tx, 0.56, tz], [Cyl(0.26, 0.3, 0.03, 16), tx, 0.215, tz], [Cyl(0.36, 0.36, 0.03, 20), tx, 0.935, tz]);
   for (const side of [-1, 1]){
@@ -1438,10 +1800,11 @@ function paintProps(g, shop, anims){
   const cans = [];
   const row = (y, n, r, h) => { for (let i = 0; i < n; i++) cans.push([hx - 1.05 + i * 2.1 / (n - 1), y + 0.02 + h / 2, hz + 0.02, PAINT[(i * 3 + n) % 8], r / 0.085, h / 0.19]); };
   row(1.15, 8, 0.085, 0.19); row(1.6, 10, 0.06, 0.12);
+  for (let r = 0, n = 4; n > 0; r++, n--) for (let i = 0; i < n; i++) cans.push([-1.6 + (i - (n - 1) / 2) * 0.19, 1.085 + r * 0.19, 3.15, PAINT[(i * 3 + r) % 8], 1, 1]);   // the window's pyramid of gallons
   instanced(g, Cyl(0.085, 0.085, 0.19, 16), mat('steel', '#cbd5e1'), cans.map(([x, y, z, , sr, sh]) => [x, y, z, null, { s:[sr, sh, sr] }]));
   instanced(g, Cyl(0.0865, 0.0865, 0.075, 16, 1, true), mat('paint', '#ffffff'), cans.map(([x, y, z, c, sr, sh]) => [x, y + 0.035 * sh, z, c, { s:[sr, sh, sr] }]));
   instanced(g, Cyl(0.0865, 0.0865, 0.06, 16, 1, true), mat('paint', '#ffffff', { map:TEX.canLabel }), cans.map(([x, y, z, , sr, sh]) => [x, y - 0.035 * sh, z, null, { ry:Math.PI, s:[sr, sh, sr] }]));
-  const buckets = [[hx - 0.75, 0.72, hz], [hx, 0.72, hz], [hx + 0.75, 0.72, hz], [-2.7, 0.21, 4.6], [-2.7, 0.59, 4.6], [-2.7, 0.97, 4.6], [2.95, 0.21, -3.3]];
+  const buckets = [[hx - 0.75, 0.72, hz], [hx, 0.72, hz], [hx + 0.75, 0.72, hz], [-2.7, 0.21, 4.6], [-2.7, 0.59, 4.6], [-2.7, 0.97, 4.6], [2.95, 0.21, -3.3], [-2.4, 0.21, -2.8], [-2.4, 0.59, -2.8], [-1.95, 0.21, -3.0]];
   instanced(g, Cyl(0.15, 0.13, 0.38, 14), mat('plastic', '#f1f5f9'), buckets.map(([x, y, z]) => [x, y + 0.19, z]));
   instanced(g, Cyl(0.155, 0.155, 0.03, 14), mat('plastic', '#ffffff'), buckets.map(([x, y, z], i) => [x, y + 0.395, z, PAINT[(i * 5) % 8]]));
   // The colour wall above the shelving, in a thin frame.
@@ -1449,9 +1812,9 @@ function paintProps(g, shop, anims){
   put(g, new THREE.PlaneGeometry(2.4, 0.85), mat('paint', '#ffffff', { map:swatch, roughness:0.6 }), hx, 2.7, -4.6);
   METAL.push([Box(2.46, 0.03, 0.03), hx, 3.14, -4.6, { color:'#64748b' }], [Box(2.46, 0.03, 0.03), hx, 2.26, -4.6, { color:'#64748b' }],
     [Box(0.03, 0.91, 0.03), hx - 1.215, 2.7, -4.6, { color:'#64748b' }], [Box(0.03, 0.91, 0.03), hx + 1.215, 2.7, -4.6, { color:'#64748b' }]);
-  // The mixing station: the shaker (it runs while the stock room checks), a tinting dispenser with
-  // its canisters, a drop cloth under both.
-  const shaker = group(g, -2.4, 0.2, -2.8);
+  // The mixing station: the shaker at the counter's right end (it runs while the stock room checks),
+  // a tinting dispenser with its canisters behind the counter, a drop cloth under it.
+  const shaker = group(g, 2.3, 0.2, 0.3);
   put(shaker, Box(0.9, 1.2, 0.9), mat('steel', '#1e3a8a', { roughness:0.4 }), 0, 0.6, 0);
   const clamp = group(shaker, 0, 1.3, 0);
   put(clamp, Box(0.65, 0.1, 0.65), mat('steel', '#334155', { metalness:0.9 }));
@@ -1462,9 +1825,18 @@ function paintProps(g, shop, anims){
     clamp.position.z = on ? Math.cos(t * 40) * 0.02 : 0;
     clamp.rotation.y = on ? Math.sin(t * 35) * 0.04 : 0;
   });
-  METAL.push([Box(0.7, 1.5, 0.6), -2.7, 0.95, -1.6, { color:'#e2e8f0' }], [Box(0.66, 0.06, 0.5), -2.7, 1.73, -1.6, { color:'#94a3b8' }], [Box(0.3, 0.2, 0.2), -2.7, 1.3, -1.25, { color:'#94a3b8' }]);
-  PAINT.forEach((c, i) => CHIPS.push([Cyl(0.05, 0.05, 0.24, 10), -2.98 + (i % 4) * 0.19, 1.88, -1.75 + Math.floor(i / 4) * 0.22, { color:c }]));
-  put(g, new THREE.PlaneGeometry(2.0, 1.6), mat('cloth', '#ffffff', { map:TEX.dropcloth }), -2.3, 0.215, -2.0, { rx:-Math.PI / 2, rz:0.2 });
+  METAL.push([Box(0.7, 1.5, 0.6), -1.3, 0.95, -2.3, { color:'#e2e8f0' }], [Box(0.66, 0.06, 0.5), -1.3, 1.73, -2.3, { color:'#94a3b8' }], [Box(0.3, 0.2, 0.2), -1.3, 1.3, -1.95, { color:'#94a3b8' }]);
+  PAINT.forEach((c, i) => CHIPS.push([Cyl(0.05, 0.05, 0.24, 10), -1.58 + (i % 4) * 0.19, 1.88, -2.45 + Math.floor(i / 4) * 0.22, { color:c }]));
+  put(g, new THREE.PlaneGeometry(2.0, 1.6), mat('cloth', '#ffffff', { map:TEX.dropcloth }), -1.6, 0.215, -2.0, { rx:-Math.PI / 2, rz:0.15 });
+  // The counter is a mixing bench (the shared wooden body is hidden for this shop): a dark cabinet of
+  // six drawers with steel pulls over a recessed kick, paint drips down its front, the steel top with
+  // its lip, and two paint-stained rags on it.
+  const BENCH = [[Box(3.2, 0.9, 0.82), 0, 0.67, 0.2, { color:'#334155' }], [Box(3.0, 0.14, 0.7), 0, 0.29, 0.2, { color:'#0f172a' }]];
+  for (const px of [-1.05, 0, 1.05]) for (const py of [0.96, 0.69]){ BENCH.push([Box(0.95, 0.22, 0.02), px, py, 0.615, { color:'#475569' }]); METAL.push([Box(0.22, 0.02, 0.03), px, py + 0.04, 0.63, { color:'#cbd5e1' }]); }
+  for (let i = 0; i < 9; i++){ const dh = R(0.06, 0.26); CHIPS.push([Box(0.035, dh, 0.006), R(-1.5, 1.5), 1.12 - dh / 2, 0.628, { color:pick(PAINT) }]); }
+  METAL.push([Box(3.42, 0.03, 0.03), 0, 1.21, 0.705, { color:'#94a3b8' }]);
+  solid(g, vmat('paint', { roughness:0.6 }), BENCH, 0, 0, 0, { cast:true });
+  solid(g, mat('cloth', '#ffffff', { map:TEX.dropcloth }), [[Box(0.3, 0.035, 0.22), -0.1, 1.245, 0.33, { ry:0.4 }], [Box(0.22, 0.03, 0.32), 1.05, 1.235, 0.5, { ry:-0.3, rx:0.25 }]]);
   // Along the right wall: a rolled tarp with its straps, a stepladder.
   put(g, Cyl(0.14, 0.14, 1.6, 14), mat('plastic', '#1d4ed8', { roughness:0.55 }), 2.95, 0.35, -1.0, { rx:Math.PI / 2 });
   for (const dz of [-0.5, 0.5]) METAL.push([new THREE.TorusGeometry(0.145, 0.012, 6, 16), 2.95, 0.35, -1.0 + dz, { color:'#1c1917' }]);
@@ -1474,7 +1846,7 @@ function paintProps(g, shop, anims){
   for (const y of [0.55, 0.9, 1.25, 1.6]) METAL.push([Box(0.42, 0.03, 0.08), lx, y, lz + 0.32 - (y - 0.2) * 0.2, { color:'#cbd5e1' }]);
   METAL.push([Box(0.5, 0.04, 0.14), lx, 0.2 + lh * Math.cos(0.2), lz, { color:'#94a3b8' }]);
   // The sign behind the clerk: the list, and the help desk beside it. The board on the left wall.
-  hanging(g, shop, { y:3.15, frame:'#1e293b', bg:'#f8fafc', border:'#cbd5e1', title:'#1e3a8a', text:'#0f172a', rule:'#2563eb', heading:'WHAT WE CARRY', weight:'600', listW:0.62, rough:0.6,
+  hanging(g, shop, { y:2.8, w:1.6, h:0.5, x:-0.8, frame:'#1e293b', bg:'#f8fafc', border:'#cbd5e1', title:'#1e3a8a', text:'#0f172a', rule:'#2563eb', heading:'WHAT WE CARRY', weight:'600', listW:0.62, rough:0.6,
     extra:(x, w, h) => {
       const x0 = w * 0.64, lines = ['Which primer for a bathroom?', 'Finishes, coverage, how-tos', 'Ask the clerk: free advice'];
       x.fillStyle = '#1e3a8a'; x.fillRect(x0, h * 0.08, 3, h * 0.84);
@@ -1490,6 +1862,23 @@ function paintProps(g, shop, anims){
     [Box(0.22, 0.01, 0.3), 0.25, 1.23, 0.25, { ry:-0.15, color:'#7c4a2a' }], [Box(0.19, 0.004, 0.26), 0.25, 1.238, 0.25, { ry:-0.15, color:'#ffffff' }], [Box(0.08, 0.02, 0.03), 0.27, 1.245, 0.11, { ry:-0.15, color:'#94a3b8' }],
     [Box(0.35, 0.08, 0.45), 1.32, 1.265, 0.2, { color:'#0284c7' }]);
   CHIPS.push([Cyl(0.04, 0.04, 0.45, 10), 0.9, 1.27, 0.25, { rz:Math.PI / 2, color:'#2563eb' }], [Cyl(0.012, 0.012, 0.22, 6), 1.1, 1.26, 0.38, { rx:Math.PI / 2, color:'#1e293b' }]);
+  // The front: flat and industrial. Painted block piers, band and bulkheads where the brick and wood
+  // were (hidden for this shop), a steel cap for a parapet, a dark steel window grid, each bay's
+  // roll-up shutter housing with its slat edge showing, a flat steel canopy on two struts over the
+  // doors, the pyramid of gallons on a table in the left window and the colour poster in the right;
+  // the sandwich board is below.
+  solid(g, mat('stone', '#cbd5e1', { map:TEX.block }), [[TexBox(1.0, 4.4, 0.4), -2.9, 2.4, 3.8], [TexBox(1.0, 4.4, 0.4), 2.9, 2.4, 3.8], [TexBox(4.8, 1.6, 0.4), 0, 3.8, 3.8],
+    [TexBox(1.6, 0.68, 0.3), -1.6, 0.54, 3.8], [TexBox(1.6, 0.68, 0.3), 1.6, 0.54, 3.8]], 0, 0, 0, { cast:true, receive:true });
+  const DARK = [[Box(7.0, 0.1, 0.5), 0, 4.65, 3.8], [Box(4.8, 0.4, 0.42), 0, 2.8, 3.8], [Box(2.6, 0.06, 1.0), 0, 3.08, 4.5],
+    [Box(0.05, 0.05, 1.05), -1.2, 2.84, 4.5, { rx:-0.42 }], [Box(0.05, 0.05, 1.05), 1.2, 2.84, 4.5, { rx:-0.42 }]];
+  for (const x of [-2.35, -0.75, 0.75, 2.35]) DARK.push([Box(0.1, 2.5, 0.42), x, 1.45, 3.8]);
+  for (const bx of [-1.55, 1.55]) DARK.push([Box(1.7, 0.06, 0.46), bx, 0.9, 3.8], [Box(1.5, 0.06, 0.08), bx, 1.55, 3.8], [Box(1.5, 0.06, 0.08), bx, 2.12, 3.8],
+    [Box(0.05, 1.7, 0.08), bx - 0.5, 1.75, 3.8], [Box(0.05, 1.7, 0.08), bx + 0.5, 1.75, 3.8], [Box(1.7, 0.3, 0.3), bx, 2.75, 4.1], [Box(1.62, 0.06, 0.08), bx, 2.07, 4.05]);
+  solid(g, mat('paint', '#1e293b', { roughness:0.45 }), DARK, 0, 0, 0, { cast:true });
+  solid(g, mat('paint', '#ffffff', { map:TEX.slats, roughness:0.5 }), [-1.55, 1.55].map(bx => [new THREE.PlaneGeometry(1.6, 0.5), bx, 2.35, 4.03, { uv:[1, 1.04] }]));
+  METAL.push([Box(1.3, 0.04, 0.5), -1.6, 0.97, 3.15, { color:'#64748b' }], ...[[-0.6, -0.2], [0.6, -0.2], [-0.6, 0.2], [0.6, 0.2]].map(([dx, dz]) => [Box(0.04, 0.75, 0.04), -1.6 + dx, 0.585, 3.15 + dz, { color:'#64748b' }]));
+  const poster = canvasTexture(512, 352, (x, w, h) => swatchCanvas(x, w, h, L.accent));
+  put(g, new THREE.PlaneGeometry(0.9, 0.62), mat('paint', '#ffffff', { map:poster, roughness:0.6 }), 1.55, 1.75, 3.35, { rx:-0.08 });
   // Outside: a sandwich board by the right window.
   const sb = canvasTexture(512, 768, (x, w, h) => {
     x.fillStyle = '#0f172a'; x.fillRect(0, 0, w, h); x.strokeStyle = '#94a3b8'; x.lineWidth = 10; x.strokeRect(20, 20, w - 40, h - 40);
@@ -1568,7 +1957,7 @@ function plantsProps(g, shop, anims){
   // Pothos hung from a pipe across the shop (clear of the line of sight to the stock room), with a
   // string of bulbs along it.
   STEEL.push([Cyl(0.025, 0.025, 5.2, 10), 0, 3.3, -2.2, { rz:Math.PI / 2, color:'#1c1917' }], [Box(0.04, 0.9, 0.04), -2.0, 3.75, -2.2, { color:'#1c1917' }], [Box(0.04, 0.9, 0.04), 2.0, 3.75, -2.2, { color:'#1c1917' }]);
-  for (const x of [-2.0, -0.9, 0.3, 2.3]){
+  for (const x of [-2.0, -0.9, -0.2, 2.3]){
     STEEL.push([Cyl(0.006, 0.006, 0.95, 4), x, 2.85, -2.2, { color:'#d6c9a8' }]);
     P.push([Cyl(0.13, 0.1, 0.2, 12), x, 2.3, -2.2, { color:pick(CLAYS) }]); D.push([Cyl(0.12, 0.12, 0.01, 12), x, 2.396, -2.2]);
     plant(F, S, 'pothos', x, 2.39, -2.2, 0.8);
@@ -1576,14 +1965,36 @@ function plantsProps(g, shop, anims){
   }
   solid(g, basic('#fef3c7'), Array.from({ length:11 }, (_, i) => [Sph(0.025, 8, 6), -2.4 + i * 0.48, 3.22, -2.2]));
   // Crates of plants: along the right wall and the left, two stacked in the window, two outside.
-  for (const [x, z, a, b] of [[2.7, -0.3, 'fern', 'snake'], [2.7, 0.45, 'pothos', 'monstera'], [-2.6, 0.6, 'snake', 'fern'], [-2.6, 1.4, 'monstera', 'succulent'], [-2.4, 4.7, 'fern', 'pothos'], [1.9, 4.8, 'snake', 'monstera']]){
+  for (const [x, z, a, b] of [[2.7, -0.3, 'fern', 'snake'], [2.7, 0.45, 'pothos', 'monstera'], [-2.6, 0.6, 'snake', 'fern'], [-2.6, 1.4, 'monstera', 'succulent'], [-2.75, 4.55, 'fern', 'pothos'], [1.9, 4.8, 'snake', 'monstera']]){
     crate(W, x, 0.21, z); potted(P, D, F, S, a, x - 0.12, 0.24, z - 0.05, 0.75); potted(P, D, F, S, b, x + 0.13, 0.24, z + 0.08, 0.75);
   }
   crate(W, -1.6, 0.21, 3.2, 0.7, 0.5, 0.3); crate(W, -1.6, 0.51, 3.2, 0.7, 0.5, 0.3);
   potted(P, D, F, S, 'monstera', -1.75, 0.81, 3.2, 0.9); potted(P, D, F, S, 'fern', -1.4, 0.81, 3.3, 0.8);
-  STEEL.push([Cyl(0.006, 0.006, 0.4, 4), -3.2, 2.5, 6.55, { color:'#d6c9a8' }]);
-  P.push([Cyl(0.13, 0.1, 0.2, 12), -3.2, 2.2, 6.55, { color:pick(CLAYS) }]); D.push([Cyl(0.12, 0.12, 0.01, 12), -3.2, 2.296, 6.55]);
-  for (const a of [0.5, 2.6, 4.6]) vine(F, S, -3.2 + Math.cos(a) * 0.11, 2.28, 6.55 + Math.sin(a) * 0.11, 0.5, a);
+  // The front: a greenhouse. Where the brick piers and band were (hidden for this shop), posts in
+  // the frame's green with tall glass panels either side of the bays, and over the whole front a
+  // glass gable on two rafters, with mullions and a rail, the skyline showing through it. On the
+  // pavement a big fern and a snake plant flank the doors, a crate of herbs sits under the left
+  // window, and a basket of pothos hangs from a bracket on the lamp post.
+  const GF = [[Box(7.0, 0.12, 0.4), 0, 3.06, 3.8], [Box(0.3, 0.14, 0.5), 0, 5.0, 3.8], [Box(3.9, 0.06, 0.08), 0, 3.9, 3.8]], GG = [];
+  for (const s of [-1, 1]){
+    GF.push([Box(0.14, 2.9, 0.4), s * 2.47, 1.65, 3.8], [Box(0.14, 2.9, 0.4), s * 3.33, 1.65, 3.8], [Box(1.0, 0.7, 0.4), s * 2.9, 0.55, 3.8], [Box(0.74, 0.06, 0.1), s * 2.9, 2.0, 3.85],
+      [Box(Math.hypot(3.4, 1.88), 0.1, 0.16), s * 1.7, 4.06, 3.8, { rz:-s * Math.atan2(1.88, 3.4) }]);
+    GG.push([Box(0.74, 2.1, 0.02), s * 2.9, 1.95, 3.8]);
+  }
+  for (const x of [-2.72, -2.04, -1.36, -0.68, 0, 0.68, 1.36, 2.04, 2.72]){ const hh = 1.83 - Math.abs(x) * (1.88 / 3.4); GF.push([Box(0.06, hh, 0.08), x, 3.12 + hh / 2, 3.8]); }
+  const gable = new THREE.Shape(); gable.moveTo(-3.4, 3.12); gable.lineTo(3.4, 3.12); gable.lineTo(0, 5.0);
+  GG.push([new THREE.ShapeGeometry(gable), 0, 0, 3.78]);
+  solid(g, mat('paint', decorOf(shop).frame, { roughness:0.45 }), GF, 0, 0, 0, { cast:true });
+  solid(g, glass(), GG);
+  potted(P, D, F, S, 'fern', -1.3, 0.2, 4.5, 1.4); potted(P, D, F, S, 'snake', 1.3, 0.2, 4.5, 1.3);
+  crate(W, -1.9, 0.2, 5.15, 0.7, 0.45, 0.26);
+  for (const [dx, dz] of [[-0.22, -0.1], [0, -0.1], [0.22, -0.1], [-0.22, 0.12], [0, 0.12], [0.22, 0.12]]){ P.push([Cyl(0.06, 0.045, 0.1, 10), -1.9 + dx, 0.32, 5.15 + dz, { color:pick(CLAYS) }]); plant(F, S, 'fern', -1.9 + dx, 0.37, 5.15 + dz, 0.32); }
+  STEEL.push([Box(0.04, 0.04, 0.5), -3.2, 2.9, 6.45, { color:'#1e293b' }], [Box(0.05, 0.05, 0.56), -3.2, 2.72, 6.43, { rx:-0.68, color:'#1e293b' }]);
+  for (const a of [0.3, 2.4, 4.4]) STEEL.push([Cyl(0.004, 0.004, 0.36, 4), -3.2 + Math.cos(a) * 0.17, 2.72, 6.68 + Math.sin(a) * 0.17, { color:'#94a3b8' }]);
+  solid(g, mat('wood', '#ffffff', { map:TEX.wicker, roughness:0.85, side:THREE.DoubleSide }), [[Cyl(0.2, 0.13, 0.2, 12, 1, true), -3.2, 2.45, 6.68], [Cyl(0.13, 0.13, 0.012, 12), -3.2, 2.355, 6.68]]);
+  D.push([Cyl(0.19, 0.19, 0.01, 12), -3.2, 2.54, 6.68]);
+  plant(F, S, 'pothos', -3.2, 2.55, 6.68, 0.9);
+  for (const a of [0.4, 1.6, 2.9, 4.1, 5.3]) vine(F, S, -3.2 + Math.cos(a) * 0.19, 2.53, 6.68 + Math.sin(a) * 0.19, R(0.5, 0.75), a);
   // The potting bench along the right wall: soil, a trowel, a stack of pots, bags of compost; a
   // hose reel on the wall by it.
   W.push([Box(0.6, 0.05, 1.2), 2.9, 1.1, -2.4], [Box(0.6, 0.03, 1.2), 2.9, 0.5, -2.4], [Box(0.03, 0.5, 1.2), 3.2, 1.4, -2.4]);
@@ -1612,6 +2023,18 @@ function plantsProps(g, shop, anims){
   hanging(g, shop, { frame:'#4a3220', bg:'#f5f0e1', border:'#86a35a', title:'#166534', text:'#1c1917', rule:'#86a35a', heading:'IN THE SHOP THIS WEEK', weight:'600',
     note:'ask what\'s in stock today', noteColor:'#4d7c0f', rough:0.9 });
   board(g, shop, { frame:'#064e3b', bg:'#064e3b', title:'#a7f3d0', text:'#ffffff', note:'#6ee7b7' });
+  // The counter is a potting bench (the shared wooden body is hidden for this shop): weathered
+  // planks with daylight between them over a dark box, corner posts and a plank top (the shared
+  // top); on it a tray of soil with two trowels, and a row of seedlings along the front.
+  const PLANK = [[Box(3.3, 0.08, 0.9), 0, 0.24, 0.2]];
+  for (let i = 0; i < 15; i++) PLANK.push([Box(0.2, 0.9, 0.035), -1.47 + i * 0.21, 0.66, 0.61]);
+  for (const s of [-1, 1]) for (let j = 0; j < 4; j++) PLANK.push([Box(0.035, 0.9, 0.2), s * 1.6, 0.66, -0.1 + j * 0.21]);
+  for (const [px, pz] of [[-1.62, -0.2], [1.62, -0.2], [-1.62, 0.62], [1.62, 0.62]]) PLANK.push([Box(0.08, 0.95, 0.08), px, 0.675, pz]);
+  D.push([Box(3.1, 0.9, 0.78), 0, 0.66, 0.2], [Sph(0.2, 10, 8), -0.45, 1.27, 0.3, { s:[1.15, 0.35, 0.75] }]);
+  STEEL.push([Box(0.52, 0.05, 0.36), -0.45, 1.25, 0.3, { color:'#9ca3af' }], [Box(0.05, 0.008, 0.11), -0.2, 1.285, 0.44, { ry:0.5, color:'#94a3b8' }], [Cyl(0.012, 0.012, 0.1, 6), -0.26, 1.285, 0.33, { rz:-Math.PI / 2, ry:0.5 - Math.PI / 2, color:'#7c4a2a' }],
+    [Box(0.05, 0.008, 0.11), -0.7, 1.285, 0.42, { ry:-0.6, color:'#94a3b8' }], [Cyl(0.012, 0.012, 0.1, 6), -0.64, 1.285, 0.32, { rz:-Math.PI / 2, ry:-0.6 - Math.PI / 2, color:'#7c4a2a' }]);
+  for (let i = 0; i < 5; i++){ P.push([Cyl(0.035, 0.028, 0.06, 8), 0.5 + i * 0.11, 1.255, 0.5, { color:pick(CLAYS) }]); plant(F, S, 'fern', 0.5 + i * 0.11, 1.285, 0.5, 0.25); }
+  solid(g, mat('wood', '#8c7a63', { map:TEX.woodUp, roughness:0.9 }), PLANK, 0, 0, 0, { cast:true });
   // On the counter: a galvanised watering can at the left, a succulent in the middle, a flat of
   // seedlings at the right end (low, clear of the line of sight to the stock room).
   STEEL.push([Cyl(0.1, 0.12, 0.2, 12), -1.1, 1.325, 0.1, { color:'#9ca3af' }], [Cyl(0.015, 0.022, 0.3, 8), -0.93, 1.38, 0.1, { rz:-1.0, color:'#9ca3af' }],
@@ -1639,12 +2062,17 @@ let propAnims = [];
 function build(shop){
   current = shop;
   const L = shop.look || SHOPS[0].look, D = decorOf(shop);
-  apronMat.color.set(L.apron); vestMat.color.set(L.vest); roomLight.color.set(L.light); roomLight.intensity = D.room;
+  roomLight.color.set(L.light); roomLight.intensity = D.room;
   wallMat.color.set(L.wall); floorMat.map = floorTexture(shop);
   frameMat.color.set(D.frame); doorMat.color.set(D.frame); awningSide.color.set(L.awning[0]);
   counterMat.color.set(D.counter[0]); topMat.color.set(D.counter[1]); counterTrim.color.set(D.counter[2]); trimMat.color.set(D.counter[2]);
   sun.color.set(D.sun[0]); sun.intensity = D.sun[1]; hemi.color.set(D.sky[0]); hemi.groundColor.set(D.sky[1]); hemi.intensity = D.sky[2];
   drawSign(shop); drawAwning(L); drawHours(shop);
+  const front = D.front || 'brick';          // the shared front's parts this shop keeps; its props build the rest
+  facade.brick.visible = facade.coping.visible = front === 'brick';
+  facade.wood.visible = front !== 'flat';
+  counterBody.visible = counterPanels.visible = !D.case;   // a shop with its own case builds it in its props
+  counterTop.material = TOPS[D.top] || topMat;
   props.traverse(o => { if (o.isMesh){
     o.geometry.dispose();
     for (const t of [o.material.map, o.material.emissiveMap, o.material.alphaMap]) if (t && !t.userData.shared) t.dispose();
@@ -1653,6 +2081,7 @@ function build(shop){
   props.clear();
   propAnims = []; ovenLight.intensity = 0;
   PROPS[shop.id]?.(props, shop, propAnims);
+  dressStaff(shop, propAnims);
   targetYaw = targetPitch = 0;
   document.querySelectorAll('#shops button').forEach(b => b.classList.toggle('on', b.dataset.id === shop.id));
   showShop(shop);
@@ -1660,9 +2089,9 @@ function build(shop){
 
 /* ---------- 4. MOTION ---------- */
 // The accessibility drawer's switches (section 6), for this visit only and never stored. They start
-// from the classes the script in <head> set from the system's settings.
+// from the classes the script in <head> set from the system's settings; Clerk voice starts on.
 const prefOn = c => document.documentElement.classList.contains(c);
-const prefs = { captions:prefOn('cc'), big:prefOn('big'), contrast:prefOn('hc'), calm:prefOn('calm') };
+const prefs = { captions:prefOn('cc'), big:prefOn('big'), contrast:prefOn('hc'), calm:prefOn('calm'), voice:true };
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const ease = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(2 - 2 * k, 3) / 2;   // easeInOutCubic, as in AI Studio
 const basePos = new THREE.Vector3(), lookNow = new THREE.Vector3();
@@ -1688,7 +2117,7 @@ addEventListener('resize', resize); resize();
 const UP = new THREE.Vector3(0, 1, 0), dir = new THREE.Vector3(), side = new THREE.Vector3();
 const aim = new THREE.Vector3(), doorMark = new THREE.Vector3(), cue = document.getElementById('door-cue');
 let last = 0, cueX = NaN, cueY = NaN;
-renderer.setAnimationLoop(now => {
+function renderFrame(now){
   const dt = last ? Math.min(0.1, (now - last) / 1000) : 0, t = now / 1000; last = now;
   // Reduce motion (prefs.calm): every eased turn, slide and walk below snaps to its end, and w = 0
   // takes the sway out of the idle and talking poses. The poses themselves (the clerk turned to the
@@ -1732,7 +2161,11 @@ renderer.setAnimationLoop(now => {
     const x = Math.round((doorMark.x + 1) * innerWidth / 2), y = Math.round((1 - doorMark.y) * innerHeight / 2);
     if (x !== cueX || y !== cueY){ cueX = x; cueY = y; cue.style.left = x + 'px'; cue.style.top = y + 'px'; }
   }
-});
+}
+renderer.setAnimationLoop(renderFrame);
+// Opened as /#perf, the page hands its renderer and frame to a measuring script (draw calls, ms per
+// frame, driven from a Worker when the tab is hidden). Nothing in the page reads this.
+if (location.hash === '#perf') window.__peripie = { renderer, scene, camera, frame:renderFrame };
 
 /* ---------- 5. UI ---------- */
 const $ = id => document.getElementById(id);
@@ -1740,8 +2173,8 @@ const LABEL = { listening:'Listening', checking:'Checking with the stock room', 
 const coarse = matchMedia('(pointer:coarse)').matches;   // phones: keep the keyboard down so the hand-off stays in view
 function setState(s){
   state = s; $('status').textContent = LABEL[s]; $('status').className = s;
-  document.body.dataset.state = s;                  // the CSS keys the dots, bars and chips on it
-  $('replay').disabled = s !== 'listening';         // no replay while the clerk checks or talks
+  document.body.dataset.state = s;                  // the CSS keys the dots, bars, chips and My list on it
+  $('replay').disabled = s !== 'listening' || !prefs.voice;   // no replay while the clerk checks or talks, or with Clerk voice off
   if (s === 'checking'){ sfx.rustle(); targetYaw = targetPitch = 0; }   // face the hand-off
 }
 const setWhere = w => { document.body.dataset.where = w; };   // street, entering, inside, leaving
@@ -1775,6 +2208,10 @@ function unlockAudio(){          // call synchronously inside the tap, before an
 }
 function silence(){ player.pause(); if (hasTTS) speechSynthesis.cancel(); }
 
+// Clerk voice off (accessibility drawer): the words stay on screen, and the clerk "answers" for
+// about as long as reading them takes (1.2 s plus 35 ms a character, at most 8 s).
+const readingMs = text => Math.min(8000, 1200 + 35 * text.length);
+
 function say(reply){
   $('reply').textContent = reply.reply;
   silence();
@@ -1789,6 +2226,7 @@ function say(reply){
       speechSynthesis.speak(u); arm(12000);
     };
     endSay = finish;
+    if (!prefs.voice) return arm(readingMs(reply.reply));   // shown, never spoken: no mp3, no browser voice
     if (!reply.audioUrl) return speak();
     let started = false, failed = false;   // the clerk's mp3; the browser's voice if it won't start
     const fail = () => { if (done || failed) return; failed = true; started ? finish() : speak(); };
@@ -1799,25 +2237,92 @@ function say(reply){
   });
 }
 
+// How long a product usually stays out, from typicalRestockDays (null if it never sold out):
+// 'usually about 3 days', 'usually under a day', or '' when there is no history.
+function usually(days){
+  const d = Number.isFinite(days) ? Math.round(days * 10) / 10 : 0;
+  return d <= 0 ? '' : d < 1 ? 'usually under a day' : 'usually about ' + d + (d === 1 ? ' day' : ' days');
+}
+
 // Under the clerk's words, as plain text after the reply: the stock room's record behind a live
 // answer ("Stock room · croissant · 0 on hand · back Tuesday, October 13 · usually about 3 days"),
 // or, for an answer from the canned list, where it came from. Nothing for a greeting, for a
-// reply whose stock is null, or for null (a question in flight).
+// reply whose stock is null, or for null (a question in flight). A list's answer gets its
+// record line by line (showRecord) under the caption.
 function showStock(reply){
   const note = $('stock-note'), s = reply?.stock;
+  showRecord(reply);
   note.classList.toggle('canned', !!reply?.canned);
   if (reply?.canned){ note.textContent = 'From the printed list at the counter (stock room unreachable)'; return; }
-  if (!s){ note.replaceChildren(); return; }
-  const parts = [s.product], n = s.onHand, days = s.typicalRestockDays;   // days: null if it never sold out
-  if (s.inStock) parts.push(Number.isFinite(n) ? 'in stock, ' + n + ' on hand' : 'in stock');
-  else {
-    parts.push(Number.isFinite(n) ? n + ' on hand' : 'out of stock');
-    if (typeof s.nextRestockText === 'string' && s.nextRestockText) parts.push('back ' + s.nextRestockText);
-    const d = Number.isFinite(days) ? Math.round(days * 10) / 10 : 0;
-    if (d > 0) parts.push(d < 1 ? 'usually under a day' : 'usually about ' + d + (d === 1 ? ' day' : ' days'));
-  }
   const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'Stock room';
+  if (reply?.list){ note.replaceChildren(tag, ' · your list, checked ' + clock(reply.list.at)); return; }
+  if (!s){ note.replaceChildren(); return; }
+  const parts = [s.product, ...stockWords(s)];                 // never the price: that is the record's and the card's
   note.replaceChildren(tag, ' · ' + parts.join(' · '));
+}
+
+// The stock room's words for one found product, for the caption and the record: in stock as
+// "in stock, 8 on hand", or "2 left" when the room flags it low; out of stock as "0 on hand"
+// (the caption only), then when it is back: the shop's own note when it has one ("The next tray
+// comes out of the oven in about 18 minutes", its full stop dropped), else "back " +
+// nextRestockText; then how long it usually stays out, only when nextRestockText names a weekday
+// ("Friday, October 16"): next to "in about 18 minutes", "today at 2 pm" or "tomorrow at 7 am" a
+// typical 4.5 days would mislead. The spoken reply is the server's; none of this changes it.
+const weekday = text => /^(mon|tues|wednes|thurs|fri|satur|sun)day\b/i.test(text || '');
+function backWhen(e){                        // [when it is back, how long it usually takes], each optional
+  const parts = [];
+  if (e.restockNote) parts.push(e.restockNote.replace(/\.\s*$/, ''));
+  else if (e.nextRestockText) parts.push('back ' + e.nextRestockText);
+  const usual = weekday(e.nextRestockText) ? usually(e.typicalRestockDays) : '';
+  if (usual) parts.push(usual);
+  return parts;
+}
+function stockWords(e, caption = true){
+  const n = Number.isFinite(e.onHand) ? e.onHand : null;
+  if (e.inStock) return [e.lowStock && n !== null ? n + ' left' : n !== null ? 'in stock, ' + n + ' on hand' : 'in stock'];
+  const back = backWhen(e);
+  if (caption) return [n !== null ? n + ' on hand' : 'out of stock', ...back];
+  return back.length ? back : ['out of stock'];
+}
+
+// The visitor's local time, as on the card: "7:40 am" (or "07:40" where clocks run 24 hours).
+const clock = at => at.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })
+  .replace(/\s+/g, ' ').replace(/\b(AM|PM)\b/, m => m.toLowerCase());
+
+// One item of a list's answer, for the panel ([kind, mark, product or query, the rest]) and for the
+// card (one plain line), with the price (the record and the card show it; the caption never does).
+// "✗ croissant · $3.50 · back Friday, October 16 · usually about 4.5 days" here, "✗ croissant
+// ($3.50), back Friday, October 16 (usually about 4.5 days)" on the card; with the shop's note:
+// "✗ croissant · $3.50 · The next tray comes out of the oven in about 18 minutes" and "✗ croissant
+// ($3.50): The next tray comes out of the oven in about 18 minutes"; low: "✓ concha · $1.50 · 2 left".
+function recordLine(e){
+  if (!e.found) return ['none', '–', e.query, ' · not carried'];
+  const price = e.price ? ' · ' + e.price : '';
+  return [e.inStock ? 'in' : 'out', e.inStock ? '✓' : '✗', e.product, price + ' · ' + stockWords(e, false).join(' · ')];
+}
+function cardLine(e){
+  if (!e.found) return '– ' + e.query + ', not carried';
+  const price = e.price ? ' (' + e.price + ')' : '';
+  if (e.inStock) return '✓ ' + e.product + price + ', ' + stockWords(e, false)[0];
+  const [when, usual] = backWhen(e);
+  return '✗ ' + e.product + price + (when ? (e.restockNote ? ': ' : ', ') + when + (usual ? ' (' + usual + ')' : '') : ', out of stock');
+}
+
+// The record under a list's answer, and Take this with you; both gone for anything else. The marks
+// are hidden from screen readers: each line says in words what its mark shows.
+function showRecord(reply){
+  const list = reply?.list || null, rec = $('record');
+  rec.replaceChildren(...(list ? list.items.map(e => {
+    const [kind, mark, name, rest] = recordLine(e), li = document.createElement('li');
+    const mk = document.createElement('span'); mk.className = 'mk'; mk.setAttribute('aria-hidden', 'true'); mk.textContent = mark;
+    const words = document.createElement('span'); words.append(name);
+    if (kind === 'out' && (e.nextRestockText || e.restockNote)){   // "back Tuesday" alone does not say it is out now
+      const sr = document.createElement('span'); sr.className = 'sr-only'; sr.textContent = ', out of stock'; words.append(sr);
+    }
+    words.append(rest); li.className = kind; li.append(mk, words); return li;
+  }) : []));
+  rec.hidden = $('take').hidden = !list;
+  $('take-text').hidden = true; tookBack();
 }
 
 /* Sound effects from the AI Studio design (soundEffects.ts): synthesised with Web Audio, no files.
@@ -1897,6 +2402,13 @@ function showShop(shop){         // the page around the scene: accent colour, na
     const b = document.createElement('button'); b.type = 'button'; b.textContent = text;
     b.onclick = () => askChip(text); return b;
   }));
+  $('carry').replaceChildren($('carry-label'), ...shop.inventory.map(({ name }) => {   // names only, never stock
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'carry-chip'; b.dataset.item = name;
+    b.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-plus"/></svg><span></span>';
+    b.lastChild.textContent = name;
+    b.onclick = () => addToList(name); return b;
+  }));
+  renderList();
   for (const b of bar.children) b.setAttribute('aria-pressed', b.dataset.id === shop.id);
   setSkyline(false);
 }
@@ -1906,6 +2418,91 @@ function askChip(text){          // through the form, so the trim, the cap and t
   $('f').dispatchEvent(new Event('submit', { cancelable:true }));
 }
 
+/* My list: tap what you need from what the shop carries, then Check my list asks the stock room
+   about all of it at once (section 2, askList). One list per shop, in memory only, for this visit:
+   Leave keeps it, another shop has its own, a reload clears it. It leaves the page only in that
+   POST's body. Up to 12 items (the contract's limit); an item already on it is ignored. */
+const MAX_ITEMS = 12;
+const lists = new Map();                      // shop id -> item names, in the order tapped
+const listFor = shop => { if (!lists.has(shop.id)) lists.set(shop.id, []); return lists.get(shop.id); };
+const howMany = n => n + (n === 1 ? ' item' : ' items');
+const carryChip = name => [...$('carry').children].find(b => b.dataset.item === name);
+
+function renderList(){
+  const items = listFor(current), row = $('mylist');
+  for (const b of $('carry').querySelectorAll('.carry-chip')){   // a chip already on the list shows a tick
+    const on = items.includes(b.dataset.item);
+    b.querySelector('use').setAttribute('href', on ? '#i-check' : '#i-plus');
+    b.setAttribute('aria-label', on ? b.dataset.item + ', on your list' : 'Add ' + b.dataset.item + ' to your list');
+    if (on) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
+  }
+  row.querySelectorAll('.pick').forEach(p => p.remove());
+  for (const name of items){
+    const p = document.createElement('span'), x = document.createElement('button');
+    p.className = 'pick'; x.type = 'button'; x.setAttribute('aria-label', 'Remove ' + name);
+    x.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-x"/></svg>';
+    x.onclick = () => removeFromList(name);
+    p.append(name, x); row.insertBefore(p, $('check-list'));
+  }
+  row.hidden = folded || !items.length;
+  $('carry').hidden = folded;
+  $('list-folded').hidden = !folded;
+}
+// After a list's answer the whole area folds to "3 items checked · Edit list" (one line, so the
+// panel stops covering the clerk on a phone); Edit list, a new visit or another shop opens it again.
+let folded = false;
+function foldList(count){ folded = true; $('list-folded-text').textContent = howMany(count) + ' checked'; renderList(); }
+function unfoldList(){ folded = false; renderList(); }
+$('list-edit').onclick = () => { unfoldList(); (listFor(current).length ? $('check-list') : $('carry').querySelector('.carry-chip'))?.focus(); };
+// The chip under the visitor's finger must still be the chip they meant. The list sits above the
+// chips and the panel grows upward from the bottom, so a list that appears or wraps moves only what
+// is above it. Once the panel is as tall as the screen allows it scrolls instead (Larger text on a
+// phone) and the change would push the chips down; the scroll takes it up, so they stay put there too.
+function holdCarry(change){
+  const card = $('carry').closest('.panel-mid'), was = $('carry').getBoundingClientRect().top;
+  change();
+  const moved = $('carry').getBoundingClientRect().top - was;
+  if (moved) card.scrollTop += moved;
+}
+function addToList(name){
+  if (state !== 'listening') return;
+  const items = listFor(current);
+  if (items.includes(name)) return announce(name + ' is already on your list');
+  if (items.length >= MAX_ITEMS) return announce('Your list is full: ' + MAX_ITEMS + ' items');
+  items.push(name); holdCarry(renderList);
+  announce(name + ' added. ' + howMany(items.length) + ' on your list.');
+}
+function removeFromList(name){
+  if (state !== 'listening') return;
+  const items = listFor(current), at = items.indexOf(name);
+  if (at < 0) return;
+  items.splice(at, 1); holdCarry(renderList);
+  const xs = $('mylist').querySelectorAll('.pick button');   // its button is gone: the next one, else that chip
+  (xs[at] || xs[at - 1] || carryChip(name))?.focus();
+  announce(name + ' removed. ' + (items.length ? howMany(items.length) + ' on your list.' : 'Your list is empty.'));
+}
+
+/* First visit: a card on the street with three lines, shown once until Close, Escape or Enter.
+   In memory only, so a reload shows it again. It sits under the header, clear of the door cue
+   and the dock, holds no focus (not a dialog) and stops no tap: Enter hides it only after the
+   audio unlock and the first footsteps, so the walk-in starts exactly as before. */
+const welcome = $('welcome');
+function placeWelcome(){
+  const head = $('top').getBoundingClientRect(), hint = $('hint').getBoundingClientRect();
+  welcome.style.top = Math.round(Math.max(head.bottom, hint.height ? hint.bottom : 0) + 8) + 'px';
+}
+function closeWelcome(){
+  if (welcome.hidden) return;
+  const had = welcome.contains(document.activeElement);   // Close pressed from the keyboard: focus moves on to Enter shop
+  welcome.hidden = true;
+  if (had) $('enter').focus();
+}
+placeWelcome(); addEventListener('resize', placeWelcome);
+$('welcome-close').onclick = closeWelcome;
+addEventListener('keydown', e => {                              // Escape on the street, when no drawer is open (they take it)
+  if (e.key === 'Escape' && document.body.dataset.where === 'street' && !settings.open && !a11y.open) closeWelcome();
+});
+
 // Both ways in (the Enter button and the door cue on the doors) run this inside the tap: a click
 // event, so iOS counts it as a tap. The greeting has the walk-in (2600 + 700 + 2400 ms) plus 2 s
 // to arrive; under Reduce motion the walk is a cut, so the wait at the counter is longer instead.
@@ -1914,6 +2511,7 @@ async function enterShop(){
   if (document.body.dataset.where !== 'street' || tween) return;
   unlockAudio();                                                // first, while still inside the tap
   sfx.footsteps();                                              // makes the effects' context in the tap too
+  welcome.hidden = true;                                        // the first-visit card has done its job
   const shop = current;
   const greeting = callClerk({ shop: shop.id, greet: true });   // in flight during the walk-in
   const tapped = performance.now();
@@ -1931,7 +2529,7 @@ async function enterShop(){
   }
   const live = await Promise.race([greeting, wait(grace)]);
   const hello = live || { reply: 'Welcome to ' + shop.name + '. How can I help you today?' };
-  showStock(null);                                              // a greeting has no stock-room record
+  showStock(null); unfoldList();                                // a greeting has no stock-room record; a new visit, the list open
   $('panel').hidden = false; setWhere('inside'); setState('answering');
   lastAnswer = hello; $('replay').hidden = false;               // Replay works from the greeting on; an answer replaces it
   await say(hello);
@@ -1949,15 +2547,71 @@ $('f').onsubmit = async e => {
   $('q').value = ''; setState('checking'); $('reply').textContent = ''; showStock(null); if (coarse) $('q').blur();
   const reply = await askClerk(text);                           // never throws; canned on failure
   if (here !== visit) return;                                   // the visitor left while we checked
-  lastAnswer = reply; $('replay').hidden = false;
+  lastAnswer = reply; $('replay').hidden = false; remember(text, reply.reply);
   setState('answering'); showStock(reply); await say(reply); setState('listening'); if (!coarse) $('q').focus();
+};
+
+// Check my list: the same hand-off as a question (the clerk turns, the stock agent comes out,
+// "Checking with the stock room"), with the items named under it while the stock room looks.
+$('check-list').onclick = async () => {
+  const items = [...listFor(current)];                          // as it is now; edits wait for the answer
+  if (!items.length || state !== 'listening' || $('panel').hidden) return;
+  const here = visit;
+  setState('checking'); $('reply').textContent = ''; showStock(null);   // My list steps aside (CSS)
+  $('stock-note').textContent = 'Checking ' + (items.length > 1 ? 'your ' + items.length + ' items: ' : 'your item: ') + listOf(items);
+  const reply = await askList(items);                           // never throws; the printed list on failure
+  if (here !== visit) return;                                   // the visitor left while we checked
+  lastAnswer = reply; $('replay').hidden = false;
+  setState('answering'); showStock(reply); foldList(items.length); await say(reply); setState('listening');
+  if (here === visit && focusLost()) $('take').focus();         // the button they pressed has gone: the next step
+};
+
+/* Take this with you: the list's answer as plain text, one line per item, to show at the counter
+   or send to whoever goes in. Shared through the device's share sheet where there is one, else
+   copied; the button then says "Shared" or "Copied" for 2 s, and so does the screen reader. Where
+   neither works it is shown here to copy by hand. It is made from the answer on screen when
+   pressed and kept nowhere. */
+const SITE = 'allyou.select';                 // the list's own domain: all you select, checked at once
+function cardText(answer){
+  const { shop, at, items } = answer.list;
+  return [shop + ' · checked ' + clock(at), ...items.map(cardLine),
+          (answer.canned ? 'From the printed list at the counter' : 'From the shop\'s stock room') + ' via ' + SITE].join('\n');
+}
+let tookTimer = 0;
+function tookBack(){                          // the button's own words again
+  clearTimeout(tookTimer);
+  $('take').querySelector('use').setAttribute('href', '#i-share');
+  $('take').lastChild.textContent = 'Take this with you';
+}
+function took(word){                          // "Shared" or "Copied", with a tick, for 2 s
+  tookBack(); $('take').querySelector('use').setAttribute('href', '#i-check'); $('take').lastChild.textContent = word;
+  announce(word);
+  tookTimer = setTimeout(tookBack, 2000);
+}
+$('take').onclick = async () => {
+  const answer = lastAnswer;
+  if (!answer?.list) return;
+  const text = cardText(answer);
+  if (typeof navigator.share === 'function' && (!navigator.canShare || navigator.canShare({ text }))){
+    try { await navigator.share({ text }); if (answer === lastAnswer) took('Shared'); return; }
+    catch (err){ if (err?.name === 'AbortError') return; }      // closed without sharing: nothing to do
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    if (answer !== lastAnswer) return;
+    took('Copied');
+  } catch {                                                     // no clipboard here (plain http): show it instead
+    if (answer !== lastAnswer) return;
+    $('take-text').textContent = text; $('take-text').hidden = false;
+  }
 };
 
 // Replay, for a loud room: the greeting, or the last answer once there is one, again through
 // say(), so the cached mp3 plays on the shared Audio element (inside this tap, which iOS needs),
-// else the browser's voice. It is kept in memory for this visit only; Leave drops it.
+// else the browser's voice. It is kept in memory for this visit only; Leave drops it. With Clerk
+// voice off there is nothing to hear, so it is disabled.
 $('replay').onclick = async () => {
-  if (!lastAnswer || state !== 'listening' || $('panel').hidden) return;
+  if (!lastAnswer || state !== 'listening' || $('panel').hidden || !prefs.voice) return;
   const here = visit, btn = $('replay'), refocus = document.activeElement === btn;
   setState('answering');                                        // disables the button and the form
   await say(lastAnswer);
@@ -1967,7 +2621,7 @@ $('replay').onclick = async () => {
 
 $('leave').onclick = async () => {
   if (tween) return;
-  visit++; endSay(); silence(); lastAnswer = null; $('replay').hidden = true;
+  visit++; endSay(); silence(); lastAnswer = null; history.length = 0; $('replay').hidden = true;   // the visit's memory goes with it
   $('panel').hidden = true; setState('listening'); setWhere('leaving'); sfx.footsteps();
   if (prefs.calm){ doorTarget = 0; await moveCamera(STREET, 1); }   // Reduce motion: a cut back to the street
   else { await moveCamera(DOOR, 1800); doorTarget = 0; await moveCamera(STREET, 2200); }
@@ -2068,8 +2722,9 @@ settings.addEventListener('click', e => {                       // a tap on the 
 settings.addEventListener('close', () => $('brand').focus());  // Close, Escape or a tap outside
 
 // Sound effects: turns the footsteps, the door chime and the stock room's rustle off and on. The
-// clerk's voice (the shared Audio element and the browser's voice) always plays: a muted
-// greeting would be a failed step 2 of the demo. Pressed means the effects are on.
+// clerk's voice (the shared Audio element and the browser's voice) is not touched here: a muted
+// greeting would be a failed step 2 of the demo, so only the accessibility drawer's Clerk voice
+// switch, which starts on, turns it off. Pressed means the effects are on.
 $('sound').onclick = () => {
   effectsOff = !effectsOff;
   if (!effectsOff) sfx.unlock();
@@ -2078,19 +2733,27 @@ $('sound').onclick = () => {
 };
 
 /* ---------- 6. ACCESSIBILITY: the AI Studio app's tools, rebuilt for this page ----------
-   The header's Accessibility button opens a drawer of four switches: Captions, Larger text, High
-   contrast and Reduce motion. Each is a class on <html> (cc, big, hc, calm) plus `prefs`, in memory
-   for this visit only: nothing is stored, so a reload goes back to the system's settings. A switch
-   applies at once and announces nothing beyond its own on or off. The drawer is a native modal
-   dialog, like the settings drawer: Escape, Close or a tap outside closes it, and focus goes back
-   to the button. */
+   The header's Accessibility button opens a drawer of five switches: Captions, Larger text, High
+   contrast, Reduce motion and Clerk voice. Each is a class on <html> (cc, big, hc, calm; quiet when
+   Clerk voice is off) plus `prefs`, in memory for this visit only: nothing is stored, so a reload
+   goes back to the system's settings, with Clerk voice on. A switch applies at once and announces
+   nothing beyond its own on or off. Clerk voice off: say() shows the clerk's words (and captions)
+   without the mp3 or the browser's voice, the greeting too, and Replay is disabled; turned off
+   while the clerk is talking, the clerk stops. The drawer is a native modal dialog, like the
+   settings drawer: Escape, Close or a tap outside closes it, and focus goes back to the button. */
 const a11y = $('a11y'), PREF_CLASS = { captions:'cc', big:'big', contrast:'hc', calm:'calm' };
 const switches = [...a11y.querySelectorAll('[role=switch]')];
 function applyPrefs(){
   for (const [k, c] of Object.entries(PREF_CLASS)) document.documentElement.classList.toggle(c, prefs[k]);
+  document.documentElement.classList.toggle('quiet', !prefs.voice);
   for (const s of switches) s.setAttribute('aria-checked', prefs[s.dataset.pref]);
+  $('replay').disabled = state !== 'listening' || !prefs.voice;
+  $('replay').title = prefs.voice ? 'Hear the clerk again' : 'Clerk voice is off (Accessibility)';
 }
-for (const s of switches) s.onclick = () => { prefs[s.dataset.pref] = !prefs[s.dataset.pref]; applyPrefs(); };
+for (const s of switches) s.onclick = () => {
+  prefs[s.dataset.pref] = !prefs[s.dataset.pref]; applyPrefs();
+  if (s.dataset.pref === 'voice' && !prefs.voice && state === 'answering'){ silence(); endSay(); }   // stop mid-sentence
+};
 applyPrefs();
 $('a11y-open').onclick = () => {
   if (a11y.open || typeof a11y.showModal !== 'function') return;
@@ -2126,9 +2789,10 @@ function markBusy(){
     if (busy) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
 }
 
-// Captions: #cc copies whatever say() writes into #reply; the CSS shows it while the clerk speaks.
+// Captions: #cc copies whatever say() writes into #reply; the CSS shows it while the clerk speaks,
+// in smaller type past 160 characters (a list's answer) so the strip stays on a phone's screen.
 const cc = $('cc'), replyText = $('reply');
-new MutationObserver(() => { cc.textContent = replyText.textContent; })
+new MutationObserver(() => { cc.textContent = replyText.textContent; cc.classList.toggle('long', cc.textContent.length > 160); })
   .observe(replyText, { childList:true, characterData:true, subtree:true });
 
 /* Describe this view (header button, or the drawer): a few sentences on what the 3D view shows now,
