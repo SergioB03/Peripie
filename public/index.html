@@ -2927,7 +2927,7 @@ $('a11y-describe').onclick = () => describeNow(true);
 function recentre(){ if (skyline) setSkyline(false); else targetYaw = targetPitch = 0; }
 $('recentre').onclick = recentre;
 $('a11y-recentre').onclick = () => { recentre(); a11y.close(); };
-$('f').addEventListener('click', e => { if (e.target.closest?.('.pp-mic')) hushScene(); }, true);   // the mic button
+$('f').addEventListener('click', e => { if (e.target.closest?.('.pp-mic')){ hushScene(); hushGuide(); } }, true);   // the mic button: the visitor's turn
 
 // Where and what the clerk is doing: keeps the 3D view's label current and retires a stale description.
 let seenWhere = document.body.dataset.where, seenState = document.body.dataset.state;
@@ -3054,6 +3054,9 @@ function playGuide(text, url, voiceOn){
     cap(20000);
   });
 }
+// A tap on the mic while the guide talks cuts the line short: the visitor's turn, and the mic must
+// not hear the guide. Only the guide's own audio or utterance is playing then (say() waits for it).
+function hushGuide(){ if (!guideStop) return; player.pause(); if (hasTTS) speechSynthesis.cancel(); guideStop(); }
 // The clerk's answer first: a guide line asked for while the clerk talks waits for 'listening'.
 const idle = [];
 const clerkDone = () => state === 'answering' ? new Promise(r => { idle.push(r); setTimeout(r, 25000); }) : Promise.resolve();
