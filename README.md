@@ -29,6 +29,16 @@ What the clerk actually said on the first real run (Oct 10, 3:45 pm):
 
 The date comes from the shelf list; "about three days" is computed from 60 days of stock counts. The clerk is not allowed to answer from memory: its first move on every question is the stock lookup.
 
+## Built for people who find the usual channels hard
+
+The second audience is the customer who would rather not walk in and ask, and anyone the standard shop website leaves out. So the page carries, with nothing stored about you:
+
+- **Accessibility drawer** (top right): captions banner, larger text, high contrast, reduce motion — four switches, kept in memory for the visit only; your system's reduced-motion and contrast settings seed the defaults.
+- **Captions**: the clerk's words appear as a large caption strip while they are spoken.
+- **Describe this view**: a button that describes what is on screen, in text and in the browser's own voice, without touching the network.
+- **Re-centre view**, Replay for any answer including the greeting, a mic button for people who would rather talk than type, and a keyboard path through the whole visit with visible focus and live regions for screen readers.
+- The stock room's record under every answer, so you see the agent's work, not just the clerk's words.
+
 ## How we built it
 
 | Technology | What it does in Peripie |
