@@ -19,7 +19,7 @@ Everything a judge sees runs from `main`. The laptop server is on `http://192.16
 
 ## Replit after tonight: what happened and how to redeploy
 
-The live site at https://peripie.replit.app was republished from `3029b6d` and is current. The Replit **workspace**, though, was rewritten by Replit's Agent (it turned the project into a pnpm monorepo with `artifacts/`, changed `package.json` and edited server files), and it re-applied those changes once after a reset. The live deployment is a separate snapshot and is unaffected until the next Republish.
+The live site at https://peripie.replit.app was republished from `3029b6d` at 2:20 am; a later republish at 3:28 am, started for slides the Agent was making, rolled it back to the ~9 pm build (no accessibility drawer, no warm-up, no list route). It still passes the four demo steps. The Replit **workspace**, though, was rewritten by Replit's Agent (it turned the project into a pnpm monorepo with `artifacts/`, changed `package.json` and edited server files), and it re-applied those changes once after a reset. The live deployment is a separate snapshot and is unaffected until the next Republish.
 
 Rules from here:
 - Never open or answer the Agent pane; decline every "fix" it offers.
