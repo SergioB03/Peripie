@@ -406,6 +406,7 @@
   html.cc body[data-state=answering] #cc:not(:empty){opacity:1;visibility:visible}
   #cc.long{font-size:16px}   /* a list's answer runs longer: smaller type, so the strip stays on screen */
   html.hc #cc{background:#000}
+  html.quiet body .bars{display:none}   /* Clerk voice off (drawer): nothing is spoken, so no sound bars */
   @media (min-width:640px){#cc{left:16px;right:16px}}
   @media (max-height:520px) and (orientation:landscape){#cc{font-size:16px;padding:6px 12px}}
 
@@ -597,7 +598,7 @@
   </div>
 </dialog>
 
-<!-- Accessibility drawer: four switches, kept in memory for this visit only (script section 6) -->
+<!-- Accessibility drawer: five switches, kept in memory for this visit only (script section 6) -->
 <dialog id="a11y" aria-labelledby="a11y-title">
   <div class="sheet">
     <h2 id="a11y-title">Accessibility</h2>
@@ -606,6 +607,7 @@
       <button type="button" role="switch" aria-checked="false" data-pref="big" aria-labelledby="pf-big" aria-describedby="pf-big-d"><span class="pf"><span class="pf-name" id="pf-big">Larger text</span><span class="pf-hint" id="pf-big-d">Bigger words on the shop card and the counter panel</span></span><span class="sw" aria-hidden="true"></span></button>
       <button type="button" role="switch" aria-checked="false" data-pref="contrast" aria-labelledby="pf-hc" aria-describedby="pf-hc-d"><span class="pf"><span class="pf-name" id="pf-hc">High contrast</span><span class="pf-hint" id="pf-hc-d">Solid panels, no blur, stronger borders</span></span><span class="sw" aria-hidden="true"></span></button>
       <button type="button" role="switch" aria-checked="false" data-pref="calm" aria-labelledby="pf-calm" aria-describedby="pf-calm-d"><span class="pf"><span class="pf-name" id="pf-calm">Reduce motion</span><span class="pf-hint" id="pf-calm-d">No camera walk, swaying or mist: a cut straight to the counter</span></span><span class="sw" aria-hidden="true"></span></button>
+      <button type="button" role="switch" aria-checked="true" data-pref="voice" aria-labelledby="pf-voice" aria-describedby="pf-voice-d"><span class="pf"><span class="pf-name" id="pf-voice">Clerk voice</span><span class="pf-hint" id="pf-voice-d">Off: the clerk's words are shown, never spoken, for a quiet room</span></span><span class="sw" aria-hidden="true"></span></button>
     </div>
     <div class="tools">
       <button type="button" id="a11y-describe" aria-describedby="a11y-describe-d"><svg class="i" aria-hidden="true"><use href="#i-scan-eye"/></svg>Describe this view</button>
@@ -1174,9 +1176,9 @@ function build(shop){
 
 /* ---------- 4. MOTION ---------- */
 // The accessibility drawer's switches (section 6), for this visit only and never stored. They start
-// from the classes the script in <head> set from the system's settings.
+// from the classes the script in <head> set from the system's settings; Clerk voice starts on.
 const prefOn = c => document.documentElement.classList.contains(c);
-const prefs = { captions:prefOn('cc'), big:prefOn('big'), contrast:prefOn('hc'), calm:prefOn('calm') };
+const prefs = { captions:prefOn('cc'), big:prefOn('big'), contrast:prefOn('hc'), calm:prefOn('calm'), voice:true };
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const ease = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(2 - 2 * k, 3) / 2;   // easeInOutCubic, as in AI Studio
 const basePos = new THREE.Vector3(), lookNow = new THREE.Vector3();
@@ -1255,7 +1257,7 @@ const coarse = matchMedia('(pointer:coarse)').matches;   // phones: keep the key
 function setState(s){
   state = s; $('status').textContent = LABEL[s]; $('status').className = s;
   document.body.dataset.state = s;                  // the CSS keys the dots, bars, chips and My list on it
-  $('replay').disabled = s !== 'listening';         // no replay while the clerk checks or talks
+  $('replay').disabled = s !== 'listening' || !prefs.voice;   // no replay while the clerk checks or talks, or with Clerk voice off
   if (s === 'checking'){ sfx.rustle(); targetYaw = targetPitch = 0; }   // face the hand-off
 }
 const setWhere = w => { document.body.dataset.where = w; };   // street, entering, inside, leaving
@@ -1289,6 +1291,10 @@ function unlockAudio(){          // call synchronously inside the tap, before an
 }
 function silence(){ player.pause(); if (hasTTS) speechSynthesis.cancel(); }
 
+// Clerk voice off (accessibility drawer): the words stay on screen, and the clerk "answers" for
+// about as long as reading them takes (1.2 s plus 35 ms a character, at most 8 s).
+const readingMs = text => Math.min(8000, 1200 + 35 * text.length);
+
 function say(reply){
   $('reply').textContent = reply.reply;
   silence();
@@ -1303,6 +1309,7 @@ function say(reply){
       speechSynthesis.speak(u); arm(12000);
     };
     endSay = finish;
+    if (!prefs.voice) return arm(readingMs(reply.reply));   // shown, never spoken: no mp3, no browser voice
     if (!reply.audioUrl) return speak();
     let started = false, failed = false;   // the clerk's mp3; the browser's voice if it won't start
     const fail = () => { if (done || failed) return; failed = true; started ? finish() : speak(); };
@@ -1619,9 +1626,10 @@ $('take').onclick = async () => {
 
 // Replay, for a loud room: the greeting, or the last answer once there is one, again through
 // say(), so the cached mp3 plays on the shared Audio element (inside this tap, which iOS needs),
-// else the browser's voice. It is kept in memory for this visit only; Leave drops it.
+// else the browser's voice. It is kept in memory for this visit only; Leave drops it. With Clerk
+// voice off there is nothing to hear, so it is disabled.
 $('replay').onclick = async () => {
-  if (!lastAnswer || state !== 'listening' || $('panel').hidden) return;
+  if (!lastAnswer || state !== 'listening' || $('panel').hidden || !prefs.voice) return;
   const here = visit, btn = $('replay'), refocus = document.activeElement === btn;
   setState('answering');                                        // disables the button and the form
   await say(lastAnswer);
@@ -1732,8 +1740,9 @@ settings.addEventListener('click', e => {                       // a tap on the 
 settings.addEventListener('close', () => $('brand').focus());  // Close, Escape or a tap outside
 
 // Sound effects: turns the footsteps, the door chime and the stock room's rustle off and on. The
-// clerk's voice (the shared Audio element and the browser's voice) always plays: a muted
-// greeting would be a failed step 2 of the demo. Pressed means the effects are on.
+// clerk's voice (the shared Audio element and the browser's voice) is not touched here: a muted
+// greeting would be a failed step 2 of the demo, so only the accessibility drawer's Clerk voice
+// switch, which starts on, turns it off. Pressed means the effects are on.
 $('sound').onclick = () => {
   effectsOff = !effectsOff;
   if (!effectsOff) sfx.unlock();
@@ -1742,19 +1751,27 @@ $('sound').onclick = () => {
 };
 
 /* ---------- 6. ACCESSIBILITY: the AI Studio app's tools, rebuilt for this page ----------
-   The header's Accessibility button opens a drawer of four switches: Captions, Larger text, High
-   contrast and Reduce motion. Each is a class on <html> (cc, big, hc, calm) plus `prefs`, in memory
-   for this visit only: nothing is stored, so a reload goes back to the system's settings. A switch
-   applies at once and announces nothing beyond its own on or off. The drawer is a native modal
-   dialog, like the settings drawer: Escape, Close or a tap outside closes it, and focus goes back
-   to the button. */
+   The header's Accessibility button opens a drawer of five switches: Captions, Larger text, High
+   contrast, Reduce motion and Clerk voice. Each is a class on <html> (cc, big, hc, calm; quiet when
+   Clerk voice is off) plus `prefs`, in memory for this visit only: nothing is stored, so a reload
+   goes back to the system's settings, with Clerk voice on. A switch applies at once and announces
+   nothing beyond its own on or off. Clerk voice off: say() shows the clerk's words (and captions)
+   without the mp3 or the browser's voice, the greeting too, and Replay is disabled; turned off
+   while the clerk is talking, the clerk stops. The drawer is a native modal dialog, like the
+   settings drawer: Escape, Close or a tap outside closes it, and focus goes back to the button. */
 const a11y = $('a11y'), PREF_CLASS = { captions:'cc', big:'big', contrast:'hc', calm:'calm' };
 const switches = [...a11y.querySelectorAll('[role=switch]')];
 function applyPrefs(){
   for (const [k, c] of Object.entries(PREF_CLASS)) document.documentElement.classList.toggle(c, prefs[k]);
+  document.documentElement.classList.toggle('quiet', !prefs.voice);
   for (const s of switches) s.setAttribute('aria-checked', prefs[s.dataset.pref]);
+  $('replay').disabled = state !== 'listening' || !prefs.voice;
+  $('replay').title = prefs.voice ? 'Hear the clerk again' : 'Clerk voice is off (Accessibility)';
 }
-for (const s of switches) s.onclick = () => { prefs[s.dataset.pref] = !prefs[s.dataset.pref]; applyPrefs(); };
+for (const s of switches) s.onclick = () => {
+  prefs[s.dataset.pref] = !prefs[s.dataset.pref]; applyPrefs();
+  if (s.dataset.pref === 'voice' && !prefs.voice && state === 'answering'){ silence(); endSay(); }   // stop mid-sentence
+};
 applyPrefs();
 $('a11y-open').onclick = () => {
   if (a11y.open || typeof a11y.showModal !== 'function') return;
