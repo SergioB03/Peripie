@@ -646,12 +646,18 @@ async function askClerk(text){
     : 'We\'re out of ' + item.name + ' right now. It\'ll be back ' + item.restock + '.' };
 }
 
-/* ---------- 3. SCENE: the AI Studio street and shop (ShopScene.ts), in plain Three.js ----------
-   Metres; y is up, the street is toward +z, x = 0 is the doors' centre line. Kept as designed:
-   positions, sizes, colours, lights, ACES tone mapping and one sun shadow. Changed: no glass
-   (AI Studio's panes sat inside the walls and only cost an extra render pass each frame), no
-   point-light shadow, the oven light always exists so a shop switch never recompiles shaders,
-   the boards list this page's products, and the clerk's head nods from the neck. */
+/* ---------- 3. SCENE: the street and the shop, in plain Three.js ----------
+   Metres; y is up, the street is toward +z, x = 0 is the doors' centre line. Kept from the AI
+   Studio design (ShopScene.ts): the layout, the camera stations, ACES tone mapping, one sun
+   shadow, and the hand-off geometry that section 6 projects in metres (the clerk at the counter,
+   the stock agent and the STOCK ROOM door at the back right). Everything is procedural, with no
+   model or texture files: canvases drawn once give the wood, brick, plaster, pavement, each
+   shop's floor, the signs and the labels; materials are tuned per family (wood, paint, steel,
+   brass, cloth, stone, ceramic, glass); and still props are merged into one mesh per material,
+   so the scene draws about as many calls as the first design did, with far more in it. Still no
+   glass in the walls (an extra render pass each frame), no point-light shadows, the oven light
+   always exists (a shop switch never recompiles shaders), and the boards list this page's
+   products. */
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, powerPreference:'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -659,6 +665,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;      // what AI Studio drew: 0.186 has no PCFSoft
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
+const ANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#bae6fd');
 scene.fog = new THREE.FogExp2('#c7d2fe', 0.015);
@@ -685,12 +692,51 @@ usePoses('wide');
 let current, doorL, doorR;
 let doorTarget = 0, doorValue = 0, state = 'listening', tween = null;
 
+// Per-shop dressing, display only, kept out of SHOPS (which the server, the seed and the settings
+// drawer read): the hours on the card on the door, the floor's kind, the sign's typeface, the
+// light (sun colour and strength; sky and ground colours and strength of the soft light; the
+// room light's strength), the counter's woods (body, top, trim), the storefront's paint and the
+// ceiling fixture. A shop without an entry gets the bakery's.
+const DECOR = {
+  bakery: { hours:['Daily', '7 am – 6 pm'], floor:'tile', font:'Georgia, "Times New Roman", serif',
+            sun:['#ffe0b2', 1.7], sky:['#fde7c8', '#8b7355', 0.9], room:2.6,
+            counter:['#5a3a22', '#c9915a', '#3b2314'], frame:'#5b3a1e', fixture:'pendants' },
+  paint:  { hours:['Mon–Sat 7 am – 7 pm', 'Sun 9 am – 5 pm'], floor:'concrete', font:'"Arial Black", Impact, "Arial Narrow", sans-serif',
+            sun:['#f8fafc', 2.0], sky:['#e0f2fe', '#94a3b8', 1.05], room:3.2,
+            counter:['#334155', '#64748b', '#1e293b'], frame:'#1e3a8a', fixture:'tubes' },
+  plants: { hours:['Daily', '9 am – 6 pm'], floor:'quarry', font:'"Trebuchet MS", Verdana, sans-serif',
+            sun:['#fff7ed', 1.35], sky:['#ecfccb', '#4d7c0f', 1.15], room:2.3,
+            counter:['#6b4a2b', '#a8795a', '#4a3220'], frame:'#14532d', fixture:'skylight' } };
+const decorOf = shop => DECOR[shop.id] || DECOR.bakery;
+
 const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-const std = (color, o) => new THREE.MeshStandardMaterial({ color, ...o });
+const CHALK = '"Bradley Hand", "Segoe Print", "Comic Sans MS", cursive';   // the bakery's chalk hand
+const std =(color, o) => new THREE.MeshStandardMaterial({ color, ...o });
 const basic = color => new THREE.MeshBasicMaterial({ color });
+// Material families: roughness and metalness per kind of surface, so wood, paint, steel, brass,
+// cloth, stone, ceramic, plastic and leaves each take the light their own way.
+const FAM = { wood:[0.72, 0], varnish:[0.38, 0.05], paint:[0.5, 0.05], steel:[0.35, 0.75], brass:[0.22, 0.9],
+              cloth:[0.95, 0], stone:[0.92, 0], ceramic:[0.25, 0], plastic:[0.45, 0], leaf:[0.62, 0] };
+const PAINT = ['#1d4ed8', '#059669', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#ea580c', '#65a30d'];   // the paint store's hues
+const mat = (fam, color, o) => std(color, { roughness:FAM[fam][0], metalness:FAM[fam][1], ...o });
+const vmat = (fam, o) => mat(fam, '#ffffff', { vertexColors:true, ...o });   // a colour per part, from merge()
+const glass = o => std('#ffffff', { roughness:0.05, metalness:0.1, transparent:true, opacity:0.22, depthWrite:false, ...o });
 const Box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 const Cyl = (...a) => new THREE.CylinderGeometry(...a);
 const Sph = (...a) => new THREE.SphereGeometry(...a);
+// Texture coordinates in metres: a primitive's uv runs 0..1 per face, so a tiling map would
+// stretch; these scale it so one tile is a metre (k tiles to the metre).
+function uvMap(geo, su, sv, ou = 0, ov = 0){
+  const a = geo.attributes.uv;
+  for (let i = 0; i < a.count; i++) a.setXY(i, a.getX(i) * su + ou, a.getY(i) * sv + ov);
+  return geo;
+}
+function TexBox(w, h, d, k = 1){            // a box whose six faces tile in metres
+  const g = Box(w, h, d), a = g.attributes.uv, dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+  for (let f = 0; f < 6; f++) for (let i = f * 4; i < f * 4 + 4; i++) a.setXY(i, a.getX(i) * dims[f][0] * k, a.getY(i) * dims[f][1] * k);
+  return g;
+}
+const TexPlane = (w, h, k = 1) => uvMap(new THREE.PlaneGeometry(w, h), w * k, h * k);
 function put(parent, geo, mat, x = 0, y = 0, z = 0, o = {}){
   const m = new THREE.Mesh(geo, mat);
   m.position.set(x, y, z);
@@ -704,161 +750,445 @@ function put(parent, geo, mat, x = 0, y = 0, z = 0, o = {}){
 function group(parent, x = 0, y = 0, z = 0, ry = 0){
   const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; parent.add(g); return g;
 }
-// Canvas textures keep AI Studio's default colour space, so they read a little lighter than their hex.
-function canvasTexture(w, h, draw){
-  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-  draw(cv.getContext('2d'));
-  return new THREE.CanvasTexture(cv);
+// One geometry from many parts (each placed as put() would place it, with an optional colour and
+// uv scale), so a shelf full of things is one draw call. The parts' own geometries are untouched.
+const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
+const _p = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color();
+function merge(parts){
+  const pos = [], nor = [], uv = [], col = [];
+  let coloured = false;
+  for (const [geo, x = 0, y = 0, z = 0, o = {}] of parts){
+    const g = geo.index ? geo.toNonIndexed() : geo.clone();
+    _e.set(o.rx || 0, o.ry || 0, o.rz || 0); _q.setFromEuler(_e); _s.set(...(o.s || [1, 1, 1])); _p.set(x, y, z);
+    g.applyMatrix4(_m4.compose(_p, _q, _s));
+    if (o.uv) uvMap(g, ...o.uv);
+    const n = g.attributes.position.count, c = new Float32Array(n * 3);
+    if (o.color){ coloured = true; _c.set(o.color); for (let i = 0; i < n; i++){ c[i * 3] = _c.r; c[i * 3 + 1] = _c.g; c[i * 3 + 2] = _c.b; } }
+    else c.fill(1);
+    pos.push(g.attributes.position.array); nor.push(g.attributes.normal.array); uv.push(g.attributes.uv.array); col.push(c);
+  }
+  const cat = (arrs, k) => {
+    const out = new Float32Array(arrs.reduce((s, a) => s + a.length, 0));
+    let at = 0; for (const a of arrs){ out.set(a, at); at += a.length; }
+    return new THREE.BufferAttribute(out, k);
+  };
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', cat(pos, 3)); out.setAttribute('normal', cat(nor, 3)); out.setAttribute('uv', cat(uv, 2));
+  if (coloured) out.setAttribute('color', cat(col, 3));
+  return out;
+}
+const solid = (parent, mat, parts, x, y, z, o) => put(parent, merge(parts), mat, x, y, z, o);
+// Many copies of one shape in one draw call, each with its own place and colour.
+function instanced(parent, geo, material, items, o = {}){   // items: [x, y, z, colour, { rx, ry, rz, s }]
+  const im = new THREE.InstancedMesh(geo, material, items.length);
+  items.forEach(([x, y, z, colour, t = {}], i) => {
+    _e.set(t.rx || 0, t.ry || 0, t.rz || 0); _q.setFromEuler(_e); _s.set(...(t.s || [1, 1, 1])); _p.set(x, y, z);
+    im.setMatrixAt(i, _m4.compose(_p, _q, _s));
+    if (colour) im.setColorAt(i, _c.set(colour));
+  });
+  im.computeBoundingSphere();
+  im.castShadow = !!o.cast; im.receiveShadow = !!o.receive;
+  parent.add(im); return im;
 }
 
-// Lights. Four point lights always, whatever the shop: the count is part of every shader.
+// Canvas textures. Colour maps are sRGB, so a hex reads as that colour; tiling maps repeat, with
+// anisotropy so a floor stays sharp toward the back of the room. A texture drawn once is marked
+// shared, so a shop switch never disposes it; the sign, awning, hours card and floor change per shop.
+function canvasTexture(w, h, draw, tile){
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  draw(cv.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO;
+  if (tile) t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+const shared = t => { t.userData.shared = true; return t; };
+let seed = 7;
+const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;   // the same grain on every visit
+const R = (a, b) => a + rnd() * (b - a);
+const pick = a => a[Math.floor(rnd() * a.length)];
+function speckle(x, w, h, n, size, colours, alpha){   // faint dots: plaster, concrete, the grain between streaks
+  for (let i = 0; i < n; i++){
+    x.globalAlpha = R(alpha * 0.4, alpha); x.fillStyle = pick(colours);
+    const s = R(size * 0.4, size); x.fillRect(rnd() * w, rnd() * h, s, s);
+  }
+  x.globalAlpha = 1;
+}
+const shade = (hex, k) => '#' + _c.set(hex).multiplyScalar(k).getHexString();   // lighter (k > 1) or darker
+function fit(x, text, maxW, size, weight, family){   // the largest size up to `size` that fits; sets x.font
+  do { x.font = weight + ' ' + size + 'px ' + family; size -= 2; } while (x.measureText(text).width > maxW && size > 10);
+  return size + 2;
+}
+const TEX = {};
+function brickTexture(tones, mortar){   // a metre square: four bricks across, thirteen courses, running bond
+  return shared(canvasTexture(512, 512, (x, w, h) => {
+    x.fillStyle = mortar; x.fillRect(0, 0, w, h);
+    const rows = 13, cols = 4, bh = h / rows, bw = w / cols;
+    for (let r = 0; r < rows; r++) for (let c = -1; c < cols; c++){
+      x.fillStyle = pick(tones); x.fillRect(c * bw + (r % 2 ? bw / 2 : 0) + 3, r * bh + 3, bw - 6, bh - 6);
+    }
+    speckle(x, w, h, 5000, 3, ['#000000', '#ffffff'], 0.12);
+  }, true));
+}
+(function makeTextures(){
+  // Wood, light and neutral, grain along u: the material's colour sets the species. woodUp has the
+  // grain along v, for posts and trunks.
+  TEX.wood = shared(canvasTexture(1024, 512, (x, w, h) => {
+    x.fillStyle = '#d9c3a3'; x.fillRect(0, 0, w, h);
+    for (let i = 0; i < 240; i++){
+      const y0 = rnd() * h, amp = R(2, 9), len = R(300, 1200), x0 = R(-300, w), dark = rnd() < 0.7;
+      x.strokeStyle = dark ? '#8a6238' : '#f1e3cb'; x.globalAlpha = R(0.08, dark ? 0.32 : 0.5); x.lineWidth = R(1, 4);
+      x.beginPath();
+      for (let s = 0; s <= 24; s++){ const px = x0 + len * s / 24, py = y0 + Math.sin(s * 0.7 + i) * amp; if (s) x.lineTo(px, py); else x.moveTo(px, py); }
+      x.stroke();
+    }
+    x.globalAlpha = 0.25; x.strokeStyle = '#7a5230'; x.lineWidth = 1.5;
+    for (let k = 0; k < 5; k++){ const kx = rnd() * w, ky = rnd() * h; for (let r = 14; r > 2; r -= 3){ x.beginPath(); x.ellipse(kx, ky, r * 1.8, r, 0.2, 0, Math.PI * 2); x.stroke(); } }
+    x.globalAlpha = 1; speckle(x, w, h, 6000, 3, ['#8a6238', '#f3e6cf'], 0.12);
+  }, true));
+  TEX.woodUp = shared(TEX.wood.clone()); TEX.woodUp.center.set(0.5, 0.5); TEX.woodUp.rotation = Math.PI / 2;
+  // Plaster, near white with a soft grain: the shop's wall colour tints it.
+  TEX.plaster = shared(canvasTexture(512, 512, (x, w, h) => { x.fillStyle = '#f4f1ec'; x.fillRect(0, 0, w, h); speckle(x, w, h, 9000, 4, ['#d8d2c8', '#ffffff', '#cfc7bb'], 0.35); }, true));
+  TEX.brick = brickTexture(['#9b4a32', '#a8553a', '#8f4530', '#b06346', '#7f3c2a'], '#cfc6b8');
+  TEX.brickDark = brickTexture(['#6b3a2a', '#74412f', '#5f3324', '#7c4a36', '#55301f'], '#b9afa2');
+  // Pavement, a slab a metre square with its joint; asphalt.
+  TEX.pavement = shared(canvasTexture(512, 512, (x, w, h) => {
+    x.fillStyle = '#b9bcbf'; x.fillRect(0, 0, w, h); speckle(x, w, h, 7000, 4, ['#a3a7ab', '#d2d5d8', '#8e9397'], 0.4);
+    x.strokeStyle = '#7d8286'; x.lineWidth = 6; x.strokeRect(0, 0, w, h);
+  }, true));
+  TEX.asphalt = shared(canvasTexture(512, 512, (x, w, h) => { x.fillStyle = '#3f444c'; x.fillRect(0, 0, w, h); speckle(x, w, h, 9000, 4, ['#2f343b', '#575d66', '#464c55'], 0.5); }, true));
+  // Wicker, for baskets; the door mat's coir with its word.
+  TEX.wicker = shared(canvasTexture(256, 256, x => {
+    for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++){
+      x.fillStyle = (i + j) % 2 ? '#8a5a26' : '#c8924e'; x.fillRect(i * 16, j * 16, 16, 16);
+      x.fillStyle = (i + j) % 2 ? '#a06a30' : '#b8823e'; x.fillRect(i * 16 + 3, j * 16 + 3, 10, 10);
+    }
+  }, true));
+  TEX.mat = shared(canvasTexture(512, 256, (x, w, h) => {
+    x.fillStyle = '#6b4a2b'; x.fillRect(0, 0, w, h); x.globalAlpha = 0.5;
+    for (let i = 0; i < 3000; i++){ x.strokeStyle = pick(['#8a6238', '#4a2f17', '#a07a4a']); x.beginPath(); const px = rnd() * w, py = rnd() * h; x.moveTo(px, py); x.lineTo(px + R(-10, 10), py + R(-3, 3)); x.stroke(); }
+    x.globalAlpha = 1; x.fillStyle = '#1c1917'; x.textAlign = 'center'; x.textBaseline = 'middle'; fit(x, 'WELCOME', 400, 110, 'bold', FONT); x.fillText('WELCOME', 256, 128);
+  }));
+  // The stock room's door: painted steel with a push bar, a kick plate and a frosted window lit
+  // from behind (a second canvas is its glow, so only the window emits).
+  TEX.stockDoor = shared(canvasTexture(512, 1024, (x, w, h) => {
+    x.fillStyle = '#3f4b5a'; x.fillRect(0, 0, w, h);
+    x.strokeStyle = '#2b3542'; x.lineWidth = 8; x.strokeRect(40, 560, 432, 300);   // the lower panel
+    x.fillStyle = '#fde68a'; x.fillRect(96, 110, 320, 260);                        // the frosted window
+    x.strokeStyle = '#1f2937'; x.lineWidth = 14; x.strokeRect(96, 110, 320, 260);
+    x.fillStyle = '#9ca3af'; x.fillRect(60, 470, 392, 26);                         // push bar
+    x.fillStyle = '#6b7280'; x.fillRect(0, 900, w, 124);                           // kick plate
+    x.fillStyle = 'rgba(0,0,0,.45)'; x.font = 'bold 54px ' + FONT; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('STAFF ONLY', 256, 420);
+  }));
+  TEX.stockGlow = shared(canvasTexture(512, 1024, (x, w, h) => {
+    x.fillStyle = '#000000'; x.fillRect(0, 0, w, h);
+    const g = x.createRadialGradient(256, 240, 20, 256, 240, 220); g.addColorStop(0, '#fff7cc'); g.addColorStop(1, '#8a6a10');
+    x.fillStyle = g; x.fillRect(104, 118, 304, 244);
+  }));
+  // The bakery's: a flour sack's burlap with its stamp (centred on u 0.5, so a sack turned by
+  // half a turn shows it), the oven's arched mouth with its fire, and a dusting of flour.
+  TEX.sack = shared(canvasTexture(256, 256, (x, w, h) => {
+    x.fillStyle = '#efe4cf'; x.fillRect(0, 0, w, h); speckle(x, w, h, 4000, 3, ['#d8c8a8', '#fff8ea', '#c9b48e'], 0.5);
+    x.fillStyle = '#b91c1c'; x.beginPath(); x.ellipse(128, 128, 62, 40, 0, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#fff7ed'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = 'bold 30px ' + FONT; x.fillText('FLOUR', 128, 122); x.font = '600 13px ' + FONT; x.fillText('STONE GROUND', 128, 148);
+  }));
+  TEX.fire = shared(canvasTexture(256, 192, (x, w, h) => {
+    x.fillStyle = '#1a0d08'; x.fillRect(0, 0, w, h);
+    const g = x.createRadialGradient(128, 150, 10, 128, 150, 130);
+    g.addColorStop(0, '#fff3b0'); g.addColorStop(0.3, '#fb923c'); g.addColorStop(0.7, '#7c2d12'); g.addColorStop(1, '#1a0d08');
+    x.fillStyle = g; x.beginPath(); x.moveTo(30, 192); x.lineTo(30, 90); x.arc(128, 90, 98, Math.PI, 0); x.lineTo(226, 192); x.closePath(); x.fill();
+    x.fillStyle = '#3b1a0a'; for (const [lx, ly] of [[70, 160], [120, 170], [165, 158]]) x.fillRect(lx, ly, 50, 14);
+  }));
+  TEX.flour = shared(canvasTexture(256, 256, (x, w, h) => {
+    x.clearRect(0, 0, w, h);
+    const g = x.createRadialGradient(128, 128, 10, 128, 128, 120); g.addColorStop(0, 'rgba(255,255,255,.8)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.fillRect(0, 0, w, h); speckle(x, w, h, 2500, 5, ['#ffffff', '#fdf6e3'], 0.9);
+  }));
+  // The paint store's: pegboard, a can's printed label (the colour band above it is the can's own
+  // colour), a hazard stripe, and a drop cloth with its splatters.
+  TEX.pegboard = shared(canvasTexture(128, 128, (x, w, h) => {
+    x.fillStyle = '#e2e8f0'; x.fillRect(0, 0, w, h); x.fillStyle = '#94a3b8';
+    for (let i = 16; i < w; i += 32) for (let j = 16; j < h; j += 32){ x.beginPath(); x.arc(i, j, 4, 0, Math.PI * 2); x.fill(); }
+  }, true));
+  TEX.canLabel = shared(canvasTexture(512, 160, (x, w, h) => {
+    x.fillStyle = '#f8fafc'; x.fillRect(0, 0, w, h);
+    x.fillStyle = '#0f172a'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = '900 46px ' + FONT; x.fillText('SOUTHSIDE', 256, 48);
+    x.font = '600 26px ' + FONT; x.fillText('INTERIOR  ·  LOW SHEEN', 256, 96);
+    x.fillStyle = '#2563eb'; x.fillRect(176, 120, 160, 6);
+    x.fillStyle = '#334155'; x.font = '600 20px ' + FONT; x.fillText('1 GAL', 256, 142);
+  }));
+  TEX.hazard = shared(canvasTexture(128, 64, (x, w, h) => {
+    x.fillStyle = '#facc15'; x.fillRect(0, 0, w, h); x.fillStyle = '#111827';
+    for (let i = -64; i < w; i += 64){ x.beginPath(); x.moveTo(i, h); x.lineTo(i + 32, h); x.lineTo(i + 96, 0); x.lineTo(i + 64, 0); x.closePath(); x.fill(); }
+  }, true));
+  TEX.dropcloth = shared(canvasTexture(512, 512, (x, w, h) => {
+    x.fillStyle = '#e7dcc6'; x.fillRect(0, 0, w, h); speckle(x, w, h, 6000, 4, ['#d6c9b0', '#f3ecdc'], 0.5);
+    for (let i = 0; i < 40; i++){ x.fillStyle = pick(PAINT); x.globalAlpha = R(0.5, 0.9); x.beginPath(); x.ellipse(rnd() * w, rnd() * h, R(6, 40), R(5, 28), rnd() * 3, 0, Math.PI * 2); x.fill(); }
+    x.globalAlpha = 1;
+  }));
+  // The plant shop's: four leaves on one atlas, drawn as cut-outs: a heart (pothos, its stem end at
+  // the bottom), a split monstera leaf, a snake plant's blade and a fern frond.
+  TEX.leaves = shared(canvasTexture(512, 512, (x, w, h) => {
+    x.clearRect(0, 0, w, h);
+    const tile = (ox, oy, draw) => { x.save(); x.translate(ox, oy); draw(); x.restore(); };
+    tile(0, 0, () => {
+      x.fillStyle = '#2f9e44'; x.beginPath(); x.moveTo(128, 14); x.bezierCurveTo(10, 120, 30, 236, 128, 196); x.bezierCurveTo(226, 236, 246, 120, 128, 14); x.fill();
+      x.strokeStyle = '#a7f3d0'; x.lineWidth = 4; x.beginPath(); x.moveTo(128, 196); x.lineTo(128, 30); x.stroke();
+      x.fillStyle = '#fde68a'; x.globalAlpha = 0.5;
+      for (const [px, py, r] of [[90, 120, 12], [160, 160, 9], [110, 80, 7]]){ x.beginPath(); x.arc(px, py, r, 0, Math.PI * 2); x.fill(); }
+      x.globalAlpha = 1;
+    });
+    tile(256, 0, () => {
+      x.fillStyle = '#1f7a3a'; x.beginPath(); x.ellipse(128, 130, 110, 120, 0, 0, Math.PI * 2); x.fill();
+      x.globalCompositeOperation = 'destination-out'; x.lineWidth = 16; x.lineCap = 'round'; x.strokeStyle = '#000';
+      for (const [py, len] of [[60, 70], [100, 90], [140, 95], [180, 80]]) for (const s of [-1, 1]){ x.beginPath(); x.moveTo(128 + s * 112, py); x.lineTo(128 + s * (112 - len), py + 18); x.stroke(); }
+      for (const [px, py] of [[80, 120], [176, 150], [100, 170]]){ x.beginPath(); x.ellipse(px, py, 14, 8, 0, 0, Math.PI * 2); x.fill(); }
+      x.globalCompositeOperation = 'source-over'; x.strokeStyle = '#86efac'; x.lineWidth = 3; x.beginPath(); x.moveTo(128, 250); x.lineTo(128, 16); x.stroke();
+    });
+    tile(0, 256, () => {
+      x.fillStyle = '#facc15'; x.beginPath(); x.moveTo(40, 256); x.lineTo(128, 6); x.lineTo(216, 256); x.closePath(); x.fill();
+      x.fillStyle = '#15803d'; x.beginPath(); x.moveTo(62, 256); x.lineTo(128, 34); x.lineTo(194, 256); x.closePath(); x.fill();
+      x.fillStyle = '#166534'; x.globalAlpha = 0.6; for (let py = 70; py < 256; py += 36) x.fillRect(70, py, 116, 12); x.globalAlpha = 1;
+    });
+    tile(256, 256, () => {
+      x.strokeStyle = '#3f6212'; x.lineWidth = 5; x.beginPath(); x.moveTo(128, 250); x.lineTo(128, 10); x.stroke();
+      x.fillStyle = '#4ade80';
+      for (let i = 0; i < 14; i++){ const py = 240 - i * 16, len = 76 - i * 4.6; for (const s of [-1, 1]){ x.beginPath(); x.ellipse(128 + s * len / 2, py, len / 2, 7, 0, 0, Math.PI * 2); x.fill(); } }
+    });
+  }));
+})();
+// Each shop's floor, drawn on its first visit from the shop's floor colour: tile, concrete or quarry.
+const floorTex = {};
+function floorTexture(shop){
+  const L = shop.look || SHOPS[0].look, kind = decorOf(shop).floor;
+  return floorTex[shop.id] ||= shared(canvasTexture(1024, 1024, (x, w, h) => {
+    if (kind === 'concrete'){           // sealed concrete: saw-cut joints a metre apart, hairline cracks
+      x.fillStyle = shade(L.floor, 1.9); x.fillRect(0, 0, w, h);
+      speckle(x, w, h, 14000, 5, ['#64748b', '#cbd5e1', '#94a3b8'], 0.35);
+      x.strokeStyle = 'rgba(30,41,59,.45)'; x.lineWidth = 5; x.strokeRect(0, 0, w, h);
+      x.lineWidth = 1.5; x.strokeStyle = 'rgba(30,41,59,.3)';
+      for (let k = 0; k < 4; k++){ x.beginPath(); let px = rnd() * w, py = rnd() * h; x.moveTo(px, py); for (let s = 0; s < 8; s++){ px += R(-60, 60); py += R(-60, 60); x.lineTo(px, py); } x.stroke(); }
+    } else if (kind === 'quarry'){      // quarry tile, three to a metre, dark grout
+      x.fillStyle = '#4a3a2e'; x.fillRect(0, 0, w, h);
+      const n = 3, s = w / n;
+      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++){ x.fillStyle = shade(L.floor, R(1.5, 1.9)); x.fillRect(i * s + 5, j * s + 5, s - 10, s - 10); }
+      speckle(x, w, h, 8000, 4, ['#000000', '#ffffff'], 0.12);
+    } else {                            // tile: cream and the shop's floor colour, four to a metre
+      x.fillStyle = '#9c8f7c'; x.fillRect(0, 0, w, h);
+      const n = 4, s = w / n;
+      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++){ x.fillStyle = (i + j) % 2 ? '#efe3cf' : shade(L.floor, 1.15); x.fillRect(i * s + 3, j * s + 3, s - 6, s - 6); }
+      speckle(x, w, h, 6000, 4, ['#ffffff', '#6b4a2a'], 0.1);
+    }
+  }, true));
+}
+
+// Lights. Four point lights always, whatever the shop: the count is part of every shader. The
+// sun, the soft light and the room light take each shop's strength and colour (DECOR).
 const sun = new THREE.DirectionalLight('#fff7ed', 1.85);
 sun.position.set(7, 13, 11); sun.castShadow = true;
-sun.shadow.mapSize.set(1024, 1024); sun.shadow.bias = -0.0005;
+sun.shadow.mapSize.set(1024, 1024); sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.02;
 Object.assign(sun.shadow.camera, { near:0.5, far:40, left:-8, right:8, top:9, bottom:-4 });
 sun.shadow.camera.updateProjectionMatrix();
+const hemi = new THREE.HemisphereLight('#fef3c7', '#94a3b8', 0.85);
 const roomLight = new THREE.PointLight('#ffffff', 2.5, 9, 1.2); roomLight.position.set(0, 2.5, 0.5);
 const lampLight = new THREE.PointLight('#fef08a', 1.3, 8); lampLight.position.set(-3.2, 3.2, 6.2);
 const stockLight = new THREE.PointLight('#fde047', 0.8, 4); stockLight.position.set(1.9, 2.0, -4.3);
 const ovenLight = new THREE.PointLight('#ea580c', 0, 3.5); ovenLight.position.set(-1.7, 1.0, -2.8);
-scene.add(sun, new THREE.HemisphereLight('#fef3c7', '#94a3b8', 0.85), roomLight, lampLight, stockLight, ovenLight);
+scene.add(sun, hemi, roomLight, lampLight, stockLight, ovenLight);
 
-// Skyline: Bank of America Plaza, the Westin, four towers and the tree line.
+// Skyline: Bank of America Plaza, the Westin, four towers and the tree line, a few meshes each.
 const boa = group(scene, 5.2, 0, -7.5), granite = std('#78350f', { roughness:0.55, metalness:0.25 });
-put(boa, Box(3.6, 20, 3.6), granite, 0, 10, 0);
+solid(boa, granite, [[Box(3.6, 20, 3.6), 0, 10, 0], [Box(3.1, 1.0, 3.1), 0, 20.6, 0], [Box(2.5, 0.9, 2.5), 0, 21.6, 0], [Box(1.9, 0.8, 1.9), 0, 22.5, 0]]);
 put(boa, Box(3.4, 18, 3.65), std('#0f172a', { roughness:0.2, metalness:0.8 }), 0, 9.8, 0);
-for (const [y, w, h] of [[20.6, 3.1, 1.0], [21.6, 2.5, 0.9], [22.5, 1.9, 0.8]]) put(boa, Box(w, h, w), granite, 0, y, 0);
 const gold = std('#f59e0b', { metalness:0.95, roughness:0.15, emissive:'#78350f', emissiveIntensity:0.2 });
-put(boa, new THREE.ConeGeometry(1.4, 2.6, 4), gold, 0, 24.2, 0, { ry:Math.PI / 4 });
-put(boa, Cyl(0.06, 0.12, 3.8, 8), gold, 0, 26.8, 0);
+solid(boa, gold, [[new THREE.ConeGeometry(1.4, 2.6, 4), 0, 24.2, 0, { ry:Math.PI / 4 }], [Cyl(0.06, 0.12, 3.8, 8), 0, 26.8, 0]]);
 put(boa, Sph(0.18, 8, 8), basic('#fef08a'), 0, 28.8, 0);
 const westin = group(scene, -5.4, 0, -8);
 put(westin, Cyl(1.8, 1.8, 17.5, 20), std('#1e3a8a', { metalness:0.85, roughness:0.18 }), 0, 8.75, 0);
 put(westin, Cyl(2.1, 2.1, 1.0, 20), std('#38bdf8', { metalness:0.95, roughness:0.1, emissive:'#0284c7', emissiveIntensity:0.25 }), 0, 17, 0);
 put(westin, Cyl(0.04, 0.08, 2.8, 8), std('#94a3b8', { metalness:0.9 }), 0, 19, 0);
-const crown = basic('#fef08a'), spire = std('#cbd5e1', { metalness:0.8 });
-for (const [x, z, h, w, c, top] of [[-1.6, -11, 16.5, 2.8, '#334155', 1], [1.8, -12, 15, 2.6, '#475569', 0],
-                                     [-9.5, -9.5, 14, 3.2, '#1e293b', 0], [9.6, -9, 15.5, 3.0, '#475569', 1]]){
-  put(scene, Box(w, h, w), std(c, { roughness:0.45, metalness:0.4 }), x, h / 2, z);
-  put(scene, Box(w * 0.92, 0.4, w * 0.92), crown, x, h + 0.2, z);
-  if (top) put(scene, new THREE.ConeGeometry(0.4, 2.5, 4), spire, x, h + 1.5, z);
-}
-const canopy = std('#15803d', { roughness:0.9, flatShading:true });   // 0.5 m further back than AI Studio,
-for (let t = -18; t <= 18; t += 3)                                    // whose canopies grew through the shop's back wall
-  put(scene, new THREE.DodecahedronGeometry(2 + Math.sin(t) * 0.5, 1), canopy, t, 3.2 + Math.cos(t) * 0.4, -7.0);
+const towers = [[-1.6, -11, 16.5, 2.8, '#334155', 1], [1.8, -12, 15, 2.6, '#475569', 0], [-9.5, -9.5, 14, 3.2, '#1e293b', 0], [9.6, -9, 15.5, 3.0, '#475569', 1]];
+solid(scene, vmat('stone', { roughness:0.45, metalness:0.4 }), towers.map(([x, z, h, w, c]) => [Box(w, h, w), x, h / 2, z, { color:c }]));
+solid(scene, basic('#fef08a'), towers.map(([x, z, h, w]) => [Box(w * 0.92, 0.4, w * 0.92), x, h + 0.2, z]));
+solid(scene, std('#cbd5e1', { metalness:0.8 }), towers.filter(t => t[5]).map(([x, z, h]) => [new THREE.ConeGeometry(0.4, 2.5, 4), x, h + 1.5, z]));
+const canopies = [];   // 0.5 m further back than AI Studio, whose canopies grew through the shop's back wall
+for (let t = -18; t <= 18; t += 3) canopies.push([new THREE.DodecahedronGeometry(2 + Math.sin(t) * 0.5, 1), t, 3.2 + Math.cos(t) * 0.4, -7.0, { color:pick(['#15803d', '#166534', '#1d8a3e']) }]);
+solid(scene, vmat('leaf', { roughness:0.9, flatShading:true }), canopies);
 
-// Street: road, centre line, sidewalk, curb, and ground past them (AI Studio had sky there).
-put(scene, new THREE.PlaneGeometry(120, 120), std('#4b5563'), 0, -0.07, 0, { rx:-Math.PI / 2 });
-put(scene, new THREE.PlaneGeometry(32, 12), std('#334155', { roughness:0.9 }), 0, -0.05, 10.5, { rx:-Math.PI / 2, receive:true });
+// Street: the road with its centre line, the kerb with its painted line, the pavement's slabs,
+// and the ground past them (AI Studio had sky there).
+put(scene, new THREE.PlaneGeometry(120, 120), mat('stone', '#4b5563'), 0, -0.07, 0, { rx:-Math.PI / 2 });
+put(scene, TexPlane(32, 12), mat('stone', '#ffffff', { map:TEX.asphalt }), 0, -0.05, 10.5, { rx:-Math.PI / 2, receive:true });
 put(scene, new THREE.PlaneGeometry(30, 0.15), basic('#fef08a'), 0, -0.04, 11, { rx:-Math.PI / 2 });
-put(scene, Box(26, 0.2, 5.5), std('#cbd5e1', { roughness:0.85 }), 0, 0.1, 5.25, { receive:true });
-put(scene, Box(26, 0.25, 0.3), std('#94a3b8', { roughness:0.8 }), 0, 0.125, 8.0);
+put(scene, TexBox(26, 0.2, 5.5), mat('stone', '#ffffff', { map:TEX.pavement }), 0, 0.1, 5.25, { receive:true });
+put(scene, Box(26, 0.25, 0.3), mat('stone', '#9ca3af', { roughness:0.8 }), 0, 0.125, 8.0);
+put(scene, new THREE.PlaneGeometry(26, 0.1), mat('paint', '#e5e7eb', { roughness:0.7 }), 0, 0.251, 8.0, { rx:-Math.PI / 2 });
 
-// Street lamp with the Peachtree street sign.
-const lamp = group(scene, -3.2, 0.2, 6.2), iron = std('#1e293b', { roughness:0.4, metalness:0.8 });
-put(lamp, Cyl(0.2, 0.25, 0.4, 8), iron, 0, 0.2, 0);
-put(lamp, Cyl(0.08, 0.1, 3.2, 8), iron, 0, 1.8, 0);
-put(lamp, new THREE.TorusGeometry(0.3, 0.05, 6, 8, Math.PI / 2), iron, 0.15, 3.3, 0, { rz:Math.PI / 2 });
-put(lamp, new THREE.ConeGeometry(0.35, 0.3, 6), iron, 0.3, 3.3, 0);
-put(lamp, Sph(0.16, 8, 8), basic('#fef08a'), 0.3, 3.1, 0);
-put(lamp, Box(0.04, 0.04, 0.9), iron, 0, 2.5, 0);
+// Street furniture: the lamp with the Peachtree sign, a litter bin, a hydrant, a bike rack, the tree.
+const lamp = group(scene, -3.2, 0.2, 6.2), iron = mat('steel', '#1e293b', { roughness:0.45 });
+solid(lamp, iron, [[Cyl(0.2, 0.25, 0.4, 10), 0, 0.2, 0], [Cyl(0.08, 0.1, 3.2, 10), 0, 1.8, 0],
+  [new THREE.TorusGeometry(0.3, 0.05, 6, 10, Math.PI / 2), 0.15, 3.3, 0, { rz:Math.PI / 2 }],
+  [new THREE.ConeGeometry(0.35, 0.3, 8), 0.3, 3.3, 0], [Box(0.04, 0.04, 0.9), 0, 2.5, 0]], 0, 0, 0, { cast:true });
+put(lamp, Sph(0.16, 10, 10), basic('#fef08a'), 0.3, 3.1, 0);
 const streetSign = canvasTexture(512, 128, x => {
   x.fillStyle = '#065f46'; x.fillRect(0, 0, 512, 128);
   x.strokeStyle = '#ffffff'; x.lineWidth = 8; x.strokeRect(8, 8, 496, 112);
   x.fillStyle = '#ffffff'; x.font = 'bold 44px ' + FONT; x.textAlign = 'center'; x.textBaseline = 'middle';
   x.fillText('PEACHTREE ST NE', 256, 64);
 });
-put(lamp, Box(0.9, 0.22, 0.04), std('#ffffff', { map:streetSign, roughness:0.5 }), 0, 2.5, 0.45);
-
-// Street tree and the two neighbouring buildings.
+put(lamp, Box(0.9, 0.22, 0.04), mat('paint', '#ffffff', { map:streetSign }), 0, 2.5, 0.45);
+solid(scene, mat('paint', '#14532d'), [[Cyl(0.26, 0.24, 0.8, 12), 0, 0.4, 0], [Cyl(0.28, 0.28, 0.06, 12), 0, 0.83, 0], [Cyl(0.1, 0.1, 0.08, 10), 0, 0.9, 0]], -4.1, 0.2, 7.0);
+solid(scene, mat('paint', '#dc2626', { roughness:0.4 }), [[Cyl(0.1, 0.12, 0.7, 10), 0, 0.35, 0], [Sph(0.11, 10, 8), 0, 0.72, 0],
+  [Cyl(0.05, 0.05, 0.34, 8), 0, 0.5, 0, { rz:Math.PI / 2 }], [Cyl(0.14, 0.14, 0.06, 10), 0, 0.03, 0]], 4.6, 0.2, 7.4);
+solid(scene, mat('steel', '#64748b'), [1.5, 2.3].flatMap(x => [[new THREE.TorusGeometry(0.3, 0.025, 8, 16, Math.PI), x, 0.45, 0],
+  [Cyl(0.025, 0.025, 0.45, 8), x - 0.3, 0.225, 0], [Cyl(0.025, 0.025, 0.45, 8), x + 0.3, 0.225, 0]]), 0, 0.2, 7.3);
 const tree = group(scene, 3.5, 0.2, 6.0);
-put(tree, Cyl(0.18, 0.26, 2.2, 7), std('#573312', { roughness:0.9 }), 0, 1.1, 0, { cast:true });
-for (const [y, r, c] of [[2.6, 1.1, '#22c55e'], [3.4, 0.9, '#16a34a'], [4.1, 0.65, '#15803d']])
-  put(tree, new THREE.DodecahedronGeometry(r, 1), std(c, { roughness:0.8, flatShading:true }), 0, y, 0, { cast:true });
-put(tree, Box(1.2, 0.15, 1.2), std('#64748b'), 0, 0.08, 0);
-for (const [x, c, rough, glass] of [[-5.8, '#9a3412', 0.85, '#bae6fd'], [5.8, '#475569', 0.9, '#fed7aa']]){
-  put(scene, Box(4.8, 3.8, 6.0), std(c, { roughness:rough }), x, 1.9, 0.5, { cast:true, receive:true });
-  const pane = std(glass, { roughness:0.2, metalness:0.8 });
-  for (const wx of [Math.sign(x) * 4.5, x]) put(scene, Box(0.8, 1.2, 0.1), pane, wx, 1.8, 3.52);
+put(tree, Cyl(0.18, 0.26, 2.2, 7), mat('wood', '#573312', { map:TEX.woodUp, roughness:0.9 }), 0, 1.1, 0, { cast:true });
+solid(tree, vmat('leaf', { roughness:0.8, flatShading:true }), [[2.6, 1.1, '#22c55e'], [3.4, 0.9, '#16a34a'], [4.1, 0.65, '#15803d']]
+  .map(([y, r, c]) => [new THREE.DodecahedronGeometry(r, 1), 0, y, 0, { color:c }]), 0, 0, 0, { cast:true });
+put(tree, Box(1.2, 0.15, 1.2), mat('stone', '#64748b'), 0, 0.08, 0);
+
+// The two neighbours, two storeys each with a cornice, sills and framed windows: brick on the
+// left, painted render on the right.
+const stoneTrim = mat('stone', '#d6d3d1', { roughness:0.8 }), sash = mat('paint', '#f5f5f4'), pane = std('#1e3a5f', { roughness:0.15, metalness:0.85 });
+for (const [x, tex, tint, h2] of [[-5.8, TEX.brickDark, '#ffffff', 3.4], [5.8, TEX.plaster, '#64748b', 4.2]]){
+  solid(scene, mat('stone', tint, { map:tex }), [[TexBox(4.8, 3.8, 6.0), 0, 1.9, 0], [TexBox(4.8, h2, 6.0), 0, 3.8 + h2 / 2, 0]], x, 0, 0.5, { cast:true, receive:true });
+  const frames = [], panes = [], stone = [[Box(5.2, 0.3, 6.4), 0, 3.8 + h2 + 0.15, 0]];
+  for (const y of [1.8, 5.3]) for (const dx of [-1.3, 1.3]){
+    frames.push([Box(0.95, 0.07, 0.1), dx, y + 0.64, 3.03], [Box(0.95, 0.07, 0.1), dx, y - 0.64, 3.03], [Box(0.07, 1.35, 0.1), dx - 0.44, y, 3.03],
+                [Box(0.07, 1.35, 0.1), dx + 0.44, y, 3.03], [Box(0.05, 1.2, 0.09), dx, y, 3.03], [Box(0.8, 0.05, 0.09), dx, y + 0.15, 3.03]);
+    panes.push([Box(0.8, 1.2, 0.06), dx, y, 2.99]); stone.push([Box(1.05, 0.08, 0.25), dx, y - 0.72, 3.05]);
+  }
+  solid(scene, sash, frames, x, 0, 0.5); solid(scene, pane, panes, x, 0, 0.5); solid(scene, stoneTrim, stone, x, 0, 0.5);
 }
 
-// Storefront: the walls leave open bays beside the doors, which show the shop inside.
-const facade = std('#e2e8f0', { roughness:0.8 });
-put(scene, Box(1.6, 4, 0.4), facade, -2.2, 2.0, 3.8, { cast:true, receive:true });
-put(scene, Box(1.6, 4, 0.4), facade, 2.2, 2.0, 3.8, { cast:true, receive:true });
-put(scene, Box(2.8, 1.3, 0.4), facade, 0, 3.35, 3.8, { cast:true });
-const doorGeo = Box(0.7, 2.5, 0.08), doorMat = std('#334155', { roughness:0.5 });
-const handleGeo = Cyl(0.02, 0.02, 0.5, 8), brass = std('#f59e0b', { metalness:0.9, roughness:0.2 });
-doorL = put(scene, doorGeo, doorMat, -0.36, 1.35, 3.75, { cast:true });
-doorR = put(scene, doorGeo, doorMat, 0.36, 1.35, 3.75, { cast:true });
-put(doorL, handleGeo, brass, 0.28, 0, 0.06);
-put(doorR, handleGeo, brass, -0.28, 0, 0.06);
-put(scene, Box(1.4, 0.02, 0.8), std('#78350f', { roughness:0.9 }), 0, 0.21, 3.3);
+// Storefront: brick piers, a brick band for the sign and a low parapet with a stone coping (a
+// taller building would hide the skyline from the street); between the piers a painted wooden
+// shop front in the shop's colour, with bulkheads under two open window bays (no glass: the
+// street looks in), a door frame and a header. The bays beside the doors show the shop inside.
+solid(scene, mat('stone', '#ffffff', { map:TEX.brick }), [[TexBox(1.0, 2.8, 0.4), -2.9, 1.6, 0], [TexBox(1.0, 2.8, 0.4), 2.9, 1.6, 0],
+  [TexBox(6.8, 1.6, 0.4), 0, 3.8, 0]], 0, 0, 3.8, { cast:true, receive:true });
+solid(scene, stoneTrim, [[Box(7.0, 0.14, 0.5), 0, 4.67, 0], [Box(7.0, 0.1, 0.46), 0, 3.05, 0]], 0, 0, 3.8, { cast:true });
+const frameMat = mat('paint', '#5b3a1e');
+solid(scene, frameMat, [
+  [Box(1.6, 0.65, 0.3), -1.6, 0.525, 0], [Box(1.6, 0.65, 0.3), 1.6, 0.525, 0],         // bulkheads under the windows
+  [Box(1.3, 0.4, 0.04), -1.6, 0.52, 0.17], [Box(1.3, 0.4, 0.04), 1.6, 0.52, 0.17],     // their raised panels
+  [Box(1.7, 0.06, 0.46), -1.6, 0.88, 0], [Box(1.7, 0.06, 0.46), 1.6, 0.88, 0],         // sills
+  [Box(0.1, 2.5, 0.42), -0.75, 1.45, 0], [Box(0.1, 2.5, 0.42), 0.75, 1.45, 0],         // the door's jambs
+  [Box(0.1, 2.5, 0.42), -2.35, 1.45, 0], [Box(0.1, 2.5, 0.42), 2.35, 1.45, 0],         // posts by the piers
+  [Box(0.06, 1.75, 0.3), -1.6, 1.775, 0], [Box(0.06, 1.75, 0.3), 1.6, 1.775, 0],       // mullions
+  [Box(4.8, 0.4, 0.42), 0, 2.8, 0]], 0, 0, 3.8, { cast:true, receive:true });        // header over doors and windows
+// Doors: a painted frame with a glass panel, a brass handle and (on the right) the hours card.
+// They slide apart (section 4 moves doorL and doorR in x).
+const doorMat = mat('paint', '#5b3a1e'), doorGlass = glass({ opacity:0.3 }), brass = mat('brass', '#f59e0b');
+const hoursTex = canvasTexture(256, 352, () => {});
+function makeDoor(side){
+  const d = group(scene, side * 0.36, 1.35, 3.75);
+  solid(d, doorMat, [[Box(0.08, 2.5, 0.08), -0.31, 0, 0], [Box(0.08, 2.5, 0.08), 0.31, 0, 0], [Box(0.7, 0.55, 0.08), 0, -0.975, 0],
+    [Box(0.7, 0.12, 0.08), 0, 1.19, 0], [Box(0.7, 0.08, 0.08), 0, -0.25, 0]], 0, 0, 0, { cast:true });
+  put(d, Box(0.56, 2.0, 0.02), doorGlass, 0, 0.3, 0);
+  put(d, Cyl(0.02, 0.02, 0.5, 8), brass, -side * 0.28, 0, 0.06);
+  return d;
+}
+doorL = makeDoor(-1); doorR = makeDoor(1);
+put(doorR, new THREE.PlaneGeometry(0.2, 0.275), mat('paint', '#ffffff', { map:hoursTex }), -0.1, 0.45, 0.012);
+function drawHours(shop){
+  const x = hoursTex.image.getContext('2d'), D = decorOf(shop), L = shop.look || SHOPS[0].look;
+  x.fillStyle = '#fffbeb'; x.fillRect(0, 0, 256, 352);
+  x.strokeStyle = L.signBg; x.lineWidth = 10; x.strokeRect(10, 10, 236, 332);
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillStyle = '#15803d'; x.font = 'bold 84px ' + FONT; x.fillText('OPEN', 128, 92);
+  x.fillStyle = '#1c1917';
+  D.hours.forEach((line, i) => { fit(x, line, 210, 30, '600', FONT); x.fillText(line, 128, 182 + i * 46); });
+  x.fillStyle = '#78716c'; x.font = '24px ' + FONT; x.fillText('walk right in', 128, 300);
+  hoursTex.needsUpdate = true;
+}
+put(scene, Box(1.4, 0.02, 0.8), mat('cloth', '#ffffff', { map:TEX.mat }), 0, 0.21, 3.3);
 
-// Shop sign: one canvas, redrawn for each shop; the name shrinks to fit inside the border.
-const signCanvas = document.createElement('canvas'); signCanvas.width = 1024; signCanvas.height = 256;
-const signTex = new THREE.CanvasTexture(signCanvas);
-put(scene, Box(3.6, 0.7, 0.15), std('#ffffff', { map:signTex, roughness:0.4 }), 0, 3.5, 4.05, { cast:true });
+// Shop sign: one canvas, redrawn for each shop in its typeface; the name shrinks to fit the border.
+const signTex = canvasTexture(1024, 256, () => {}), signCanvas = signTex.image;
+put(scene, Box(3.6, 0.7, 0.15), mat('paint', '#ffffff', { map:signTex, roughness:0.4 }), 0, 3.5, 4.05, { cast:true });
 function drawSign(shop){
   const x = signCanvas.getContext('2d'), L = shop.look || SHOPS[0].look, title = shop.name.toUpperCase();
   x.fillStyle = L.signBg; x.fillRect(0, 0, 1024, 256);
   x.lineWidth = 14; x.strokeStyle = L.signText; x.strokeRect(16, 16, 992, 224);
+  x.lineWidth = 3; x.globalAlpha = 0.5; x.strokeRect(36, 36, 952, 184); x.globalAlpha = 1;
   x.fillStyle = L.signText; x.textAlign = 'center'; x.textBaseline = 'middle';
-  let size = 66;
-  do { size -= 2; x.font = 'bold ' + size + 'px ' + FONT; } while (x.measureText(title).width > 920 && size > 24);
-  x.fillText(title, 512, 105);
-  x.globalAlpha = 0.85; x.font = '600 28px ' + FONT; x.fillText((shop.area || '').toUpperCase(), 512, 175);
-  x.globalAlpha = 1;
-  signTex.needsUpdate = true;
+  fit(x, title, 880, 76, 'bold', decorOf(shop).font || FONT); x.fillText(title, 512, 108);
+  x.globalAlpha = 0.85; x.font = '600 28px ' + FONT; x.fillText((shop.area || '').toUpperCase(), 512, 180);
+  x.globalAlpha = 1; signTex.needsUpdate = true;
 }
 
-// Awning: 14 stripes in the shop's two colours, each with a short fringe.
-const awning = group(scene, 0, 2.9, 4.0), stripeW = 3.8 / 14;
-const stripeMats = [0, 1].map(() => std('#ffffff', { roughness:0.7, side:THREE.DoubleSide }));
-const stripeGeo = new THREE.PlaneGeometry(stripeW, 1.3), fringeGeo = new THREE.PlaneGeometry(stripeW, 0.22);
-for (let i = 0; i < 14; i++){
-  const x = -1.9 + stripeW * (i + 0.5);
-  put(awning, stripeGeo, stripeMats[i % 2], x, 0, 0.4875, { rx:-Math.PI / 3.8, cast:true });
-  put(awning, fringeGeo, stripeMats[i % 2], x, -0.5, 1.105);
+// Awning: 14 stripes in the shop's two colours drawn on one canvas, a scalloped fringe, and two
+// side panels; the whole thing is three meshes.
+const awningTex = canvasTexture(1024, 256, () => {}), fringeTex = canvasTexture(1024, 64, () => {});
+const awningMat = mat('cloth', '#ffffff', { map:awningTex, side:THREE.DoubleSide });
+const fringeMat = mat('cloth', '#ffffff', { map:fringeTex, transparent:true, alphaTest:0.5, side:THREE.DoubleSide });
+const awningSide = mat('cloth', '#b45309', { side:THREE.DoubleSide });
+const awning = group(scene, 0, 2.9, 4.0), SLOPE = Math.PI / 3.8;
+put(awning, new THREE.PlaneGeometry(3.8, 1.3), awningMat, 0, 0, 0.4875, { rx:-SLOPE, cast:true });
+put(awning, new THREE.PlaneGeometry(3.8, 0.22), fringeMat, 0, -0.5, 1.105);
+{
+  const yT = 0.65 * Math.cos(SLOPE), zT = 0.4875 - 0.65 * Math.sin(SLOPE), zB = 0.4875 + 0.65 * Math.sin(SLOPE), sides = new THREE.BufferGeometry();
+  const v = [];
+  for (const x of [-1.9, 1.9]) v.push(x, yT, zT, x, -yT, zB, x, -yT, zT);
+  sides.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+  sides.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(12).fill(0), 2));
+  sides.computeVertexNormals();
+  put(awning, sides, awningSide);
+}
+function drawAwning(L){
+  const x = awningTex.image.getContext('2d'), f = fringeTex.image.getContext('2d'), n = 14, sw = 1024 / n;
+  f.clearRect(0, 0, 1024, 64);
+  for (let i = 0; i < n; i++){
+    x.fillStyle = f.fillStyle = L.awning[i % 2];
+    x.fillRect(Math.floor(i * sw), 0, Math.ceil(sw) + 1, 256);
+    f.fillRect(Math.floor(i * sw), 0, Math.ceil(sw) + 1, 34);
+    f.beginPath(); f.arc(i * sw + sw / 2, 34, 28, 0, Math.PI); f.fill();
+  }
+  awningTex.needsUpdate = fringeTex.needsUpdate = true;
 }
 
-// Inside: floor, a room seen from within (BackSide, so the street can look in), beams, pendant.
-const floorMat = std('#ffffff', { roughness:0.6 }), wallMat = std('#ffffff', { roughness:0.9, side:THREE.BackSide });
-put(scene, new THREE.PlaneGeometry(6.5, 8.5), floorMat, 0, 0.21, -0.4, { rx:-Math.PI / 2, receive:true });
-put(scene, Box(6.5, 4.0, 8.5), wallMat, 0, 2.2, -0.4, { receive:true });
-const beamGeo = Box(6.4, 0.2, 0.25), beamMat = std('#451a03', { roughness:0.8 });
-for (const z of [-2, 0, 2]) put(scene, beamGeo, beamMat, 0, 4.1, z);
-const pendant = group(scene, 0, 3.2, 0.5);
-put(pendant, Cyl(0.01, 0.01, 0.9, 6), basic('#1c1917'), 0, 0.45, 0);
-put(pendant, new THREE.ConeGeometry(0.35, 0.25, 12, 1, true), std('#f59e0b', { metalness:0.8, roughness:0.2, side:THREE.DoubleSide }), 0, 0, 0, { rx:Math.PI });
-put(pendant, Sph(0.08, 8, 8), basic('#fef08a'), 0, -0.05, 0);
-
-// The stock-room doorway on the back wall, now labelled: the clerk's helper comes out of it.
-put(scene, Box(1.2, 2.4, 0.1), std('#1c1917', { roughness:0.9 }), 1.9, 1.4, -4.6);
-put(scene, Box(0.8, 0.2, 0.04), std('#78350f'), 1.9, 2.7, -4.58);
-const stockLabel = canvasTexture(256, 64, x => {
-  x.fillStyle = '#78350f'; x.fillRect(0, 0, 256, 64);
-  x.fillStyle = '#fef3c7'; x.font = 'bold 30px ' + FONT; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.fillText('STOCK ROOM', 128, 34);
+// Inside: a plastered room seen from within (BackSide, so the street can look in), a floor that
+// changes per shop, baseboards, beams, and the stock-room door on the back wall: painted steel
+// with a lit frosted window, framed, labelled: the clerk's helper comes out of it.
+const wallMat = mat('stone', '#ffffff', { map:TEX.plaster, side:THREE.BackSide, roughness:0.95 });
+const floorMat = mat('stone', '#ffffff', { roughness:0.55 });
+put(scene, TexPlane(6.5, 8.5), floorMat, 0, 0.21, -0.4, { rx:-Math.PI / 2, receive:true });
+put(scene, TexBox(6.5, 4.0, 8.5), wallMat, 0, 2.2, -0.4, { receive:true });
+const trimMat = mat('paint', '#3b2314');
+solid(scene, trimMat, [[Box(6.5, 0.12, 0.04), 0, 0.27, -4.63], [Box(0.04, 0.12, 8.5), -3.23, 0.27, -0.4], [Box(0.04, 0.12, 8.5), 3.23, 0.27, -0.4],
+  [Box(0.1, 2.5, 0.12), 1.25, 1.45, -4.58], [Box(0.1, 2.5, 0.12), 2.55, 1.45, -4.58], [Box(1.4, 0.22, 0.12), 1.9, 2.72, -4.58]]);
+solid(scene, mat('wood', '#3b2314', { map:TEX.wood }), [-2, 0, 2].map(z => [TexBox(6.4, 0.2, 0.25), 0, 4.1, z]));
+put(scene, Box(1.2, 2.4, 0.1), mat('paint', '#ffffff', { map:TEX.stockDoor, emissiveMap:TEX.stockGlow, emissive:'#fff1b8', emissiveIntensity:1.1, roughness:0.55 }), 1.9, 1.4, -4.6);
+const stockLabel = canvasTexture(512, 128, x => {
+  x.fillStyle = '#78350f'; x.fillRect(0, 0, 512, 128);
+  x.fillStyle = '#fef3c7'; x.font = 'bold 60px ' + FONT; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText('STOCK ROOM', 256, 66);
 });
-put(scene, new THREE.PlaneGeometry(0.76, 0.18), std('#ffffff', { map:stockLabel }), 1.9, 2.7, -4.555);
+put(scene, new THREE.PlaneGeometry(0.9, 0.2), mat('paint', '#ffffff', { map:stockLabel }), 1.9, 2.72, -4.515);
 
-// Counter with register, bell and ledger pad; its top is at y 1.225.
+// Counter: a panelled wooden body, a thicker varnished top (at y 1.225), and on it the brass
+// register at the left end and the bell at the right; each shop sets the woods and adds its own things.
+const counterMat = mat('wood', '#5a3a22', { map:TEX.wood }), topMat = mat('varnish', '#c9915a', { map:TEX.wood }), counterTrim = mat('paint', '#3b2314');
 const counter = group(scene, 0, 0.2, 0.2);
-put(counter, Box(3.2, 0.95, 0.85), std('#78350f', { roughness:0.7 }), 0, 0.475, 0, { cast:true, receive:true });
-put(counter, Box(3.4, 0.1, 1.0), std('#451a03', { roughness:0.4 }), 0, 0.975, 0, { cast:true, receive:true });
-const register = group(counter, -0.85, 1.025, 0), regBrass = std('#d97706', { metalness:0.75, roughness:0.3 });
+put(counter, TexBox(3.2, 0.95, 0.85, 0.5), counterMat, 0, 0.475, 0, { cast:true, receive:true });
+put(counter, TexBox(3.4, 0.1, 1.0, 0.5), topMat, 0, 0.975, 0, { cast:true, receive:true });
+solid(counter, counterTrim, [[Box(3.22, 0.1, 0.87), 0, 0.05, 0], [Box(3.0, 0.05, 0.03), 0, 0.3, 0.44], [Box(3.0, 0.05, 0.03), 0, 0.82, 0.44],
+  ...[-1.45, -0.5, 0.5, 1.45].map(x => [Box(0.05, 0.57, 0.03), x, 0.56, 0.44])]);
+const register = group(counter, -1.25, 1.025, 0), regBrass = mat('brass', '#d97706', { roughness:0.3 });
 put(register, Box(0.45, 0.25, 0.4), regBrass, 0, 0.125, 0, { cast:true });
 put(register, Box(0.35, 0.2, 0.3), regBrass, 0, 0.3, -0.04);
 put(register, Box(0.12, 0.1, 0.02), basic('#fef08a'), 0, 0.48, -0.04);
-put(counter, Sph(0.08, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), std('#f59e0b', { metalness:0.9, roughness:0.15 }), 0.65, 1.025, 0.15, { cast:true });
+put(counter, Sph(0.08, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat('brass', '#f59e0b', { roughness:0.15 }), 0.65, 1.025, 0.15, { cast:true });
 put(counter, Cyl(0.015, 0.015, 0.04, 8), regBrass, 0.65, 1.105, 0.15);
-put(counter, Box(0.28, 0.02, 0.38), std('#fef9c3', { roughness:0.8 }), 0.1, 1.035, 0.1, { ry:0.12 });
 
 // The clerk faces the street; no legs, the counter hides them.
 const clerk = group(scene, 0, 0.2, -0.6);
-const shirt = std('#ffffff', { roughness:0.7 }), skin = std('#fed7aa', { roughness:0.6 });
-const apronMat = std('#ffffff', { roughness:0.6 });
+const shirt = mat('cloth', '#ffffff', { roughness:0.8 }), skin = std('#fed7aa', { roughness:0.6 });
+const apronMat = mat('cloth', '#ffffff', { roughness:0.85 });
 put(clerk, Cyl(0.22, 0.24, 0.7, 10), shirt, 0, 1.0, 0, { cast:true });
 put(clerk, Cyl(0.23, 0.25, 0.62, 10, 1, false, 0, Math.PI * 1.5), apronMat, 0, 0.98, 0, { ry:-Math.PI * 0.75 });
 const head = group(clerk, 0, 1.4, 0);
@@ -874,153 +1204,452 @@ put(armR, armGeo, shirt, 0, -0.2, 0);
 put(armR, Sph(0.06, 8, 8), skin, 0, -0.42, 0);
 
 // The stock agent, by the stock-room door; shown only while the clerk checks with it.
-const stocker = group(scene, 2.4, 0.2, -4.2), agentShirt = std('#f8fafc', { roughness:0.8 });
-const vestMat = std('#ffffff', { roughness:0.7 });
+const stocker = group(scene, 2.4, 0.2, -4.2), agentShirt = mat('cloth', '#f8fafc', { roughness:0.8 });
+const vestMat = mat('cloth', '#ffffff', { roughness:0.7 });
 put(stocker, Cyl(0.2, 0.22, 0.65, 8), agentShirt, 0, 0.95, 0, { cast:true });
 put(stocker, Cyl(0.21, 0.23, 0.58, 8), vestMat, 0, 0.95, 0);
 put(stocker, Sph(0.17, 10, 10), skin, 0, 1.48, 0);
 put(stocker, Cyl(0.18, 0.18, 0.1, 10), std('#334155'), 0, 1.58, 0);
 const agentArm = group(stocker, -0.25, 1.2, 0);
 put(agentArm, Cyl(0.05, 0.05, 0.4, 8), agentShirt, 0, -0.18, 0);
-put(agentArm, Box(0.25, 0.35, 0.02), std('#78350f'), -0.05, -0.28, 0.15, { rx:-Math.PI / 4 });
+put(agentArm, Box(0.25, 0.35, 0.02), mat('wood', '#78350f'), -0.05, -0.28, 0.15, { rx:-Math.PI / 4 });
 put(agentArm, Box(0.21, 0.3, 0.01), std('#ffffff'), -0.05, -0.28, 0.165, { rx:-Math.PI / 4 });
 stocker.visible = false;
 
-// Each shop's own props: a shelf unit, a machine in the back-left corner, a board on the left
-// wall and something on the counter. Rebuilt on a shop switch; anims run every frame.
-const PAINT = ['#1d4ed8', '#059669', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#ea580c', '#65a30d'];
-const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-function board(g, shop, c, swatches){      // what the shop carries, from SHOPS: no stock, no names
-  const b = group(g, -3.2, 2.2, -0.6, Math.PI / 2);
-  put(b, Box(1.8, 1.2, 0.05), std(c.frame, { roughness:0.7 }));
-  const map = canvasTexture(512, 340, x => {
-    x.fillStyle = c.bg; x.fillRect(0, 0, 512, 340);
-    x.fillStyle = c.title; x.font = 'bold 28px ' + FONT; x.fillText('WHAT WE CARRY', 30, 52);
-    x.fillStyle = c.text; x.font = '26px ' + FONT;
-    shop.inventory.forEach((item, i) => x.fillText('•  ' + cap(item.name), 30, 110 + i * 46));
-    (swatches || []).forEach((col, i) => { x.fillStyle = col; x.fillRect(318 + (i % 4) * 44, 86 + Math.floor(i / 4) * 44, 32, 30); });
-    x.fillStyle = c.note; x.font = 'italic 18px ' + FONT; x.fillText('Ask the clerk what is in stock today', 30, 314);
-  });
-  put(b, new THREE.PlaneGeometry(1.7, 1.1), std('#ffffff', { map, roughness:c.rough ?? 1 }), 0, 0, 0.03);
-}
-
-function bakeryProps(g, shop, anims){
-  const shelf = group(g, -1.2, 0.2, -3.8), wood = std('#78350f', { roughness:0.8 });
-  for (const x of [-1.2, 1.2]) put(shelf, Box(0.08, 3.2, 0.5), wood, x, 1.6, 0);
-  const plank = Box(2.4, 0.06, 0.5);
-  for (const y of [0.7, 1.4, 2.1, 2.8]) put(shelf, plank, wood, 0, y, 0);
-  const sack = Cyl(0.24, 0.26, 0.55, 8), sackMat = std('#fef3c7', { roughness:0.95 });
-  for (const x of [-0.7, 0, 0.7]) put(shelf, sack, sackMat, x, 1.0, 0);
-  const basket = Cyl(0.24, 0.18, 0.14, 8), basketMat = std('#b45309', { roughness:0.9 });
-  const loaf = Sph(0.2, 10, 8), loafMat = std('#d97706', { roughness:0.85 });
-  for (const x of [-0.8, -0.2, 0.4, 0.9]){
-    put(shelf, basket, basketMat, x, 1.48, 0);
-    put(shelf, loaf, loafMat, x, 1.58, 0, { s:[1.1, 0.75, 0.9] });
+// Ceiling fixtures, one kind per shop: brass pendants on cords, fluorescent tubes on chains, or
+// a skylight with a soft shaft of light falling through it.
+function fixtures(g, kind){
+  if (kind === 'tubes'){
+    const zs = [-3.6, -1.4];
+    solid(g, mat('paint', '#e2e8f0'), zs.flatMap(z => [[Box(2.4, 0.08, 0.3), 0, 3.0, z], [Cyl(0.008, 0.008, 1.16, 4), -1.0, 3.62, z], [Cyl(0.008, 0.008, 1.16, 4), 1.0, 3.62, z]]));
+    solid(g, basic('#f8fafc'), zs.map(z => [Cyl(0.02, 0.02, 2.2, 8), 0, 2.95, z, { rz:Math.PI / 2 }]));
+  } else if (kind === 'skylight'){
+    const sx = -0.6, sz = -2.4;
+    solid(g, mat('paint', '#f8fafc'), [[Box(1.5, 0.06, 0.06), sx, 4.17, sz - 0.63], [Box(1.5, 0.06, 0.06), sx, 4.17, sz + 0.63],
+      [Box(0.06, 0.06, 1.3), sx - 0.72, 4.17, sz], [Box(0.06, 0.06, 1.3), sx + 0.72, 4.17, sz], [Box(0.04, 0.06, 1.3), sx, 4.17, sz]]);
+    put(g, new THREE.PlaneGeometry(1.44, 1.26), glass({ opacity:0.3, side:THREE.DoubleSide }), sx, 4.16, sz, { rx:Math.PI / 2 });
+    const shaft = Cyl(0.7, 1.05, 3.7, 4, 1, true).toNonIndexed().rotateY(Math.PI / 4), sp = shaft.attributes.position, col = new Float32Array(sp.count * 3);
+    for (let i = 0; i < sp.count; i++){ const k = Math.pow(Math.max(0, (sp.getY(i) + 1.85) / 3.7), 1.5); col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = k; }
+    shaft.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    put(g, shaft, new THREE.MeshBasicMaterial({ color:'#fff7d6', vertexColors:true, transparent:true, opacity:0.14, blending:THREE.AdditiveBlending,
+      depthWrite:false, side:THREE.DoubleSide, fog:false }), sx - 0.45, 2.3, sz - 0.3, { rz:-0.22, rx:0.14 });
+  } else {                   // three brass pendants on long cords behind the clerk, clear of the STOCK ROOM sign
+    const xs = [-1.6, -0.5, 0.7], z = -2.2;
+    solid(g, basic('#1c1917'), xs.map(x => [Cyl(0.008, 0.008, 1.9, 4), x, 3.26, z]));
+    solid(g, mat('brass', '#d97706', { side:THREE.DoubleSide, emissive:'#92400e', emissiveIntensity:0.35 }), xs.map(x => [new THREE.ConeGeometry(0.24, 0.22, 16, 1, true), x, 2.2, z]));
+    solid(g, basic('#fef3c7'), xs.map(x => [Sph(0.05, 10, 8), x, 2.13, z]));
   }
-  put(shelf, Cyl(0.22, 0.22, 0.4, 10), std('#e2e8f0', { roughness:0.3 }), -0.6, 2.3, 0);
-  const stick = Cyl(0.04, 0.04, 0.65, 8), crust = std('#f59e0b', { roughness:0.8 });
-  for (let b = 0; b < 4; b++) put(shelf, stick, crust, -0.6 + (b - 1.5) * 0.08, 2.52, (b % 2) * 0.06, { rz:(b - 1.5) * 0.15 });
-  put(shelf, Box(0.8, 0.03, 0.35), wood, 0.5, 2.12, 0);
-  const crescent = new THREE.TorusGeometry(0.09, 0.04, 6, 8, Math.PI * 1.2), pastry = std('#f59e0b', { roughness:0.7 });
-  for (const x of [0.3, 0.7]) put(shelf, crescent, pastry, x, 2.17, 0, { rx:Math.PI / 2 });
-  // The hearth oven. Its fire mouth stands 2 cm proud of the brick (AI Studio's shared a plane and flickered).
-  const oven = group(g, -2.4, 0.2, -2.8), brick = std('#7c2d12', { roughness:0.9 });
-  put(oven, Box(1.2, 1.8, 1.4), brick, 0, 0.9, 0);
-  put(oven, Cyl(0.6, 0.6, 1.4, 12, 1, false, 0, Math.PI), brick, 0, 1.8, 0, { ry:Math.PI / 2, rz:Math.PI / 2 });
-  put(oven, Box(0.6, 0.4, 0.1), basic('#f97316'), 0.62, 0.8, 0, { ry:Math.PI / 2 });
-  put(oven, Cyl(0.18, 0.18, 1.8, 8), std('#1c1917', { roughness:0.8 }), 0, 2.7, 0);
-  anims.push(t => { ovenLight.intensity = prefs.calm ? 1.6 : 1.6 + Math.sin(t * 8) * 0.3 + Math.cos(t * 13) * 0.15; });   // steady under Reduce motion
-  board(g, shop, { frame:'#78350f', bg:'#1e293b', title:'#fef08a', text:'#ffffff', note:'#fdba74', rough:0.5 });
-  const plate = group(g, 0.9, 1.23, 0.2);
-  put(plate, Cyl(0.24, 0.22, 0.04, 12), std('#f1f5f9', { roughness:0.2 }));
-  put(plate, Cyl(0.18, 0.16, 0.08, 12), std('#ea580c', { roughness:0.6 }), 0, 0.06, 0);
-  put(plate, Sph(0.23, 12, 10, 0, Math.PI * 2, 0, Math.PI / 2), std('#ffffff', { roughness:0.05, transparent:true, opacity:0.3 }), 0, 0.02, 0);
 }
 
+// Signs that list what the shop carries, from SHOPS (names only, never stock): one column up to
+// six names, two past that, in the largest type that fits the board.
+function drawList(x, w, h, shop, s){      // s.listW: the share of the width the list takes (the rest is s.extra's)
+  const names = shop.inventory.map(i => cap(i.name)), n = names.length, cols = n > 6 ? 2 : 1, rows = Math.ceil(n / cols);
+  const font = s.font || FONT, lw = Math.round(w * (s.listW || 1)), pad = Math.round(w * 0.05), colW = (lw - pad * 2) / cols;
+  const top = h * 0.22, bottom = s.note ? h * 0.84 : h * 0.95;
+  x.fillStyle = s.bg; x.fillRect(0, 0, w, h);
+  if (s.border){ x.strokeStyle = s.border; x.lineWidth = Math.max(4, h * 0.02); x.strokeRect(pad / 2, pad / 2, w - pad, h - pad); }
+  x.textBaseline = 'middle'; x.textAlign = 'left';
+  x.fillStyle = s.title; fit(x, s.heading, lw - pad * 2, Math.round(h * 0.13), 'bold', font); x.fillText(s.heading, pad, h * 0.11);
+  if (s.rule){ x.fillStyle = s.rule; x.fillRect(pad, h * 0.185, lw - pad * 2, Math.max(2, h * 0.006)); }
+  const lineH = (bottom - top) / rows, bullet = s.bullet ?? '• ';
+  let size = Math.floor(Math.min(lineH * 0.74, h * 0.1));
+  for (const t of names) size = Math.min(size, fit(x, bullet + t, colW - pad, size, s.weight || '500', font));
+  x.font = (s.weight || '500') + ' ' + size + 'px ' + font; x.fillStyle = s.text;
+  names.forEach((t, i) => x.fillText(bullet + t, pad + (i >= rows ? colW : 0), top + lineH * (i % rows + 0.5)));
+  if (s.note){ x.fillStyle = s.noteColor || s.text; x.font = 'italic ' + Math.round(h * 0.055) + 'px ' + FONT; x.fillText(s.note, pad, h * 0.92); }
+}
+// A board hanging on two chains from the beams behind the clerk, tilted a little toward the
+// counter, with the shop's list in its own hand (a canvas per shop, disposed with its props).
+function hanging(g, shop, s){               // s.y: the board's centre height (2.65 unless the wall behind needs showing)
+  const W = 2.0, H = 0.7, x0 = -0.6, y0 = s.y || 2.65, z0 = -2.6;
+  const b = group(g, x0, y0, z0); b.rotation.x = 0.1;
+  put(b, Box(W + 0.08, H + 0.08, 0.04), mat('wood', s.frame, { map:TEX.wood }));
+  const tex = canvasTexture(1024, 358, (x, w, h) => { drawList(x, w, h, shop, s); s.extra?.(x, w, h); });
+  put(b, new THREE.PlaneGeometry(W, H), mat('paint', '#ffffff', { map:tex, roughness:s.rough ?? 0.9 }), 0, 0, 0.021);
+  solid(g, mat('steel', '#1c1917'), [-0.9, 0.9].map(dx => [Cyl(0.006, 0.006, 4.2 - (y0 + H / 2), 4), x0 + dx, (4.2 + y0 + H / 2) / 2, z0]));
+  return b;
+}
+// Baked goods as simple shapes, picked by the product's name (a name nothing matches is a bun):
+// parts for one merged mesh with a colour per piece, at scale k around (x, y, z), y the shelf.
+const BAKED = [
+  [/croissant/, p => p.push([new THREE.TorusGeometry(0.06, 0.028, 6, 10, Math.PI * 1.25), 0, 0.028, 0, { rx:Math.PI / 2, rz:0.4, color:'#d98c3a' }])],
+  [/baguette|bread ?stick|ficelle/, p => p.push([Cyl(0.028, 0.028, 0.34, 8), 0, 0.028, 0, { rx:Math.PI / 2, color:'#d7a45c' }])],
+  [/rye|pumpernickel/, p => p.push([Sph(0.08, 10, 8), 0, 0.055, 0, { s:[1.3, 0.7, 0.9], color:'#6b4423' }])],
+  [/sourdough|boule|loaf|bread|batard|miche|challah|focaccia/, p => p.push([Sph(0.085, 10, 8), 0, 0.06, 0, { s:[1.15, 0.7, 1], color:'#c48a4a' }])],
+  [/concha/, p => p.push([Sph(0.07, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), 0, 0, 0, { s:[1, 0.75, 1], color:pick(['#f1dcc0', '#f4b6c2', '#f5d58a']) }])],
+  [/muffin|cupcake|magdalena/, p => p.push([Cyl(0.04, 0.032, 0.05, 10), 0, 0.025, 0, { color:'#c99a5b' }], [Sph(0.05, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), 0, 0.05, 0, { s:[1, 0.7, 1], color:'#b9783a' }])],
+  [/cookie|biscuit|galleta|macaron|shortbread|polvor/, p => p.push([Cyl(0.045, 0.045, 0.012, 12), 0, 0.006, 0, { color:'#c9975a' }], [Cyl(0.045, 0.045, 0.012, 12), 0.06, 0.006, 0.03, { color:'#b07a3c' }])],
+  [/cake|tart|pie|flan|cheesecake|tres leches|pastel/, p => p.push([Cyl(0.08, 0.08, 0.05, 16), 0, 0.025, 0, { color:'#f5e6c8' }], [Cyl(0.08, 0.08, 0.012, 16), 0, 0.056, 0, { color:'#c2410c' }])],
+  [/bagel|donut|doughnut|rosca|pretzel/, p => p.push([new THREE.TorusGeometry(0.045, 0.02, 8, 12), 0, 0.02, 0, { rx:Math.PI / 2, color:'#d9a05b' }])],
+  [/./, p => p.push([Sph(0.05, 10, 8), 0, 0.035, 0, { s:[1.2, 0.7, 1], color:'#e0b070' }])] ];
+function baked(parts, name, x, y, z, k = 1){
+  const n = name.toLowerCase(), tmp = [];
+  BAKED.find(([re]) => re.test(n))[1](tmp);
+  for (const [geo, px, py, pz, o] of tmp) parts.push([geo, x + px * k, y + py * k, z + pz * k, { ...o, s:(o.s || [1, 1, 1]).map(v => v * k) }]);
+}
+
+// Each shop's own props: a shelf unit, a machine in the back-left corner, a board on the left
+// wall, something on the counter and its ceiling fixture. Rebuilt on a shop switch; anims run
+// every frame.
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+// The board on the left wall (section 6 describes it): what the shop carries, from SHOPS, in the
+// shop's colours, one column up to six names and two past that (drawList); the paint store adds
+// its chips beside the list. Never stock.
+function board(g, shop, c, swatches){
+  const b = group(g, -3.2, 2.2, -0.6, Math.PI / 2);
+  put(b, Box(1.8, 1.2, 0.05), mat('wood', c.frame, { map:TEX.wood }));
+  const map = canvasTexture(768, 496, (x, w, h) => {
+    drawList(x, w, h, shop, { bg:c.bg, title:c.title, text:c.text, rule:c.title, heading:'WHAT WE CARRY', weight:'600',
+      note:'Ask the clerk what is in stock today', noteColor:c.note, listW:swatches ? 0.66 : 1 });
+    (swatches || []).forEach((col, i) => { x.fillStyle = col; x.fillRect(w * 0.7 + (i % 2) * w * 0.14, h * 0.24 + Math.floor(i / 2) * h * 0.15, w * 0.11, h * 0.11); });
+  });
+  put(b, new THREE.PlaneGeometry(1.7, 1.1), mat('paint', '#ffffff', { map, roughness:c.rough ?? 0.9 }), 0, 0, 0.03);
+}
+
+// Rosa's Bakery: warm cream, terracotta and dark wood. A hutch of bread on the back wall, the
+// hearth oven in the back-left corner, a glass pastry case on the counter with the products as
+// baked shapes, a chalk menu hanging behind the clerk, pendants, a cake under a dome, a floor
+// basket of baguettes, a window display and a café table outside. Everything still is one of nine
+// merged meshes (wood, wood on end, bread, wicker, glass, brass, sacks, china, iron).
+function bakeryProps(g, shop, anims){
+  fixtures(g, 'pendants');
+  const W = [], WV = [], BREAD = [], WICKER = [], GLASS = [], BRASS = [], SACK = [], WHITE = [], BLACK = [];
+  const names = shop.inventory.map(i => i.name);
+  // The hutch (x -2.4 to 0): flour sacks below, bread in wicker baskets, a crock of baguettes and
+  // a tray of pastries, jars of biscuits and cake boxes on top.
+  const hx = -1.2, hz = -3.8;
+  WV.push([Box(0.08, 3.2, 0.5), hx - 1.2, 1.8, hz], [Box(0.08, 3.2, 0.5), hx + 1.2, 1.8, hz]);
+  for (const y of [0.9, 1.6, 2.3, 3.0]) W.push([Box(2.4, 0.06, 0.5), hx, y, hz]);
+  W.push([Box(2.4, 3.2, 0.03), hx, 1.8, hz - 0.235], [Box(2.5, 0.08, 0.55), hx, 3.44, hz]);
+  for (const dx of [-0.75, 0, 0.75]) SACK.push([Cyl(0.24, 0.26, 0.55, 12), hx + dx, 1.205, hz, { ry:Math.PI }], [Sph(0.09, 8, 6), hx + dx, 1.5, hz, { s:[1, 0.7, 1] }]);
+  [-0.85, -0.3, 0.25, 0.8].forEach((dx, i) => {
+    WICKER.push([Cyl(0.22, 0.17, 0.14, 12, 1, true), hx + dx, 1.7, hz], [Cyl(0.17, 0.17, 0.012, 12), hx + dx, 1.636, hz]);
+    const name = names[i % names.length] || 'loaf';
+    baked(BREAD, name, hx + dx - 0.05, 1.66, hz - 0.04, 0.9); baked(BREAD, name, hx + dx + 0.06, 1.66, hz + 0.06, 0.9);
+  });
+  WHITE.push([Cyl(0.2, 0.17, 0.4, 14), hx - 0.8, 2.53, hz]);
+  for (let b = 0; b < 5; b++) BREAD.push([Cyl(0.028, 0.028, 0.6, 8), hx - 0.8 + (b - 2) * 0.06, 2.78, hz + (b % 2) * 0.05, { rz:(b - 2) * 0.12, color:'#d7a45c' }]);
+  W.push([Box(1.0, 0.025, 0.38), hx + 0.35, 2.345, hz]);
+  for (let i = 0; i < 4; i++) baked(BREAD, 'concha', hx - 0.05 + i * 0.22, 2.36, hz - 0.08);
+  for (let i = 0; i < 3; i++) baked(BREAD, 'croissant', hx + 0.05 + i * 0.26, 2.36, hz + 0.1);
+  for (const dx of [-0.9, -0.62, -0.34]){
+    GLASS.push([Cyl(0.1, 0.1, 0.26, 14), hx + dx, 3.16, hz]); BRASS.push([Cyl(0.105, 0.105, 0.03, 14), hx + dx, 3.3, hz]);
+    BREAD.push([Cyl(0.08, 0.08, 0.18, 10), hx + dx, 3.12, hz, { color:'#b07a3c' }]);
+  }
+  WHITE.push([Box(0.32, 0.12, 0.32), hx + 0.5, 3.09, hz], [Box(0.28, 0.1, 0.28), hx + 0.5, 3.2, hz], [Box(0.32, 0.12, 0.32), hx + 0.9, 3.09, hz]);
+  // The hearth oven: brick with a barrel top, an arched mouth with a fire (a gradient on a plane,
+  // lit by the flickering oven light), a steel flue and hood, a peel against the wall, a log pile.
+  const ox = -2.4, oz = -2.8;
+  solid(g, mat('stone', '#ffffff', { map:TEX.brick }), [[TexBox(1.2, 1.8, 1.4), ox, 1.1, oz],
+    [uvMap(Cyl(0.6, 0.6, 1.4, 12, 1, false, 0, Math.PI), 1.9, 1.4), ox, 2.0, oz, { ry:Math.PI / 2, rz:Math.PI / 2 }]], 0, 0, 0, { cast:true });
+  BLACK.push([Box(0.08, 0.5, 0.7), ox + 0.62, 1.0, oz], [Cyl(0.18, 0.18, 1.6, 10), ox, 3.4, oz], [Cyl(0.32, 0.18, 0.22, 10), ox, 2.68, oz]);
+  put(g, new THREE.PlaneGeometry(0.6, 0.42), new THREE.MeshBasicMaterial({ map:TEX.fire }), ox + 0.665, 1.0, oz, { ry:Math.PI / 2 });
+  WV.push([Cyl(0.018, 0.018, 1.7, 6), -1.55, 1.05, -2.05, { rz:-0.12 }]);
+  W.push([Box(0.26, 0.36, 0.012), -1.43, 1.95, -2.05, { rz:-0.12 }]);
+  for (const [dz, y] of [[-0.11, 0.26], [0, 0.26], [0.11, 0.26], [-0.055, 0.35], [0.055, 0.35]]) W.push([Cyl(0.05, 0.05, 0.5, 8), ox + 0.1, y, oz + 0.95 + dz, { rz:Math.PI / 2 }]);
+  anims.push(t => { ovenLight.intensity = prefs.calm ? 1.5 : 1.5 + Math.sin(t * 8) * 0.25 + Math.cos(t * 13) * 0.12; });   // steady under Reduce motion
+  // The pastry case on the counter's left (clear of the clerk and of the line of sight to the stock
+  // room): a wooden base, brass posts, glass panes and a glass middle shelf; the shop's products on
+  // two tiers, two pieces each, smaller when there are many.
+  const cx = -0.725, cy = 1.225, cz = 0.25, cw = 0.85, cd = 0.46, ch = 0.36, top = cy + 0.03 + ch;
+  W.push([Box(cw, 0.03, cd), cx, cy + 0.015, cz]);
+  for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) BRASS.push([Box(0.02, ch, 0.02), cx + dx * (cw / 2 - 0.01), cy + 0.03 + ch / 2, cz + dz * (cd / 2 - 0.01)]);
+  BRASS.push([Box(cw, 0.02, 0.02), cx, top, cz - cd / 2 + 0.01], [Box(cw, 0.02, 0.02), cx, top, cz + cd / 2 - 0.01], [Box(0.02, 0.02, cd), cx - cw / 2 + 0.01, top, cz], [Box(0.02, 0.02, cd), cx + cw / 2 - 0.01, top, cz]);
+  GLASS.push([Box(cw, ch, 0.006), cx, cy + 0.03 + ch / 2, cz + cd / 2], [Box(cw, ch, 0.006), cx, cy + 0.03 + ch / 2, cz - cd / 2], [Box(0.006, ch, cd), cx - cw / 2, cy + 0.03 + ch / 2, cz],
+    [Box(0.006, ch, cd), cx + cw / 2, cy + 0.03 + ch / 2, cz], [Box(cw, 0.006, cd), cx, top, cz], [Box(cw - 0.04, 0.008, cd - 0.04), cx, cy + 0.03 + ch * 0.5, cz]);
+  const per = Math.ceil(names.length / 2), slot = (cw - 0.06) / per, k = Math.min(1, slot / 0.2);
+  names.forEach((name, i) => {
+    const tier = i < per ? 0 : 1, px = cx - cw / 2 + 0.03 + slot * (i % per + 0.5), py = cy + (tier ? 0.03 + ch * 0.5 + 0.008 : 0.03);
+    baked(BREAD, name, px - 0.01 * k, py, cz - 0.1, k); baked(BREAD, name, px + 0.02 * k, py, cz + 0.08, k);
+  });
+  // On the counter: a flour-dusted board with a rolling pin; at the right end a cake on a stand
+  // under a glass dome. Beside the counter, a floor basket of baguettes.
+  W.push([Box(0.45, 0.025, 0.32), 0.15, 1.238, 0.3], [Cyl(0.03, 0.03, 0.3, 10), 0.12, 1.28, 0.22, { rz:Math.PI / 2 }], [Cyl(0.012, 0.012, 0.44, 6), 0.12, 1.28, 0.22, { rz:Math.PI / 2 }]);
+  put(g, new THREE.PlaneGeometry(0.42, 0.3), mat('cloth', '#ffffff', { map:TEX.flour, transparent:true, depthWrite:false }), 0.17, 1.252, 0.32, { rx:-Math.PI / 2 });
+  WHITE.push([Cyl(0.16, 0.18, 0.02, 16), 1.3, 1.235, 0.2], [Cyl(0.03, 0.04, 0.1, 10), 1.3, 1.29, 0.2], [Cyl(0.19, 0.19, 0.015, 16), 1.3, 1.345, 0.2]);
+  BREAD.push([Cyl(0.13, 0.13, 0.07, 18), 1.3, 1.39, 0.2, { color:'#f5e6c8' }], [Cyl(0.13, 0.13, 0.014, 18), 1.3, 1.432, 0.2, { color:'#f4b6c2' }]);
+  GLASS.push([Sph(0.2, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), 1.3, 1.355, 0.2]);
+  WICKER.push([Cyl(0.22, 0.18, 0.5, 12, 1, true), -2.05, 0.46, 0.55], [Cyl(0.18, 0.18, 0.012, 12), -2.05, 0.22, 0.55]);
+  for (let b = 0; b < 5; b++) BREAD.push([Cyl(0.03, 0.03, 0.72, 8), -2.05 + (b - 2) * 0.05, 0.62, 0.55 + (b % 2) * 0.06, { rz:(b - 2) * 0.1, rx:(b % 2 - 0.5) * 0.2, color:'#d7a45c' }]);
+  // The chalk menu behind the clerk, and the board on the left wall.
+  hanging(g, shop, { frame:'#3b2314', bg:'#1f2a24', border:'#5b4a3a', title:'#fde68a', text:'#f5f0e6', rule:'#9ca3af', heading:'FRESH TODAY', bullet:'~ ', weight:'600',
+    font:CHALK, note:'ask what\'s in stock today', noteColor:'#d4d4d8', rough:0.95, extra:(x, w, h) => speckle(x, w, h, 1500, 6, ['#ffffff'], 0.08) });
+  board(g, shop, { frame:'#78350f', bg:'#1e293b', title:'#fef08a', text:'#ffffff', note:'#fdba74', rough:0.5 });
+  // In the left window: a table with a cake and a basket of rolls. Outside: a café table and chairs.
+  W.push([Box(1.3, 0.04, 0.5), -1.6, 0.97, 3.15]);
+  for (const [dx, dz] of [[-0.6, -0.2], [0.6, -0.2], [-0.6, 0.2], [0.6, 0.2]]) WV.push([Box(0.05, 0.75, 0.05), -1.6 + dx, 0.585, 3.15 + dz]);
+  WHITE.push([Cyl(0.14, 0.16, 0.02, 16), -1.95, 1.0, 3.15], [Cyl(0.03, 0.04, 0.08, 10), -1.95, 1.05, 3.15], [Cyl(0.17, 0.17, 0.015, 16), -1.95, 1.095, 3.15]);
+  BREAD.push([Cyl(0.12, 0.12, 0.07, 18), -1.95, 1.14, 3.15, { color:'#5c3a1e' }], [Cyl(0.12, 0.12, 0.012, 18), -1.95, 1.18, 3.15, { color:'#fde68a' }]);
+  WICKER.push([Cyl(0.2, 0.16, 0.12, 12, 1, true), -1.25, 1.05, 3.15], [Cyl(0.16, 0.16, 0.012, 12), -1.25, 0.996, 3.15]);
+  for (const [dx, dz] of [[-0.06, -0.05], [0.06, -0.05], [0, 0.06], [-0.05, 0.08]]) baked(BREAD, 'roll', -1.25 + dx, 1.02, 3.15 + dz, 0.9);
+  const tx = -1.9, tz = 5.3;
+  BLACK.push([Cyl(0.03, 0.03, 0.72, 8), tx, 0.56, tz], [Cyl(0.26, 0.3, 0.03, 16), tx, 0.215, tz], [Cyl(0.36, 0.36, 0.03, 20), tx, 0.935, tz]);
+  for (const side of [-1, 1]){
+    const sx = tx + side * 0.62;
+    BLACK.push([Cyl(0.19, 0.19, 0.025, 14), sx, 0.66, tz], [Box(0.02, 0.32, 0.34), sx + side * 0.17, 0.98, tz]);
+    for (const [dx, dz] of [[-0.14, -0.14], [0.14, -0.14], [-0.14, 0.14], [0.14, 0.14]]) BLACK.push([Cyl(0.012, 0.012, 0.45, 6), sx + dx, 0.425, tz + dz]);
+  }
+  WHITE.push([Cyl(0.04, 0.03, 0.08, 10), tx + 0.1, 0.99, tz - 0.08]);
+  solid(g, mat('wood', '#5c3a1e', { map:TEX.wood }), W, 0, 0, 0, { cast:true });
+  solid(g, mat('wood', '#5c3a1e', { map:TEX.woodUp }), WV, 0, 0, 0, { cast:true });
+  solid(g, vmat('cloth', { roughness:0.78 }), BREAD);
+  solid(g, mat('wood', '#ffffff', { map:TEX.wicker, roughness:0.85, side:THREE.DoubleSide }), WICKER);
+  solid(g, glass(), GLASS);
+  solid(g, mat('brass', '#d4a017'), BRASS);
+  solid(g, mat('cloth', '#ffffff', { map:TEX.sack }), SACK);
+  solid(g, mat('ceramic', '#f8fafc'), WHITE);
+  solid(g, mat('steel', '#1c1917', { roughness:0.5 }), BLACK, 0, 0, 0, { cast:true });
+}
+
+// The colour-chip wall: a header and a grid of chips, hues spread around the shop's accent, four
+// lightnesses deep.
+function swatchCanvas(x, w, h, accent){
+  x.fillStyle = '#f8fafc'; x.fillRect(0, 0, w, h);
+  x.fillStyle = '#0f172a'; x.fillRect(0, 0, w, h * 0.17);
+  x.fillStyle = '#f8fafc'; x.textBaseline = 'middle'; x.textAlign = 'left';
+  x.font = 'bold ' + Math.round(h * 0.1) + 'px ' + FONT; x.fillText('COLOR CENTER', w * 0.03, h * 0.085);
+  x.font = '600 ' + Math.round(h * 0.06) + 'px ' + FONT; x.textAlign = 'right'; x.fillText('we mix any shade', w * 0.97, h * 0.085);
+  const cols = 14, rows = 4, hsl = { h:0, s:0, l:0 }, cw = (w * 0.94) / cols, chH = (h * 0.78) / rows;
+  _c.set(accent).getHSL(hsl, THREE.SRGBColorSpace);
+  for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++){
+    x.fillStyle = '#' + _c.setHSL((hsl.h + (c - cols / 2) / cols + 1) % 1, 0.68, 0.8 - r * 0.17, THREE.SRGBColorSpace).getHexString();
+    x.fillRect(w * 0.03 + c * cw + 3, h * 0.2 + r * chH + 3, cw - 6, chH - 6);
+  }
+}
+
+// Southside Paint Supply: cool, bright, practical. Steel gondola shelving with labelled cans and
+// buckets under a wall of colour chips, a tinting station beside the shaker in the back-left
+// corner, a drop cloth, a rolled tarp and a stepladder along the right wall, a WHAT WE CARRY and
+// HELP DESK sign behind the clerk (the support agent's desk), a hazard stripe inside the door, a
+// sandwich board and a stack of buckets on the pavement. The cans are three instanced meshes
+// (bodies, colour bands, labels), the buckets two, and all the metalwork is one merged mesh.
 function paintProps(g, shop, anims){
-  const shelf = group(g, -1.2, 0.2, -3.8), metal = std('#334155', { metalness:0.7, roughness:0.4 });
-  for (const x of [-1.2, 1.2]) put(shelf, Box(0.08, 3.2, 0.5), metal, x, 1.6, 0);
-  const plank = Box(2.4, 0.05, 0.5);
-  for (const y of [0.7, 1.4, 2.1, 2.8]) put(shelf, plank, metal, 0, y, 0);
-  const bucket = Cyl(0.25, 0.2, 0.5, 10), bucketMat = std('#f8fafc', { roughness:0.5 }), lid = Cyl(0.26, 0.26, 0.04, 10);
-  [-0.7, 0, 0.7].forEach((x, i) => { put(shelf, bucket, bucketMat, x, 0.96, 0); put(shelf, lid, std(PAINT[i]), x, 1.22, 0); });
-  const can = Cyl(0.14, 0.14, 0.32, 12), canMat = std('#94a3b8', { metalness:0.8, roughness:0.3 });
-  const band = Cyl(0.142, 0.142, 0.18, 12), bands = PAINT.map(c => std(c, { roughness:0.4 }));
-  [1.4, 2.1, 2.8].forEach((y, s) => { for (let c = 0; c < 5; c++){
-    const x = -0.9 + c * 0.45;
-    put(shelf, can, canMat, x, y + 0.17, 0);
-    put(shelf, band, bands[((s + 1) * 3 + c) % 8], x, y + 0.17, 0);
-  } });
+  fixtures(g, 'tubes');
+  const L = shop.look || SHOPS[1].look, METAL = [], CHIPS = [], hx = -1.2, hz = -3.8;
+  for (const dx of [-1.2, 1.2]) METAL.push([Box(0.06, 2.0, 0.5), hx + dx, 1.2, hz, { color:'#64748b' }]);
+  for (const y of [0.7, 1.15, 1.6]) METAL.push([Box(2.4, 0.04, 0.5), hx, y, hz, { color:'#94a3b8' }]);
+  put(g, TexBox(2.4, 2.0, 0.03, 4), mat('paint', '#ffffff', { map:TEX.pegboard }), hx, 1.2, hz - 0.235);
+  for (const dx of [-0.9, -0.6, -0.3, 0]) METAL.push([Box(0.03, 0.14, 0.015), hx + dx, 1.9, hz - 0.21, { color:'#b45309' }],
+    [Box(0.035, 0.03, 0.016), hx + dx, 1.99, hz - 0.21, { color:'#cbd5e1' }], [Box(0.045, 0.07, 0.016), hx + dx, 2.04, hz - 0.21, { color:'#fde68a' }]);
+  for (const dx of [0.5, 0.85]) METAL.push([Cyl(0.006, 0.006, 0.3, 6), hx + dx, 1.9, hz - 0.21, { color:'#cbd5e1' }],
+    [Cyl(0.03, 0.03, 0.2, 10), hx + dx + 0.05, 2.08, hz - 0.21, { rz:Math.PI / 2, color:'#fef3c7' }]);
+  // Cans: gallons on one shelf, quarts above, each with its colour band and printed label.
+  const cans = [];
+  const row = (y, n, r, h) => { for (let i = 0; i < n; i++) cans.push([hx - 1.05 + i * 2.1 / (n - 1), y + 0.02 + h / 2, hz + 0.02, PAINT[(i * 3 + n) % 8], r / 0.085, h / 0.19]); };
+  row(1.15, 8, 0.085, 0.19); row(1.6, 10, 0.06, 0.12);
+  instanced(g, Cyl(0.085, 0.085, 0.19, 16), mat('steel', '#cbd5e1'), cans.map(([x, y, z, , sr, sh]) => [x, y, z, null, { s:[sr, sh, sr] }]));
+  instanced(g, Cyl(0.0865, 0.0865, 0.075, 16, 1, true), mat('paint', '#ffffff'), cans.map(([x, y, z, c, sr, sh]) => [x, y + 0.035 * sh, z, c, { s:[sr, sh, sr] }]));
+  instanced(g, Cyl(0.0865, 0.0865, 0.06, 16, 1, true), mat('paint', '#ffffff', { map:TEX.canLabel }), cans.map(([x, y, z, , sr, sh]) => [x, y - 0.035 * sh, z, null, { ry:Math.PI, s:[sr, sh, sr] }]));
+  const buckets = [[hx - 0.75, 0.72, hz], [hx, 0.72, hz], [hx + 0.75, 0.72, hz], [-2.7, 0.21, 4.6], [-2.7, 0.59, 4.6], [-2.7, 0.97, 4.6], [2.95, 0.21, -3.3]];
+  instanced(g, Cyl(0.15, 0.13, 0.38, 14), mat('plastic', '#f1f5f9'), buckets.map(([x, y, z]) => [x, y + 0.19, z]));
+  instanced(g, Cyl(0.155, 0.155, 0.03, 14), mat('plastic', '#ffffff'), buckets.map(([x, y, z], i) => [x, y + 0.395, z, PAINT[(i * 5) % 8]]));
+  // The colour wall above the shelving, in a thin frame.
+  const swatch = canvasTexture(1024, 362, (x, w, h) => swatchCanvas(x, w, h, L.accent));
+  put(g, new THREE.PlaneGeometry(2.4, 0.85), mat('paint', '#ffffff', { map:swatch, roughness:0.6 }), hx, 2.7, -4.6);
+  METAL.push([Box(2.46, 0.03, 0.03), hx, 3.14, -4.6, { color:'#64748b' }], [Box(2.46, 0.03, 0.03), hx, 2.26, -4.6, { color:'#64748b' }],
+    [Box(0.03, 0.91, 0.03), hx - 1.215, 2.7, -4.6, { color:'#64748b' }], [Box(0.03, 0.91, 0.03), hx + 1.215, 2.7, -4.6, { color:'#64748b' }]);
+  // The mixing station: the shaker (it runs while the stock room checks), a tinting dispenser with
+  // its canisters, a drop cloth under both.
   const shaker = group(g, -2.4, 0.2, -2.8);
-  put(shaker, Box(0.9, 1.2, 0.9), std('#1e3a8a', { metalness:0.6, roughness:0.4 }), 0, 0.6, 0);
+  put(shaker, Box(0.9, 1.2, 0.9), mat('steel', '#1e3a8a', { roughness:0.4 }), 0, 0.6, 0);
   const clamp = group(shaker, 0, 1.3, 0);
-  put(clamp, Box(0.65, 0.1, 0.65), std('#334155', { metalness:0.9 }));
-  put(clamp, Cyl(0.18, 0.18, 0.4, 12), std('#0d9488', { metalness:0.5 }), 0, 0.25, 0);
-  anims.push((t, s) => {                     // the shaker runs while the stock room checks (not under Reduce motion)
+  put(clamp, Box(0.65, 0.1, 0.65), mat('steel', '#334155', { metalness:0.9 }));
+  put(clamp, Cyl(0.18, 0.18, 0.4, 12), mat('steel', '#0d9488', { metalness:0.5 }), 0, 0.25, 0);
+  anims.push((t, s) => {                     // not under Reduce motion
     const on = s === 'checking' && !prefs.calm;
     clamp.position.x = on ? Math.sin(t * 45) * 0.02 : 0;
     clamp.position.z = on ? Math.cos(t * 40) * 0.02 : 0;
     clamp.rotation.y = on ? Math.sin(t * 35) * 0.04 : 0;
   });
+  METAL.push([Box(0.7, 1.5, 0.6), -2.7, 0.95, -1.6, { color:'#e2e8f0' }], [Box(0.66, 0.06, 0.5), -2.7, 1.73, -1.6, { color:'#94a3b8' }], [Box(0.3, 0.2, 0.2), -2.7, 1.3, -1.25, { color:'#94a3b8' }]);
+  PAINT.forEach((c, i) => CHIPS.push([Cyl(0.05, 0.05, 0.24, 10), -2.98 + (i % 4) * 0.19, 1.88, -1.75 + Math.floor(i / 4) * 0.22, { color:c }]));
+  put(g, new THREE.PlaneGeometry(2.0, 1.6), mat('cloth', '#ffffff', { map:TEX.dropcloth }), -2.3, 0.215, -2.0, { rx:-Math.PI / 2, rz:0.2 });
+  // Along the right wall: a rolled tarp with its straps, a stepladder.
+  put(g, Cyl(0.14, 0.14, 1.6, 14), mat('plastic', '#1d4ed8', { roughness:0.55 }), 2.95, 0.35, -1.0, { rx:Math.PI / 2 });
+  for (const dz of [-0.5, 0.5]) METAL.push([new THREE.TorusGeometry(0.145, 0.012, 6, 16), 2.95, 0.35, -1.0 + dz, { color:'#1c1917' }]);
+  const lx = 2.75, lz = -2.7, lh = 1.9;
+  for (const s of [-1, 1]) for (const dx of [-0.22, 0.22])
+    METAL.push([Box(0.04, lh, 0.07), lx + dx, 0.2 + lh / 2 * Math.cos(0.2), lz + s * (0.32 - lh / 2 * Math.sin(0.2)), { rx:-s * 0.2, color:'#cbd5e1' }]);
+  for (const y of [0.55, 0.9, 1.25, 1.6]) METAL.push([Box(0.42, 0.03, 0.08), lx, y, lz + 0.32 - (y - 0.2) * 0.2, { color:'#cbd5e1' }]);
+  METAL.push([Box(0.5, 0.04, 0.14), lx, 0.2 + lh * Math.cos(0.2), lz, { color:'#94a3b8' }]);
+  // The sign behind the clerk: the list, and the help desk beside it. The board on the left wall.
+  hanging(g, shop, { y:3.15, frame:'#1e293b', bg:'#f8fafc', border:'#cbd5e1', title:'#1e3a8a', text:'#0f172a', rule:'#2563eb', heading:'WHAT WE CARRY', weight:'600', listW:0.62, rough:0.6,
+    extra:(x, w, h) => {
+      const x0 = w * 0.64, lines = ['Which primer for a bathroom?', 'Finishes, coverage, how-tos', 'Ask the clerk: free advice'];
+      x.fillStyle = '#1e3a8a'; x.fillRect(x0, h * 0.08, 3, h * 0.84);
+      x.textAlign = 'left'; x.textBaseline = 'middle'; fit(x, 'HELP DESK', w * 0.32, Math.round(h * 0.13), '900', FONT); x.fillText('HELP DESK', x0 + w * 0.025, h * 0.17);
+      x.fillStyle = '#1e293b'; lines.forEach((t, i) => { fit(x, t, w * 0.32, Math.round(h * 0.075), '500', FONT); x.fillText(t, x0 + w * 0.025, h * (0.36 + i * 0.16)); });
+    } });
   board(g, shop, { frame:'#334155', bg:'#0f172a', title:'#38bdf8', text:'#f8fafc', note:'#94a3b8' }, PAINT);
-  const tools = group(g, 0.9, 1.23, 0.2);
-  put(tools, Cyl(0.04, 0.04, 0.45, 10), std('#2563eb', { roughness:0.6 }), 0, 0.04, 0.05, { rz:Math.PI / 2 });
-  put(tools, Box(0.35, 0.08, 0.45), std('#0284c7', { roughness:0.5 }), 0.42, 0.02, 0);   // clear of the bell
+  // The hazard stripe inside the door; on the counter a fan deck of chips, a quart of primer with
+  // a stir stick, an order clipboard, the roller and its tray.
+  put(g, uvMap(new THREE.PlaneGeometry(3.0, 0.14), 12, 1), mat('paint', '#ffffff', { map:TEX.hazard, roughness:0.6 }), 0, 0.216, 2.5, { rx:-Math.PI / 2 });
+  for (let i = 0; i < 9; i++) CHIPS.push([Box(0.03, 0.004, 0.15).translate(0, 0, 0.075), -0.5, 1.23 + i * 0.0015, 0.26, { ry:(i - 4) * 0.13, color:PAINT[i % 8] }]);
+  METAL.push([Cyl(0.06, 0.06, 0.12, 14), -1.15, 1.285, 0.1, { color:'#e5e7eb' }], [Box(0.02, 0.003, 0.3), -1.1, 1.36, 0.1, { rz:0.5, ry:0.3, color:'#d4a373' }],
+    [Box(0.22, 0.01, 0.3), 0.25, 1.23, 0.25, { ry:-0.15, color:'#7c4a2a' }], [Box(0.19, 0.004, 0.26), 0.25, 1.238, 0.25, { ry:-0.15, color:'#ffffff' }], [Box(0.08, 0.02, 0.03), 0.27, 1.245, 0.11, { ry:-0.15, color:'#94a3b8' }],
+    [Box(0.35, 0.08, 0.45), 1.32, 1.265, 0.2, { color:'#0284c7' }]);
+  CHIPS.push([Cyl(0.04, 0.04, 0.45, 10), 0.9, 1.27, 0.25, { rz:Math.PI / 2, color:'#2563eb' }], [Cyl(0.012, 0.012, 0.22, 6), 1.1, 1.26, 0.38, { rx:Math.PI / 2, color:'#1e293b' }]);
+  // Outside: a sandwich board by the right window.
+  const sb = canvasTexture(512, 768, (x, w, h) => {
+    x.fillStyle = '#0f172a'; x.fillRect(0, 0, w, h); x.strokeStyle = '#94a3b8'; x.lineWidth = 10; x.strokeRect(20, 20, w - 40, h - 40);
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    [['PAINT', '#f8fafc', 120, FONT], ['SUPPLIES', '#f8fafc', 96, FONT], ['FREE ADVICE', '#60a5fa', 72, FONT], ['at the help desk', '#cbd5e1', 48, CHALK]]
+      .forEach(([t, c, s, f], i) => { x.fillStyle = c; fit(x, t, w - 80, s, 'bold', f); x.fillText(t, w / 2, 150 + i * 150); });
+  });
+  solid(g, mat('paint', '#ffffff', { map:sb, side:THREE.DoubleSide }), [[new THREE.PlaneGeometry(0.6, 0.9), 1.8, 0.639, 5.198, { rx:-0.22 }], [new THREE.PlaneGeometry(0.6, 0.9), 1.8, 0.639, 5.002, { rx:0.22, ry:Math.PI }]]);
+  METAL.push([Box(0.64, 0.05, 0.05), 1.8, 1.08, 5.1, { color:'#1e293b' }]);
+  solid(g, vmat('steel'), METAL, 0, 0, 0, { cast:true });
+  solid(g, vmat('plastic'), CHIPS);
 }
 
+// Plants as cut-out leaves: four shapes on one atlas (heart, monstera, blade, frond), each leaf a
+// small plane pivoting at its stem end, all of a shop's foliage one merged mesh. A product's name
+// picks its plant; a name nothing matches is a fern.
+const LEAF = { heart:[0, 0.5], monstera:[0.5, 0.5], blade:[0, 0], fern:[0.5, 0] };
+const leafPart = (kind, w, h, x, y, z, o) => [new THREE.PlaneGeometry(w, h).translate(0, h / 2, 0), x, y, z, { ...o, uv:[0.5, 0.5, ...LEAF[kind]] }];
+const GREENS = ['#22c55e', '#16a34a', '#15803d', '#4ade80'], CLAYS = ['#c2410c', '#b45309', '#9a3412', '#c05621'];
+const KIND = [[/monstera|philodendron|split/, 'monstera'], [/pothos|ivy|vine|trail/, 'pothos'], [/snake|sansevieria|aloe|agave|dracaena/, 'snake'],
+  [/fern|palm|frond|calathea/, 'fern'], [/\bpots?\b|terracotta|planter|saucer/, 'pots'], [/cact|succulent|echeveria|jade|haworthia/, 'succulent'], [/./, 'fern']];
+const kindOf = name => KIND.find(([re]) => re.test(name.toLowerCase()))[1];
+function plant(F, S, kind, x, y, z, k = 1){        // a cluster growing from (x, y, z), at size k
+  const n = kind === 'snake' ? 7 : kind === 'fern' ? 8 : kind === 'monstera' ? 5 : 6;
+  for (let i = 0; i < n; i++){
+    const a = i / n * Math.PI * 2 + rnd() * 0.5;
+    if (kind === 'snake') F.push(leafPart('blade', 0.07 * k, R(0.4, 0.65) * k, x + Math.cos(a) * 0.04 * k, y, z + Math.sin(a) * 0.04 * k,
+      { ry:a, rx:R(-0.15, 0.15), rz:R(-0.15, 0.15), color:pick(['#15803d', '#166534', '#4d7c0f']) }));
+    else if (kind === 'fern') F.push(leafPart('fern', 0.3 * k, 0.4 * k, x, y, z, { ry:a, rx:-R(0.6, 1.1), color:pick(['#16a34a', '#15803d', '#65a30d']) }));
+    else if (kind === 'monstera'){
+      const l = R(0.25, 0.4) * k;
+      S.push([Cyl(0.008 * k, 0.01 * k, l, 6), x + Math.cos(a) * 0.08 * k, y + l * 0.45, z + Math.sin(a) * 0.08 * k, { rx:Math.sin(a) * 0.45, rz:-Math.cos(a) * 0.45, color:'#3f6212' }]);
+      F.push(leafPart('monstera', 0.34 * k, 0.34 * k, x + Math.cos(a) * 0.2 * k, y + l * 0.85, z + Math.sin(a) * 0.2 * k, { ry:a + Math.PI / 2, rx:-R(0.5, 0.9), color:pick(['#15803d', '#166534']) }));
+    } else if (kind === 'succulent') F.push(leafPart('heart', 0.07 * k, 0.07 * k, x + Math.cos(a) * 0.02 * k, y, z + Math.sin(a) * 0.02 * k, { ry:a, rx:-R(0.3, 0.8), color:pick(['#86efac', '#a3e635', '#bbf7d0']) }));
+    else F.push(leafPart('heart', 0.12 * k, 0.12 * k, x + Math.cos(a) * 0.05 * k, y, z + Math.sin(a) * 0.05 * k, { ry:a, rx:-R(0.6, 1.2), color:pick(GREENS) }));
+  }
+}
+function vine(F, S, x, y, z, len, a){               // a pothos runner hanging from (x, y, z), leaves alternating
+  S.push([Cyl(0.006, 0.006, len, 5), x, y - len / 2, z, { color:'#4d7c0f' }]);
+  for (let i = 0; i < Math.round(len / 0.11); i++)
+    F.push(leafPart('heart', 0.1, 0.1, x, y - 0.06 - i * 0.11, z, { ry:a + (i % 2) * Math.PI, rx:R(1.4, 2.0), rz:(i % 2 ? -0.4 : 0.4), color:pick(GREENS) }));
+}
+function potted(P, D, F, S, name, x, y, z, k = 1){    // a product in a terracotta pot standing on y
+  const kind = kindOf(name), r = 0.14 * k, h = 0.24 * k, clay = pick(CLAYS);
+  if (kind === 'pots'){ for (let i = 0; i < 3; i++) P.push([Cyl(r, r * 0.78, h, 12, 1, true), x, y + h / 2 + i * 0.06 * k, z, { color:pick(CLAYS) }]); return; }
+  P.push([Cyl(r, r * 0.78, h, 12), x, y + h / 2, z, { color:clay }], [Cyl(r * 1.07, r * 1.07, 0.035 * k, 12), x, y + h - 0.0175 * k, z, { color:clay }]);
+  D.push([Cyl(r * 0.92, r * 0.92, 0.01, 12), x, y + h - 0.004, z]);
+  const top = y + h - 0.01;
+  if (kind === 'pothos'){ plant(F, S, 'pothos', x, top, z, k); vine(F, S, x + r * 0.8, top, z, 0.35 * k, 0); vine(F, S, x - r * 0.8, top, z, 0.3 * k, Math.PI); }
+  else plant(F, S, kind, x, top, z, kind === 'succulent' ? k * 0.8 : k);
+}
+function crate(W, x, y, z, w = 0.5, d = 0.4, h = 0.3){   // a slatted wooden crate standing on y
+  for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) W.push([Box(0.035, h, 0.035), x + dx * (w / 2 - 0.02), y + h / 2, z + dz * (d / 2 - 0.02)]);
+  for (let i = 0; i < 3; i++){
+    const sy = y + 0.05 + i * (h - 0.1) / 2;
+    W.push([Box(w, 0.06, 0.015), x, sy, z - d / 2 + 0.008], [Box(w, 0.06, 0.015), x, sy, z + d / 2 - 0.008], [Box(0.015, 0.06, d), x - w / 2 + 0.008, sy, z], [Box(0.015, 0.06, d), x + w / 2 - 0.008, sy, z]);
+  }
+  W.push([Box(w - 0.04, 0.015, d - 0.04), x, y + 0.03, z]);
+}
+
+// Fern & Pot: green and clay, soft light. A tiered stand of the shop's plants against a trellis,
+// pothos trailing from pots hung on a pipe, crates of plants along the walls, in the window and on
+// the pavement, a potting bench with soil, pots and a trowel, a hose reel, the mister in the
+// back-left corner, a watering can and a flat of seedlings on the counter, a painted sign behind
+// the clerk, string lights along the pipe, and a skylight with a shaft of light.
 function plantsProps(g, shop, anims){
-  const stand = group(g, -1.2, 0.2, -3.8), wood = std('#78350f', { roughness:0.75 });
-  for (const x of [-1.2, 1.2]) put(stand, Box(0.08, 3.2, 0.5), wood, x, 1.6, 0);
-  const slat = Box(2.4, 0.05, 0.5);
-  for (const y of [0.7, 1.5, 2.3]) put(stand, slat, wood, 0, y, 0);
-  const pot = Cyl(0.24, 0.18, 0.35, 10), clay = std('#c2410c', { roughness:0.8 }), leaf = std('#15803d', { roughness:0.6 });
-  for (const px of [-0.8, -0.2]){
-    put(stand, pot, clay, px, 0.88, 0);
-    [-0.08, 0, 0.08].forEach((lx, li) => put(stand, Box(0.04, 0.45 + li * 0.08, 0.08), leaf, px + lx, 1.15, 0, { rz:(li - 1) * 0.15 }));
+  fixtures(g, 'skylight');
+  const W = [], WV = [], P = [], D = [], F = [], S = [], STEEL = [], names = shop.inventory.map(i => i.name);
+  // The stand (x -2.4 to 0) with a trellis behind it: three tiers, the products in order, cycling.
+  const hx = -1.2, hz = -3.8;
+  WV.push([Box(0.08, 2.7, 0.5), hx - 1.2, 1.55, hz], [Box(0.08, 2.7, 0.5), hx + 1.2, 1.55, hz]);
+  for (const y of [0.9, 1.7, 2.5]) W.push([Box(2.4, 0.05, 0.5), hx, y, hz]);
+  for (let i = 0; i < 7; i++) for (const s of [-1, 1]) W.push([Box(0.03, 2.2, 0.012), hx + (i - 3) * 0.4, 1.75, -4.62, { rz:s * Math.PI / 4 }]);
+  const spots = [[-0.85, 0.93], [-0.3, 0.93], [0.25, 0.93], [0.8, 0.93], [-0.75, 1.73], [0, 1.73], [0.75, 1.73], [-0.8, 2.53], [-0.1, 2.53], [0.6, 2.53], [0.95, 1.73]];
+  spots.forEach(([dx, y], i) => potted(P, D, F, S, names[i % names.length] || 'fern', hx + dx, y, hz, y > 2 ? 0.8 : 1));
+  // Pothos hung from a pipe across the shop (clear of the line of sight to the stock room), with a
+  // string of bulbs along it.
+  STEEL.push([Cyl(0.025, 0.025, 5.2, 10), 0, 3.3, -2.2, { rz:Math.PI / 2, color:'#1c1917' }], [Box(0.04, 0.9, 0.04), -2.0, 3.75, -2.2, { color:'#1c1917' }], [Box(0.04, 0.9, 0.04), 2.0, 3.75, -2.2, { color:'#1c1917' }]);
+  for (const x of [-2.0, -0.9, 0.3, 2.3]){
+    STEEL.push([Cyl(0.006, 0.006, 0.95, 4), x, 2.85, -2.2, { color:'#d6c9a8' }]);
+    P.push([Cyl(0.13, 0.1, 0.2, 12), x, 2.3, -2.2, { color:pick(CLAYS) }]); D.push([Cyl(0.12, 0.12, 0.01, 12), x, 2.396, -2.2]);
+    plant(F, S, 'pothos', x, 2.39, -2.2, 0.8);
+    for (const a of [0.3, 2.4, 4.4]) vine(F, S, x + Math.cos(a) * 0.11, 2.38, -2.2 + Math.sin(a) * 0.11, R(0.45, 0.6), a);
   }
-  put(stand, Box(0.45, 0.22, 0.35), std('#15803d', { roughness:0.9 }), 0.65, 0.82, 0);
-  put(stand, Cyl(0.26, 0.2, 0.38, 12), std('#f8fafc', { roughness:0.3 }), -0.4, 1.7, 0);
-  const stem = Cyl(0.015, 0.015, 0.4, 6), stemMat = std('#16a34a'), blade = Sph(0.18, 6, 6), bladeMat = std('#15803d', { roughness:0.5 });
-  for (let l = 0; l < 5; l++){
-    const a = l / 5 * Math.PI * 2;
-    put(stand, stem, stemMat, -0.4 + Math.cos(a) * 0.1, 1.95, Math.sin(a) * 0.1, { rx:Math.sin(a) * 0.5, rz:Math.cos(a) * 0.5 });
-    put(stand, blade, bladeMat, -0.4 + Math.cos(a) * 0.25, 2.12, Math.sin(a) * 0.25, { ry:a, s:[1, 0.08, 1.4] });
+  solid(g, basic('#fef3c7'), Array.from({ length:11 }, (_, i) => [Sph(0.025, 8, 6), -2.4 + i * 0.48, 3.22, -2.2]));
+  // Crates of plants: along the right wall and the left, two stacked in the window, two outside.
+  for (const [x, z, a, b] of [[2.7, -0.3, 'fern', 'snake'], [2.7, 0.45, 'pothos', 'monstera'], [-2.6, 0.6, 'snake', 'fern'], [-2.6, 1.4, 'monstera', 'succulent'], [-2.4, 4.7, 'fern', 'pothos'], [1.9, 4.8, 'snake', 'monstera']]){
+    crate(W, x, 0.21, z); potted(P, D, F, S, a, x - 0.12, 0.24, z - 0.05, 0.75); potted(P, D, F, S, b, x + 0.13, 0.24, z + 0.08, 0.75);
   }
-  const hanger = Cyl(0.15, 0.12, 0.16, 8), vine = Cyl(0.015, 0.015, 0.55, 6), vineMat = std('#4ade80');
-  for (const hx of [-0.7, 0.5]){
-    put(stand, hanger, wood, hx, 2.39, 0);
-    for (let v = 0; v < 3; v++) put(stand, vine, vineMat, hx + (v - 1) * 0.08, 2.15, 0.15);
-  }
+  crate(W, -1.6, 0.21, 3.2, 0.7, 0.5, 0.3); crate(W, -1.6, 0.51, 3.2, 0.7, 0.5, 0.3);
+  potted(P, D, F, S, 'monstera', -1.75, 0.81, 3.2, 0.9); potted(P, D, F, S, 'fern', -1.4, 0.81, 3.3, 0.8);
+  STEEL.push([Cyl(0.006, 0.006, 0.4, 4), -3.2, 2.5, 6.55, { color:'#d6c9a8' }]);
+  P.push([Cyl(0.13, 0.1, 0.2, 12), -3.2, 2.2, 6.55, { color:pick(CLAYS) }]); D.push([Cyl(0.12, 0.12, 0.01, 12), -3.2, 2.296, 6.55]);
+  for (const a of [0.5, 2.6, 4.6]) vine(F, S, -3.2 + Math.cos(a) * 0.11, 2.28, 6.55 + Math.sin(a) * 0.11, 0.5, a);
+  // The potting bench along the right wall: soil, a trowel, a stack of pots, bags of compost; a
+  // hose reel on the wall by it.
+  W.push([Box(0.6, 0.05, 1.2), 2.9, 1.1, -2.4], [Box(0.6, 0.03, 1.2), 2.9, 0.5, -2.4], [Box(0.03, 0.5, 1.2), 3.2, 1.4, -2.4]);
+  for (const [dx, dz] of [[-0.25, -0.55], [0.25, -0.55], [-0.25, 0.55], [0.25, 0.55]]) WV.push([Box(0.06, 0.9, 0.06), 2.9 + dx, 0.65, -2.4 + dz]);
+  D.push([Sph(0.2, 10, 8), 2.9, 1.14, -2.6, { s:[1.4, 0.5, 1] }]);
+  STEEL.push([Box(0.05, 0.01, 0.12), 2.85, 1.14, -2.15, { ry:0.4, color:'#94a3b8' }], [Cyl(0.012, 0.012, 0.12, 6), 2.78, 1.14, -2.07, { rz:Math.PI / 2, ry:0.4, color:'#7c4a2a' }]);
+  for (let i = 0; i < 3; i++) P.push([Cyl(0.11, 0.085, 0.2, 12, 1, true), 2.75, 1.23 + i * 0.06, -1.95, { color:pick(CLAYS) }]);
+  solid(g, mat('cloth', '#3f2a1a'), [[Box(0.35, 0.5, 0.2), 2.9, 0.77, -2.6, { rx:0.2 }], [Box(0.35, 0.5, 0.2), 2.9, 0.45, -1.4, { rz:Math.PI / 2, ry:0.3 }]]);
+  STEEL.push([Box(0.1, 0.25, 0.25), 3.18, 1.0, -1.2, { color:'#1c1917' }], [Cyl(0.08, 0.08, 0.3, 10), 3.05, 1.0, -1.2, { rz:Math.PI / 2, color:'#334155' }]);
+  solid(g, mat('plastic', '#15803d'), [[new THREE.TorusGeometry(0.18, 0.012, 6, 20), 3.0, 1.0, -1.2, { ry:Math.PI / 2 }], [new THREE.TorusGeometry(0.18, 0.012, 6, 20), 3.04, 1.0, -1.2, { ry:Math.PI / 2 }],
+    [new THREE.TorusGeometry(0.18, 0.012, 6, 20), 3.08, 1.0, -1.2, { ry:Math.PI / 2 }], [new THREE.TorusGeometry(0.18, 0.012, 6, 20), 3.12, 1.0, -1.2, { ry:Math.PI / 2 }],
+    [Cyl(0.012, 0.012, 0.6, 6), 2.98, 0.52, -1.0, { rx:0.15 }]]);
+  // The mister, as before: a barrel, a green dome, rings of mist that rise (not under Reduce motion).
   const mister = group(g, -2.4, 0.2, -2.8);
-  put(mister, Cyl(0.35, 0.4, 1.0, 12), std('#78350f', { roughness:0.7 }), 0, 0.5, 0);
-  put(mister, Sph(0.32, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.6), std('#047857', { roughness:0.2 }), 0, 1.05, 0);
+  put(mister, Cyl(0.35, 0.4, 1.0, 12), mat('wood', '#78350f', { map:TEX.woodUp }), 0, 0.5, 0);
+  put(mister, Sph(0.32, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.6), mat('ceramic', '#047857'), 0, 1.05, 0);
   const ring = new THREE.RingGeometry(0.08, 0.18, 12), mist = [];
   for (let r = 0; r < 4; r++) mist.push(put(mister, ring,
     new THREE.MeshBasicMaterial({ color:'#e0f2fe', transparent:true, opacity:0.4, side:THREE.DoubleSide }), 0, 1.25 + r * 0.2, 0, { rx:-Math.PI / 2 }));
-  anims.push(t => mist.forEach((m, i) => {     // rings of mist rise, widen and fade; none under Reduce motion
+  anims.push(t => mist.forEach((m, i) => {
     m.visible = !prefs.calm;
     const o = (t * 0.8 + i * 0.4) % 1.2, s = 1 + o * 0.8;
     m.position.y = 1.15 + o; m.scale.set(s, s, 1); m.material.opacity = Math.max(0, 0.45 * (1 - o / 1.2));
   }));
+  // The sign behind the clerk, the board on the left wall.
+  hanging(g, shop, { frame:'#4a3220', bg:'#f5f0e1', border:'#86a35a', title:'#166534', text:'#1c1917', rule:'#86a35a', heading:'IN THE SHOP THIS WEEK', weight:'600',
+    note:'ask what\'s in stock today', noteColor:'#4d7c0f', rough:0.9 });
   board(g, shop, { frame:'#064e3b', bg:'#064e3b', title:'#a7f3d0', text:'#ffffff', note:'#6ee7b7' });
-  const can = group(g, 0.9, 1.23, 0.2), canBrass = std('#d97706', { metalness:0.85, roughness:0.2 });
-  put(can, Cyl(0.12, 0.14, 0.24, 10), canBrass, 0, 0.12, 0);
-  put(can, Cyl(0.02, 0.02, 0.32, 8), canBrass, -0.16, 0.24, 0, { rz:Math.PI / 3 });
+  // On the counter: a galvanised watering can at the left, a succulent in the middle, a flat of
+  // seedlings at the right end (low, clear of the line of sight to the stock room).
+  STEEL.push([Cyl(0.1, 0.12, 0.2, 12), -1.1, 1.325, 0.1, { color:'#9ca3af' }], [Cyl(0.015, 0.022, 0.3, 8), -0.93, 1.38, 0.1, { rz:-1.0, color:'#9ca3af' }],
+    [Cyl(0.03, 0.035, 0.03, 8), -0.81, 1.47, 0.1, { rz:-1.0, color:'#9ca3af' }], [new THREE.TorusGeometry(0.09, 0.012, 6, 12, Math.PI), -1.1, 1.43, 0.1, { color:'#9ca3af' }]);
+  potted(P, D, F, S, 'succulent', 0.2, 1.225, 0.3, 0.6);
+  crate(W, 1.25, 1.225, 0.2, 0.42, 0.3, 0.1);
+  for (const [dx, dz] of [[-0.12, -0.07], [0, -0.07], [0.12, -0.07], [-0.12, 0.07], [0, 0.07], [0.12, 0.07]]){
+    P.push([Cyl(0.04, 0.03, 0.07, 8), 1.25 + dx, 1.29, 0.2 + dz, { color:pick(CLAYS) }]); plant(F, S, 'succulent', 1.25 + dx, 1.32, 0.2 + dz, 0.35);
+  }
+  solid(g, mat('wood', '#8a5a2b', { map:TEX.wood }), W, 0, 0, 0, { cast:true });
+  solid(g, mat('wood', '#8a5a2b', { map:TEX.woodUp }), WV, 0, 0, 0, { cast:true });
+  solid(g, vmat('stone', { roughness:0.85 }), P);
+  solid(g, mat('stone', '#2b1d12'), D);
+  solid(g, vmat('leaf', { map:TEX.leaves, alphaTest:0.5, side:THREE.DoubleSide }), F);
+  solid(g, vmat('leaf'), S);
+  solid(g, vmat('steel'), STEEL);
 }
 
 const PROPS = { bakery:bakeryProps, paint:paintProps, plants:plantsProps };
 const props = group(scene);
 let propAnims = [];
 
-// Restyle the one shop building for a shop: colours, sign, props. The street is built once.
+// Restyle the one shop building for a shop: colours, light, sign, awning, hours, floor, props.
+// The street is built once. Shared textures stay; a prop's own canvas goes with it.
 function build(shop){
   current = shop;
-  const L = shop.look || SHOPS[0].look;
-  apronMat.color.set(L.apron); vestMat.color.set(L.vest); roomLight.color.set(L.light);
-  wallMat.color.set(L.wall); floorMat.color.set(L.floor);
-  stripeMats[0].color.set(L.awning[0]); stripeMats[1].color.set(L.awning[1]);
-  drawSign(shop);
-  props.traverse(o => { if (o.isMesh){ o.geometry.dispose(); o.material.map?.dispose(); o.material.dispose(); } });
+  const L = shop.look || SHOPS[0].look, D = decorOf(shop);
+  apronMat.color.set(L.apron); vestMat.color.set(L.vest); roomLight.color.set(L.light); roomLight.intensity = D.room;
+  wallMat.color.set(L.wall); floorMat.map = floorTexture(shop);
+  frameMat.color.set(D.frame); doorMat.color.set(D.frame); awningSide.color.set(L.awning[0]);
+  counterMat.color.set(D.counter[0]); topMat.color.set(D.counter[1]); counterTrim.color.set(D.counter[2]); trimMat.color.set(D.counter[2]);
+  sun.color.set(D.sun[0]); sun.intensity = D.sun[1]; hemi.color.set(D.sky[0]); hemi.groundColor.set(D.sky[1]); hemi.intensity = D.sky[2];
+  drawSign(shop); drawAwning(L); drawHours(shop);
+  props.traverse(o => { if (o.isMesh){
+    o.geometry.dispose();
+    for (const t of [o.material.map, o.material.emissiveMap, o.material.alphaMap]) if (t && !t.userData.shared) t.dispose();
+    o.material.dispose(); o.dispose?.();
+  } });
   props.clear();
   propAnims = []; ovenLight.intensity = 0;
   PROPS[shop.id]?.(props, shop, propAnims);
