@@ -181,12 +181,16 @@
   .panel-card{pointer-events:auto;width:100%;max-width:576px;display:flex;flex-direction:column;gap:10px;
     padding:12px;border-radius:24px;background:rgb(28 25 23/.9);box-shadow:var(--sh-2xl);
     -webkit-backdrop-filter:blur(40px);backdrop-filter:blur(40px);animation:slideUp .4s var(--out) both}
-  /* Never taller than the screen under the header (a list's answer with Larger text on a phone): it
-     scrolls instead. Its rows keep their height; without this a flex column would squash them. The
+  /* Never taller than the screen under the header (a list's answer with Larger text on a phone): its
+     middle (.panel-mid: the answer, the chips, the list) scrolls instead, and the status row and the
+     input stay in view. Rows keep their height; without this a flex column would squash them. The
      page itself keeps the list's chips still while it scrolls (holdCarry), so no browser anchoring. */
   .panel-card{max-height:calc(100vh - var(--bottom) - 72px);max-height:calc(100dvh - var(--bottom) - 72px);
     overflow:hidden auto;overscroll-behavior:contain;overflow-anchor:none}
   .panel-card>*{flex-shrink:0}
+  .panel-mid{display:flex;flex-direction:column;gap:inherit;flex-shrink:1;min-height:0;margin:-4px;padding:4px;
+    overflow:hidden auto;overscroll-behavior:contain;overflow-anchor:none}   /* the 4 px: room for the focus rings */
+  .panel-mid>*{flex-shrink:0}
   .panel-top{display:flex;align-items:center;justify-content:space-between;gap:6px;padding-bottom:8px;
     border-bottom:1px solid var(--s800)}
   .st{display:flex;align-items:center;gap:8px;min-width:0}
@@ -328,6 +332,9 @@
     .panel-card{gap:12px;padding:16px;max-height:calc(100vh - max(20px,env(safe-area-inset-bottom)) - 76px);
       max-height:calc(100dvh - max(20px,env(safe-area-inset-bottom)) - 76px)}
   }
+  /* Portrait: the 'tall' camera pose (script section 3) puts the clerk's chin at 37% of the height, so the
+     card stops at 37% plus a little and its middle scrolls, whatever the answer and the list add up to */
+  @media (orientation:portrait){.panel-card{max-height:calc(62vh - var(--bottom));max-height:calc(62dvh - var(--bottom))}}
   @media (hover:hover) and (pointer:fine){#q{font-size:14px}}
   /* Phones held sideways: one header row and a one-line dock, so the shop front stays in view */
   @media (max-height:520px) and (orientation:landscape){
@@ -345,7 +352,8 @@
     .reply-card{position:relative}                          /* Replay keeps the card's top-right corner */
     .who{position:absolute;top:8px;right:8px}
     .reply-card:has(#replay:not([hidden])) #reply{padding-right:84px}
-    .panel-card{gap:8px;padding:10px}
+    /* The 'short' pose also puts the chin at 37% of the height (the panel's bottom is 20 px from 640 px up) */
+    .panel-card{gap:8px;padding:10px;max-height:calc(58vh - 20px);max-height:calc(58dvh - 20px)}
   }
   @media (max-height:520px) and (orientation:landscape) and (max-width:699px){
     #brand{display:none}
@@ -605,6 +613,7 @@
       <span class="st"><span id="status" class="listening" role="status" aria-live="polite">Listening</span><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span></span>
       <button id="leave" type="button"><svg class="i" aria-hidden="true"><use href="#i-corner-up-left"/></svg>Leave shop</button>
     </div>
+    <div class="panel-mid"><!-- what scrolls when the card is at its max-height; the status row and the input stay put -->
     <div class="reply-card">
       <div class="who"><span id="avatar" aria-hidden="true"></span><span id="who"></span><button id="replay" type="button" hidden title="Hear the clerk again"><svg class="i" aria-hidden="true"><use href="#i-rotate-ccw"/></svg>Replay</button></div>
       <p id="reply" aria-live="polite" aria-atomic="true"></p>
@@ -620,6 +629,7 @@
       <div id="list-folded" hidden><span id="list-folded-text">Your list checked</span><span aria-hidden="true">·</span><button id="list-edit" type="button">Edit list</button></div>
       <div id="mylist" role="group" aria-labelledby="mylist-label" hidden><span class="list-label" id="mylist-label">My list</span><button id="check-list" type="button"><svg class="i" aria-hidden="true"><use href="#i-list-checks"/></svg>Check my list</button></div>
       <div id="carry" role="group" aria-labelledby="carry-label"><span class="list-label" id="carry-label">What we carry <span class="sub">· tap to add to your list</span></span></div>
+    </div>
     </div>
     <form id="f">
       <input id="q" placeholder="Ask for a product" autocomplete="off" maxlength="300" aria-label="Ask the clerk">
@@ -2449,7 +2459,7 @@ $('list-edit').onclick = () => { unfoldList(); (listFor(current).length ? $('che
 // is above it. Once the panel is as tall as the screen allows it scrolls instead (Larger text on a
 // phone) and the change would push the chips down; the scroll takes it up, so they stay put there too.
 function holdCarry(change){
-  const card = $('carry').closest('.panel-card'), was = $('carry').getBoundingClientRect().top;
+  const card = $('carry').closest('.panel-mid'), was = $('carry').getBoundingClientRect().top;
   change();
   const moved = $('carry').getBoundingClientRect().top - was;
   if (moved) card.scrollTop += moved;
