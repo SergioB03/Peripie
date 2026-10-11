@@ -11,13 +11,13 @@ A chatbot answers from whatever it was told. This clerk cannot answer until it h
 Small local shops, which Obsess and Emperia do not serve; I run one. And the customer who would rather not ask at a counter, which some days is me.
 
 **3. Is the stock real?**
-A real Postgres database on Tiger Data, twelve products with sixty days of shelf counts, queried on every question. The numbers are seeded for the demo.
+A real Postgres database on Tiger Data, 27 products, nine per shop, each with its restock rule, aliases and a price, and sixty days of shelf counts, queried on every question. The numbers are seeded for the demo.
 
 **4. How do you stop the clerk guessing?**
-The first Gemini round is forced to call check_stock, so even "ignore your instructions" gets a lookup first. Node computes the restock weekday; the model never does date math.
+The first Gemini round is forced to call check_stock, so even "ignore your instructions" gets a lookup first. Node computes the restock time, "in about 18 minutes" or "Friday, October 16"; the model never does clock or date math.
 
-**5. Where does "about three days" come from?**
-A LAG window over sixty days of stock_events finds each empty spell; the average spell is the typical restock time. Croissants: out two days once, four once, so three.
+**5. Where does "usually about 4.5 days" come from?**
+A LAG window over sixty days of stock_events finds each empty spell; the average spell is the typical restock time. The paint rollers show it: out five days once, four once, so 4.5, next to the truck's Friday. The bakery's trays get an oven time instead, so the clerk leaves the number out there.
 
 **6. Why Tiger and not a plain table?**
 Restock history is time-series data, a reading every six hours per product, and a hypertable is built for that. It is still Postgres, so other tools can write to it.
@@ -67,9 +67,9 @@ Write your list before you go in, press Check my list, and the clerk checks ever
 ## Ten failure drills
 
 1. **Silent greeting.** Volume, the silent switch, or audio never unlocked because the walk-in did not start from a tap. Volume up, tap Replay. Say: "Loud room, let me have the clerk say that again."
-2. **Flat answer** ("It's back Tuesday, October 13, and it usually takes about 3 days"). Both model attempts failed (429, 503 or a hang); the server composed it from the stock record. Nothing to fix; space the next question. Say: "The clerk is being brief; that date is straight from the database."
+2. **Flat answer** ("We're out of croissant right now. The next tray of croissants comes out of the oven in about 18 minutes.", with the product in the singular; at the paint store "We're out of roller right now. Our supplier's truck comes Friday, October 16. It usually takes about 5 days."). Both model attempts failed (429, 503 or a hang); the server composed it from the stock record. Nothing to fix; space the next question. Say: "The clerk is being brief; that time is straight from the database."
 3. **Canned answer** ("Good news, sourdough is in stock") with the italic "printed list" line. A 502 (model down, no product matched) or no answer at all. Ask by product name; if it persists, check signal and reload. Say: "That is the printed list at the counter; the page works without the network."
-4. **"We don't carry that."** The judge asked for bread or cookies: four products per shop, matched by name, and each question stands alone, so a bare follow-up fails too. Point at the What we carry board or a chip. Say: "Four products this weekend; the board lists them."
+4. **"We don't carry that."** The judge asked for cookies or pizza: nine products per shop, matched by name and alias ("bread" finds the sourdough), but not everything; and each question stands alone, so a bare follow-up fails too. Point at the What we carry board or a chip. Say: "Nine products per shop this weekend; the board shows four, ask for the rest by name."
 5. **No walk-in, a cut to the counter, captions on.** The phone's Reduce Motion is on and the page follows it. Accessibility button, top right: Reduce motion off; Leave and enter again. Say: "The page follows the phone's motion setting; let me turn that off."
 6. **The sound button does not mute the clerk.** It mutes footsteps, chime and rustle only; the voice always plays. Use the phone's volume. Say: "That button is the sound effects; the clerk's voice is the product."
 7. **A tap on the storefront does nothing, or the view turns.** Only the "Tap here to walk in" pill and the Enter shop button walk in; the rest is a drag to look around. Tap Enter shop. Say: "Two ways in: the doors or the Enter button."
@@ -110,10 +110,10 @@ No account. Nothing stored.
 ## The 6 am checklist
 
 1. Phone: volume up, silent switch off, Do Not Disturb on, auto-lock off, Reduce Motion off (Settings > Accessibility > Motion), charger packed.
-2. Re-run db/seed.sql on Tiger (second Docker command in db/README.md) so the baguette's "tomorrow" is Monday; Tiger does not reseed itself.
+2. Re-run db/seed.sql on Tiger (second Docker command in db/README.md) if it was not loaded today: the dated items (sourdough's "tomorrow", the cake's two days, the Friday and Saturday deliveries that have no rule) and the end of the count history follow the day it runs; the oven times come from the clock either way. Tiger does not reseed itself.
 3. Replit Publishing > Logs: `using TIGER_DATABASE_URL`, `greetings warmed (3/3)`; Adjust settings says Reserved VM, else warm before each judge. Never open the Agent pane or Republish.
 4. Second device: enter the bakery, ask for sourdough; expect the ElevenLabs voice and the Stock room line.
-5. Demo phone: reload once, enter the bakery, hear the greeting, ask croissants, expect "Tuesday, October 13"; mic once, loudspeaker check after; Leave shop.
+5. Demo phone: reload once, enter the bakery, hear the greeting, ask croissants, expect the next tray: "in about N minutes" (the oven runs every 20 minutes from 7 am to 5 pm; more than 90 minutes before the first tray it reads "today at 7 am"); mic once, loudspeaker check after; Leave shop.
 6. Rehearse twice, out loud, cuts made; questions fifteen seconds apart on the free key.
 7. Stop rehearsing five minutes before the judges; warm the link again.
 8. Bakery first; switch shops only at the paint beat.

@@ -20,14 +20,14 @@ flowchart TD
         F["Visitor asks again, or taps Leave shop and walks back out to the street"]
     end
     A -->|"taps a shop name, then Enter shop, and walks in"| B
-    B -->|"hears: Welcome to Rosa's Bakery. How can I help you today?"| C
+    B -->|"hears: Welcome to Rosa's Bakery. Take your time, and ask me about anything on the shelves whenever you're ready."| C
     C -->|"types: do you have croissants? Taps Ask."| D
     D -->|"asks: croissants?"| S
-    S -->|"looks it up: out, back Tuesday, October 13"| E
+    S -->|"looks it up: out, the next tray comes out of the oven in about 18 minutes"| E
     D -.->|"Wi-Fi down: reads the list instead"| L
-    L -.->|"out, back Tuesday morning, in a plainer voice"| E
+    L -.->|"out, with the rougher time printed on the list, in a plainer voice"| E
     E -->|"hears the answer"| F
-    O -->|"keeps counts and restock dates"| S
+    O -->|"keeps counts, restock rules and the shop's own lines"| S
 ```
 
 The solid path is a normal visit. The dotted path is what happens when the connection drops after the page has loaded, or when the clerk cannot answer in time.
@@ -36,13 +36,13 @@ The solid path is a normal visit. The dotted path is what happens when the conne
 
 1. **On the street.** You see a shop front and the names of three shops: Rosa's Bakery, Southside Paint Supply and Fern & Pot. Tap a name to switch shops.
 2. **Through the door.** Tap **Enter shop**. The view walks you up to the door, the doors slide open, and you stop in front of the counter.
-3. **The greeting.** The clerk says out loud, "Welcome to Rosa's Bakery. How can I help you today?" The words also appear on screen.
+3. **The greeting.** The clerk says out loud, "Welcome to Rosa's Bakery. Take your time, and ask me about anything on the shelves whenever you're ready." The words also appear on screen.
 4. **Asking.** Type into the **Ask for a product** box and tap **Ask**, or tap the mic button and speak (the mic appears on the https link, not on a plain http address).
 5. **The clerk checks.** The label changes to **Checking with the stock room**. The clerk turns away, and a second person appears in the back.
-6. **The answer.** The clerk turns back and says it: in stock, or out and when it returns. The clerk may add how long that item usually takes to come back.
+6. **The answer.** The clerk turns back and says it: in stock and how many, or out and when the next tray comes out of the oven, in the shop's own words. At the paint store, where the truck comes on a weekday, the clerk may add how long that item usually takes to come back.
 7. **Again, or leave.** Ask again when the label reads **Listening**. Or tap **Leave shop**: the view walks you back out, the doors close, and you can pick another shop.
 
-Not every question names a product. Say hello and the clerk greets you back. Ask for something the shop does not carry, and the clerk says so and names what is in stock.
+Not every question names a product. Say hello and the clerk greets you back. Ask for something the shop does not carry, and the clerk says so and names what is in stock. Ask for "bread" and the clerk finds the sourdough and names the other loaves. Ask what something costs and you get the price; ask when the shop closes and you get the hours. Ask for delivery, a hold or to pay, and the clerk says plainly that it cannot do that here.
 
 ## Three things a visitor notices
 
@@ -58,7 +58,7 @@ If only the clerk voice is out, the answer still comes from the stock room, in t
 
 ## The owner's part
 
-The shop owner keeps the stock room's counts and restock dates. The stock room also keeps a history of those counts. That history is how the clerk can say an item "usually comes back within about three days."
+The shop owner keeps the stock room's counts, and for each item how it comes back: a tray every 20 minutes at the bakery, the supplier's truck on Fridays at the paint store, the grower on Saturdays at the plant shop, each with the shop's own sentence about it. The stock room also keeps a history of the counts. That history is how the clerk at the paint store can say rollers "usually take about 4.5 days" to come back.
 
 This takes one job off the owner: answering "do you have it?" on the phone. In this demo the stock room holds sample data, and there is no owner screen.
 
@@ -83,12 +83,12 @@ The diagram above leaves the machinery out on purpose. This table maps the story
 | The street and the shop names | `SHOPS` in `public/index.html`, drawn with Three.js |
 | Tapping Enter shop | The page posts `{ "shop": "bakery", "greet": true }` to `/api/clerk` while the camera walks in |
 | The greeting | Express returns fixed text per shop, with no Gemini call. The ElevenLabs mp3 is cached in memory per shop |
-| Asking | The page posts `{ "shop": "bakery", "text": "do you have croissants?" }`, 1 to 300 characters |
+| Asking | The page posts `{ "shop": "bakery", "text": "do you have croissants?" }`, 1 to 300 characters. The server also accepts the last three exchanges as `history`, which the page does not send yet |
 | The clerk | Gemini, with `check_stock` as its only tool. Its first round must call the tool |
-| The stock room | `check_stock` in `server/stock.js` reads Tiger Data: `inventory` for counts and dates, `stock_events` for the usual restock gap. If the database is unreachable, it answers from the built-in seed |
+| The stock room | `check_stock` in `server/stock.js` reads Tiger Data: `inventory` for counts, restock rules and the shop's notes, `stock_events` for the usual restock gap. It turns the rule into "in about 18 minutes" or "Friday, October 16" in Node. If the database is unreachable, it answers from the built-in seed |
 | The clerk voice | ElevenLabs turns the reply into an mp3, sent back in the JSON as a data URL. No file is written |
 | The plainer voice | The browser's speech synthesis, used when there is no mp3 |
-| The printed list | Canned answers from `SHOPS[].inventory`, used on a network error, a non-2xx status, or no answer within 15 s |
+| The printed list | Canned answers from `SHOPS[].inventory`, four products per shop with rough times, used on a network error, a non-2xx status, or no answer within 15 s |
 | What the server logs | Method, path, status, milliseconds and error types. Never the question or the reply |
 
 Gemini reads the visitor's question. ElevenLabs reads only the clerk's reply. What those services and the host keep on their side is disclosed in [PLAN.md section 4](../PLAN.md#4-rules-for-everyone).

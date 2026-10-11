@@ -10,7 +10,7 @@ This page shows who talks to whom, first as people and places, then as files and
 - **The door.** The doors open and the visitor walks to the counter. The clerk gets the greeting ready on the way in: one fixed line per shop, voiced once and kept in memory, never sent to the helper who understands questions. Leave shop walks the visitor back out.
 - **The counter.** The clerk greets the visitor out loud. The visitor types a question, and the clerk answers out loud in one or two short sentences.
 - **The stock room.** The clerk checks here before every answer. On screen, the clerk turns to a stock agent and the status reads "Checking with the stock room".
-- **The shelf list.** The owner's record for each product: how many are on hand, when the next delivery comes, and past counts that show how long it usually takes to come back.
+- **The shelf list.** The owner's record for each product: how many are on hand, how and when more comes (a tray every 20 minutes, the supplier's truck on Fridays) in the shop's own words, and past counts that show how long it usually takes to come back.
 - **Outside helpers.** The shop uses three: one understands the question and words the answer, one lends the clerk a voice, and one keeps the shelf list and the count log.
 
 ## Who talks to whom
@@ -33,15 +33,15 @@ flowchart TB
 
     Street -->|"taps Enter shop"| Door
     Door -->|"walks in"| inside
-    Clerk -->|"Welcome to Rosa's Bakery. How can I help you today?"| Visitor
+    Clerk -->|"Welcome to Rosa's Bakery. Take your time, and ask me about anything on the shelves whenever you're ready."| Visitor
     Visitor -->|"Do you have croissants?"| Clerk
-    Clerk -->|"Out of croissants. Back Tuesday, October 13."| Visitor
+    Clerk -->|"Out of croissants. The next tray comes out of the oven in about 18 minutes."| Visitor
     Clerk -->|"Any croissants?"| Stock
     Stock -->|"reads the bakery list"| List
-    Stock -->|"None left. Back Tuesday."| Clerk
+    Stock -->|"None left. Next tray in about 18 minutes."| Clerk
     Clerk -.-|"hears the question, words the answer"| Think
     Clerk -.-|"speaks every line aloud"| Voice
-    Owner -->|"tells it counts and delivery dates"| List
+    Owner -->|"tells it counts, restock rules and delivery days"| List
 ```
 
 Solid arrows are things said, tapped or looked up during one visit, except the owner's, which happens outside any visit. Dotted lines are outside help.
@@ -54,11 +54,12 @@ The shop keeps nothing about the visitor: no account, no cookie, no copy of what
 
 The helpers are a different matter, and the plan says so plainly: on its free tier, the helper who understands the question may keep it to improve its own products; the voice service keeps the clerk's lines, never the question, in its history; and the host counts visits by country. None of them gets a name, an account or a cookie. The full disclosure is in [PLAN.md section 4](../PLAN.md#4-rules-for-everyone).
 
-In the demo, the shelf list is sample data: four products in each shop, with 60 days of past counts. The owner has no screen for it.
+In the demo, the shelf list is sample data: nine products in each shop, 27 in all, with 60 days of past counts. The owner has no screen for it.
 
 If something is slow or down, the visit still works:
 
-- **No answer within 15 seconds, or the helper who understands is down:** the clerk answers from a short list built into the page, in the phone's own voice.
+- **The helper who understands is down, but the stock room found the item:** the clerk says the record in plainer words, still in its own voice.
+- **No answer within 15 seconds, or the helper is down and nothing matched:** the clerk answers from a short list built into the page, in the phone's own voice.
 - **The voice fails or is late:** the phone's own voice says the same words.
 - **The shelf list keeper cannot be reached:** the stock room reads a built-in copy of the sample list.
 
@@ -71,7 +72,7 @@ If something is slow or down, the visit still works:
 | Understands the question | `server/clerk.js` | Gemini API, with `check_stock` as its only tool |
 | Stock room | `server/stock.js`: `check_stock` | none |
 | Keeps the shelf list | `db/schema.sql`, `db/seed.sql` | Tiger Data (Postgres): `inventory`, `stock_events` |
-| The owner's counts and dates, in the demo | `db/seed-data.js`: sample data that generates `db/seed.sql` and is the built-in copy | none |
+| The owner's counts, rules and notes, in the demo | `db/seed-data.js`: sample data that generates `db/seed.sql` and is the built-in copy | none |
 | Lends the clerk a voice | `server/voice.js` | ElevenLabs text to speech, sent back as an mp3 data URL |
 | Backup answers and the phone's own voice | `public/index.html` | none: the browser's built-in speech |
 
@@ -83,6 +84,7 @@ One question, step by step: [sequence.md](sequence.md). The tables behind the sh
 ```json
 { "shop": "bakery", "text": "do you have croissants?" }
 ```
+A question may also carry `history`, up to three prior `{ "q", "a" }` pairs, and `{ "shop", "items" }` checks a whole list of 1 to 12 items in one request (PLAN.md section 3). The page on main sends neither yet.
 
 **Greeting:**
 ```json
@@ -92,9 +94,11 @@ One question, step by step: [sequence.md](sequence.md). The tables behind the sh
 **Response:**
 ```json
 {
-  "reply": "We're out of croissants right now. They'll be back Tuesday, October 13.",
+  "reply": "We're out of croissants right now. The next tray of croissants comes out of the oven in about 18 minutes.",
   "audioUrl": "data:audio/mpeg;base64,...",
-  "stock": { "product": "croissant", "inStock": false, "onHand": 0, "nextRestock": "2026-10-13",
-             "nextRestockText": "Tuesday, October 13", "typicalRestockDays": 3 }
+  "stock": { "product": "croissant", "inStock": false, "onHand": 0, "nextRestock": "2026-10-11",
+             "nextRestockText": "in about 18 minutes", "typicalRestockDays": 3,
+             "restockNote": "The next tray of croissants comes out of the oven in about 18 minutes.",
+             "nextRestockAt": "2026-10-11T09:20:00-04:00", "price": "$4.00", "lowStock": false, "alsoMatched": [] }
 }
 ```
