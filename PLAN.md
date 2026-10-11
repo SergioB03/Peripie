@@ -72,6 +72,14 @@ Greeting: `POST /api/clerk`, JSON body
 ```
 Gemini is not called for a greeting. The server uses fixed text per shop and caches the mp3 per shop in memory (the shop id is not visitor data; this also protects the ElevenLabs credit budget). The page sends this request on the Enter tap, in parallel with the camera move, so the audio is ready at the counter.
 
+List (additive, Oct 11, 3 am): `POST /api/clerk`, JSON body
+```json
+{ "shop": "bakery", "items": ["sourdough", "croissants", "pan de muerto"] }
+```
+1 to 12 strings of 1 to 60 characters, else 400 `{ "error": "bad_items" }`; a body with both `text` and `items` is `bad_items`. The stock agent checks every item at once (one query per shop), Gemini writes a one- or two-sentence summary in a single call (no tool rounds), and the template writes it if the model fails: a list never returns 502. The response adds `stocks`, an array in request order of the found shape (plus `query`, the visitor's wording, never logged) or `{ "query", "found": false, "inStockProducts" }`; `stock` is the last found entry or null.
+
+Memory (additive, Oct 11, 3 am): a question may carry `history: [{ "q", "a" }]`, at most 3 pairs of at most 300 characters each (else 400 `bad_text`), kept only in the page and sent as prior turns so "and the sourdough?" resolves. The forced `check_stock` first round still applies to the new question. Nothing is stored or logged server-side.
+
 Response: 200, JSON
 ```json
 {
@@ -95,15 +103,17 @@ Errors, JSON:
 - If ElevenLabs fails, return the reply with `audioUrl: null`; the page falls back to the browser's voice.
 - Keep replies to one or two short sentences. They are spoken aloud.
 
-`check_stock(shopId, query)` returns one of:
+`check_stock(shopId, query)` returns one of (shape as of Oct 11, 3:20 am):
 ```json
-{ "found": true, "product": "croissant", "inStock": false, "onHand": 0, "nextRestock": "2026-10-13",
-  "nextRestockText": "Tuesday, October 13", "typicalRestockDays": 3 }
+{ "found": true, "product": "croissant", "inStock": false, "onHand": 0, "lowStock": false, "price": "$4.00",
+  "nextRestock": "2026-10-11", "nextRestockAt": "2026-10-11T09:20:00-04:00", "nextRestockText": "in about 18 minutes",
+  "restockNote": "The next tray of croissants comes out of the oven in about 18 minutes.",
+  "typicalRestockDays": 3, "alsoMatched": [] }
 ```
 ```json
-{ "found": false, "inStockProducts": ["sourdough", "concha"] }
+{ "found": false, "inStockProducts": ["concha", "sourdough"] }
 ```
-`nextRestockText` is computed in Node in America/New_York so the model never does weekday math; that is what makes step 4 of section 2 "correct". `typicalRestockDays` is null when the item has never hit zero, and the clerk prompt must tolerate that.
+`nextRestockText` is computed in Node in America/New_York so the model never does clock or weekday math: within 90 minutes "in about 18 minutes", later today "today at 2 pm", "tomorrow at 7 am", otherwise a weekday such as "Friday, October 16". `restockNote` is the shop's own sentence with that time filled in; the clerk prefers it and does not quote `typicalRestockDays` when the text starts with "in about", "today" or "tomorrow" (the typical-days line stays for weekday items such as the paint store's rollers, which is the Tiger Data moment in the demo). `lowStock` is true at 1 to 3 on hand; `price` is a display string, mentioned only when asked; `alsoMatched` lists other products the visitor's words fit (an alias such as "bread" finds the sourdough and lists the others), so "we don't carry that" is said only on `found: false`. `typicalRestockDays` is null when the item has never hit zero, and the clerk prompt must tolerate that.
 
 ### Data model (Tiger Data)
 
@@ -116,6 +126,8 @@ stock_events(ts timestamptz, shop_id text, product text, on_hand int)   -- hyper
 `check_stock` returns the shape in the contract above. `typicalRestockDays` is computed from `stock_events` with `LAG(on_hand) OVER (PARTITION BY shop_id, product ORDER BY ts)`: each 0 to positive transition is a restock, the gap in days from the first zero is averaged, and the result is null when the item never hit zero. That number is what makes this a real use of a time-series database, so the clerk should use it: "that usually comes back within three days."
 
 Hypertable rules: `SELECT create_hypertable('stock_events', by_range('ts'))`; no `serial primary key` on it (any unique index must include `ts`). Match products loosely ("croissants" finds "croissant") and with parameterized queries only.
+
+Added Oct 11, 3 am (all `ADD COLUMN IF NOT EXISTS`, so re-running `schema.sql` on the live service is safe; re-run `seed.sql` after it): `inventory.restock_rule text` (`every:20;07:00-17:00` a batch every 20 minutes between 7 am and 5 pm; `daily:07:00,14:00`; `weekly:friday`; null = the `next_restock` date), `inventory.restock_note text` (the shop's sentence with `{when}`), `inventory.aliases text[]`, `inventory.price_cents int`. Nine products per shop, 27 in all, 240 counts each (6,480 rows). The page's original twelve keep their names, status and schedules; the rest add the edge cases a judge asks for: a gluten-free loaf with two left, cakes made to order, a help-desk's worth of paint supplies, an orchid in bloom.
 
 Seed three shops to match the `SHOPS` list in `public/index.html`: `bakery`, `paint`, `plants`, with the same four products each and the same in/out status. Seed `next_restock` relative to `current_date` so it is still in the future on Sunday (the page's wording: croissant back Tuesday, baguette tomorrow at 7 am, roller Friday, monstera next Saturday). If `DATABASE_URL` is unset, `server/stock.js` serves an in-memory copy of the seed and logs one warning, so M4 stays testable before the database is ready.
 
