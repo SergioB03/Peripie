@@ -60,7 +60,8 @@
     padding:var(--top) 12px 0;pointer-events:none}
   #top>*{pointer-events:auto}
   #brand{grid-area:brand;display:flex;align-items:center;gap:10px;min-width:0;padding:6px 14px 6px 6px;
-    border-radius:16px}
+    border-radius:16px;text-align:left;transition:border-color .15s}   /* a button: it opens the settings drawer */
+  #brand:hover{border-color:rgb(255 255 255/.25)}
   .brand-text{display:flex;flex-direction:column;min-width:0}
   .brand-line{display:flex;align-items:center;gap:6px}
   .brand-line b{font-size:14px;line-height:20px;font-weight:800;letter-spacing:-.025em}
@@ -268,6 +269,24 @@
     #shops{justify-self:start}
   }
 
+  /* Settings drawer, read-only: the brand card opens the shop's entry in SHOPS as its settings file */
+  #settings{width:min(560px,calc(100% - 32px));max-height:calc(100% - 48px);padding:0;border-radius:20px;
+    color:var(--s100);background:rgb(28 25 23/.97);border:1px solid rgb(255 255 255/.12);box-shadow:var(--sh-2xl);
+    overflow:hidden}
+  #settings[open]{display:flex;flex-direction:column}
+  #settings::backdrop{background:rgb(12 10 9/.6)}
+  #settings .sheet{display:flex;flex-direction:column;gap:12px;min-height:0;padding:16px}
+  #settings h2{margin:0;font-size:15px;line-height:20px;font-weight:700;color:#fff}
+  #settings pre{flex:1 1 auto;min-height:0;margin:0;overflow:auto;padding:12px;border-radius:12px;
+    background:var(--s950);border:1px solid var(--s800);color:var(--s200);
+    font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    white-space:pre-wrap;overflow-wrap:anywhere;-webkit-user-select:text;user-select:text}
+  #settings pre:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
+  #settings p{margin:0;font-size:13px;line-height:1.5;color:var(--s300)}
+  #settings-close{align-self:flex-end;min-height:40px;padding:8px 18px;border-radius:12px;background:var(--accent);
+    color:#fff;font-size:14px;font-weight:700;box-shadow:var(--sh-md);transition:filter .15s}
+  #settings-close:hover{filter:brightness(1.1)}
+
   @keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
   @keyframes ping{75%,100%{transform:scale(2);opacity:0}}
   @keyframes pulse{50%{opacity:.5}}
@@ -304,13 +323,13 @@
 <canvas id="c" role="img" aria-label="A shop front on a city street; inside, a clerk behind the counter"></canvas>
 
 <header id="top">
-  <div id="brand" class="glass">
+  <button id="brand" class="glass" type="button" aria-haspopup="dialog" aria-label="Peripie: this shop's settings file" title="This shop's settings file">
     <span class="tile"><svg class="i" data-shop-icon aria-hidden="true"><use href="#i-croissant"/></svg></span>
     <span class="brand-text">
       <span class="brand-line"><b>Peripie</b><span class="chip amber" id="event">HackLanta '26</span></span>
       <span class="where"><svg class="i" aria-hidden="true"><use href="#i-map-pin"/></svg><span id="area"></span></span>
     </span>
-  </div>
+  </button>
   <nav id="shops" class="solid" aria-label="Shops"></nav>
   <div id="actions">
     <button id="skyline" class="solid pill-btn" type="button" aria-pressed="false" title="Look up at the skyline"><svg class="i" aria-hidden="true"><use href="#i-building-2"/></svg><span id="skyline-label">Skyline</span></button>
@@ -355,6 +374,15 @@
     </form>
   </div>
 </div>
+
+<dialog id="settings" aria-labelledby="settings-title">
+  <div class="sheet">
+    <h2 id="settings-title">This shop's settings file</h2>
+    <pre id="settings-json" tabindex="0"></pre>
+    <p>Each shop is one settings file. The builder we're making next lets an owner edit it by dragging things around.</p>
+    <button id="settings-close" type="button">Close</button>
+  </div>
+</dialog>
 
 <script type="module">
 import * as THREE from 'three';
@@ -1163,6 +1191,42 @@ function setSkyline(on, keepView){
   if (!keepView){ targetYaw = on ? -0.22 : 0; targetPitch = on ? 0.28 : 0; }
 }
 $('skyline').onclick = () => setSkyline(!skyline);
+
+// Settings drawer, read-only: the brand card shows the current shop's entry in SHOPS (all of it
+// display data) as the settings file it is. Nothing in it is editable and nothing is stored. The
+// native modal dialog keeps focus inside and closes on Escape; focus then returns to the card.
+const settings = $('settings');
+// The entry as JSON, indented two spaces, with an object or list on one line when that line fits
+// in `cols` characters, so a phone shows short clean lines instead of wrapped ones.
+function settingsText(shop, cols){
+  const out = (v, ind, lead) => {                               // lead: characters before v on its line
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    const arr = Array.isArray(v), inner = ind + '  ';
+    const items = arr ? v.map(x => out(x, inner, inner.length))
+      : Object.entries(v).map(([k, x]) => { const key = JSON.stringify(k) + ': '; return key + out(x, inner, inner.length + key.length); });
+    if (!items.length) return arr ? '[]' : '{}';
+    const one = arr ? '[' + items.join(', ') + ']' : '{ ' + items.join(', ') + ' }';
+    if (!one.includes('\n') && lead + one.length + 1 <= cols) return one;   // + 1 for a comma after it
+    return (arr ? '[' : '{') + '\n' + items.map(i => inner + i).join(',\n') + '\n' + ind + (arr ? ']' : '}');
+  };
+  return out(shop, '', 0);
+}
+$('brand').onclick = () => {
+  if (settings.open || typeof settings.showModal !== 'function') return;
+  settings.showModal();
+  const pre = $('settings-json'), cs = getComputedStyle(pre), pen = document.createElement('canvas').getContext('2d');
+  pen.font = cs.fontSize + ' ' + cs.fontFamily;                // the width of one monospace character
+  const ch = pen.measureText('0000000000').width / 10 || parseFloat(cs.fontSize) * 0.6;
+  pre.textContent = settingsText(current, Math.max(24, Math.floor((pre.clientWidth - 24 - 16) / ch)));   // padding, scrollbar
+  pre.scrollTop = 0; $('settings-close').focus();
+};
+$('settings-close').onclick = () => settings.close();
+settings.addEventListener('click', e => {                       // a tap on the dimmed page around it
+  const r = settings.getBoundingClientRect();
+  if (e.target === settings && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom))
+    settings.close();
+});
+settings.addEventListener('close', () => $('brand').focus());  // Close, Escape or a tap outside
 
 // Sound effects: turns the footsteps, the door chime and the stock room's rustle off and on. The
 // clerk's voice (the shared Audio element and the browser's voice) always plays: a muted
