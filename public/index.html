@@ -1195,9 +1195,10 @@ solid(scene, trimMat, [[Box(6.5, 0.12, 0.04), 0, 0.27, -4.63], [Box(0.04, 0.12, 
   [Box(0.1, 2.5, 0.12), 1.25, 1.45, -4.58], [Box(0.1, 2.5, 0.12), 2.55, 1.45, -4.58], [Box(1.4, 0.22, 0.12), 1.9, 2.72, -4.58]]);
 solid(scene, mat('wood', '#3b2314', { map:TEX.wood }), [-2, 0, 2].map(z => [TexBox(6.4, 0.2, 0.25), 0, 4.1, z]));
 put(scene, Box(1.2, 2.4, 0.1), mat('paint', '#ffffff', { map:TEX.stockDoor, emissiveMap:TEX.stockGlow, emissive:'#fff1b8', emissiveIntensity:1.1, roughness:0.55 }), 1.9, 1.4, -4.6);
-// The STOCK ROOM sign: on the wall beside the door, at hand height, pointing at it. (On the lintel it
+// The STOCK ROOM sign: on the wall beside the door, at head height, pointing at it. (On the lintel it
 // ran off the right of a 390 px phone's frame, and a phone held sideways hides the lintel behind the
-// header; x 0.56 to 1.2 at y 2.2 is in frame at every station on every screen, section 6's HANDOFF.)
+// header. x 0.5 to 1.1 at y 2.02 is in frame at every station on every screen, clear of the clerk's
+// head from a phone's high camera, under the pendants and above where the stock agent stops.)
 const stockLabel = canvasTexture(512, 128, x => {
   x.fillStyle = '#78350f'; x.fillRect(0, 0, 512, 128);
   x.strokeStyle = '#fde68a'; x.lineWidth = 6; x.strokeRect(10, 10, 492, 108);
@@ -1206,7 +1207,7 @@ const stockLabel = canvasTexture(512, 128, x => {
   x.beginPath(); x.moveTo(418, 64); x.lineTo(470, 64); x.moveTo(446, 40); x.lineTo(472, 64); x.lineTo(446, 88);   // the arrow
   x.strokeStyle = '#fef3c7'; x.lineWidth = 10; x.lineCap = 'round'; x.lineJoin = 'round'; x.stroke();
 });
-put(scene, new THREE.PlaneGeometry(0.64, 0.16), mat('paint', '#ffffff', { map:stockLabel }), 0.88, 2.2, -4.62);
+put(scene, new THREE.PlaneGeometry(0.6, 0.15), mat('paint', '#ffffff', { map:stockLabel }), 0.8, 2.02, -4.62);
 
 // Counter: a panelled wooden body, a thicker top (at y 1.225), and on it the brass register at the
 // left end and the bell at the right. Each shop's props replace the body with their trade's own
@@ -1323,8 +1324,8 @@ function fixtures(g, kind){
     shaft.setAttribute('color', new THREE.BufferAttribute(col, 3));
     put(g, shaft, new THREE.MeshBasicMaterial({ color:'#fff7d6', vertexColors:true, transparent:true, opacity:0.14, blending:THREE.AdditiveBlending,
       depthWrite:false, side:THREE.DoubleSide, fog:false }), sx - 0.45, 2.3, sz - 0.3, { rz:-0.22, rx:0.14 });
-  } else {                   // three brass pendants on long cords behind the clerk, clear of the STOCK ROOM sign
-    const xs = [-1.6, -0.5, 0.7], z = -2.2;
+  } else {                   // three brass pendants on long cords behind the clerk, clear of the line of sight to the STOCK ROOM sign
+    const xs = [-1.6, -0.5, 0.4], z = -2.2;
     solid(g, basic('#1c1917'), xs.map(x => [Cyl(0.008, 0.008, 1.9, 4), x, 3.26, z]));
     solid(g, mat('brass', '#d97706', { side:THREE.DoubleSide, emissive:'#92400e', emissiveIntensity:0.35 }), xs.map(x => [new THREE.ConeGeometry(0.24, 0.22, 16, 1, true), x, 2.2, z]));
     solid(g, basic('#fef3c7'), xs.map(x => [Sph(0.05, 10, 8), x, 2.13, z]));
@@ -1721,7 +1722,7 @@ function plantsProps(g, shop, anims){
   // Pothos hung from a pipe across the shop (clear of the line of sight to the stock room), with a
   // string of bulbs along it.
   STEEL.push([Cyl(0.025, 0.025, 5.2, 10), 0, 3.3, -2.2, { rz:Math.PI / 2, color:'#1c1917' }], [Box(0.04, 0.9, 0.04), -2.0, 3.75, -2.2, { color:'#1c1917' }], [Box(0.04, 0.9, 0.04), 2.0, 3.75, -2.2, { color:'#1c1917' }]);
-  for (const x of [-2.0, -0.9, 0.3, 2.3]){
+  for (const x of [-2.0, -0.9, -0.2, 2.3]){
     STEEL.push([Cyl(0.006, 0.006, 0.95, 4), x, 2.85, -2.2, { color:'#d6c9a8' }]);
     P.push([Cyl(0.13, 0.1, 0.2, 12), x, 2.3, -2.2, { color:pick(CLAYS) }]); D.push([Cyl(0.12, 0.12, 0.01, 12), x, 2.396, -2.2]);
     plant(F, S, 'pothos', x, 2.39, -2.2, 0.8);
