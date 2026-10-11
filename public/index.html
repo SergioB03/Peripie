@@ -109,11 +109,13 @@
   #door-cue{position:fixed;left:50%;top:50%;z-index:10;display:flex;align-items:center;gap:8px;
     padding:6px 14px;border-radius:9999px;background:rgb(28 25 23/.75);border:1px solid rgb(255 255 255/.2);
     color:#fff;font-size:12px;font-weight:600;letter-spacing:.025em;white-space:nowrap;box-shadow:var(--sh-xl);
-    transform:translate(-50%,-50%);transition:opacity .3s,border-color .3s,transform .3s}
+    transform:translate(-50%,-50%);transition:opacity .3s,border-color .3s,transform .3s,visibility .3s}
   #door-cue:hover{border-color:#fbbf24;transform:translate(-50%,-50%) scale(1.05)}
   #door-cue::after{content:"";position:absolute;inset:-110px -70px}   /* the street's tap target covers the doors around the pill */
   #door-cue .i{width:14px;height:14px}
-  #door-cue.off{opacity:0;pointer-events:none}
+  #door-cue.off{opacity:0;pointer-events:none;visibility:hidden}   /* off screen: out of the Tab order too */
+  .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip-path:inset(50%);
+    white-space:nowrap}
   body:not([data-where=street]) :is(#dock,#door-cue,#skyline,#hint){display:none}
 
   /* Street dock: the shop's card and the Enter button */
@@ -205,7 +207,9 @@
     animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}
   #reply{margin:0;padding-left:32px;font-size:14px;line-height:1.625;font-weight:500;color:var(--s100);
     overflow-wrap:anywhere}
-  #reply:empty{display:none}
+  #reply:empty{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}   /* out of the layout,
+     but still in the accessibility tree, so the live region is there before the answer arrives */
+  #reply:empty::before,#reply:empty::after{content:none}
   #reply::before{content:"\201C"}
   #reply::after{content:"\201D"}
   /* Under the answer: the stock room's record behind it, or a note that it came from the printed list */
@@ -460,7 +464,7 @@
 </header>
 <p id="hint">Drag to look around</p>
 
-<button id="door-cue" type="button"><span class="ping"></span>Tap here to walk in<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
+<button id="door-cue" type="button" aria-describedby="shop-name"><span class="ping"></span>Tap here to walk in<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
 
 <div id="dock">
   <div class="dock-card glass">
@@ -474,14 +478,15 @@
         </div>
       </div>
     </div>
-    <button id="enter" type="button">Enter shop<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
+    <button id="enter" type="button" aria-describedby="shop-name">Enter shop<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
   </div>
 </div>
 
 <div id="walking" aria-hidden="true"><span class="ping"></span><span class="in">Walking in…</span><span class="out">Stepping outside…</span></div>
 <p id="scene-toast" hidden></p>
+<p id="announce" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
 
-<div id="panel" hidden>
+<div id="panel" hidden role="region" aria-label="Counter">
   <p id="cc" aria-hidden="true"></p>
   <div class="panel-card glass">
     <div class="panel-top">
@@ -490,7 +495,7 @@
     </div>
     <div class="reply-card">
       <div class="who"><span id="avatar" aria-hidden="true"></span><span id="who"></span><button id="replay" type="button" hidden title="Hear the clerk again"><svg class="i" aria-hidden="true"><use href="#i-rotate-ccw"/></svg>Replay</button></div>
-      <p id="reply"></p>
+      <p id="reply" aria-live="polite" aria-atomic="true"></p>
       <p id="stock-note"></p>
       <span class="typing" aria-hidden="true"><i></i><i></i><i></i></span>
     </div>
@@ -1294,6 +1299,7 @@ async function enterShop(){
   lastAnswer = hello; $('replay').hidden = false;               // Replay works from the greeting on; an answer replaces it
   await say(hello);
   setState('listening'); if (!coarse) $('q').focus();
+  if (coarse && !$('panel').hidden && focusLost()) $('replay').focus();   // phones: a place to start, no keyboard
 }
 $('enter').onclick = enterShop;
 $('door-cue').onclick = enterShop;
@@ -1329,6 +1335,7 @@ $('leave').onclick = async () => {
   if (prefs.calm){ doorTarget = 0; await moveCamera(STREET, 1); }   // Reduce motion: a cut back to the street
   else { await moveCamera(DOOR, 1800); doorTarget = 0; await moveCamera(STREET, 2200); }
   $('enter').hidden = false; bar.hidden = false; setWhere('street');
+  if (focusLost()) $('enter').focus();                          // Leave hid the button that had focus
 };
 
 // Look around: drag on the 3D view (AI Studio's controls). A tap on the street walks in only on
@@ -1460,6 +1467,27 @@ a11y.addEventListener('click', e => {                           // a tap on the 
     a11y.close();
 });
 a11y.addEventListener('close', () => $('a11y-open').focus());  // Close, Escape or a tap outside
+
+/* Screen readers: #status and #reply are polite live regions (an answer is read once, from #reply;
+   the captions strip is aria-hidden). Walking in and out is said once in #announce, since the
+   button that had focus disappears; afterwards focus lands on the input (or Replay on a phone, which
+   opens no keyboard) at the counter, and on Enter shop back on the street. The chips and Ask say
+   they are unavailable while the clerk is busy, as they look. */
+function focusLost(){                       // on nothing, or on a control no longer shown (browsers differ on when they let go)
+  const a = document.activeElement;
+  return !a || a === document.body || !a.getClientRects().length;
+}
+let announceTimer = 0;
+function announce(text){                    // cleared first, so the same words are read again
+  clearTimeout(announceTimer); $('announce').textContent = '';
+  announceTimer = setTimeout(() => { $('announce').textContent = text; }, 80);
+}
+const askButton = $('f').querySelector('button');    // Ask (mic.js adds its own button later)
+function markBusy(){
+  const busy = state !== 'listening';
+  for (const b of [...$('chips').children, askButton])
+    if (busy) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
+}
 
 // Captions: #cc copies whatever say() writes into #reply; the CSS shows it while the clerk speaks.
 const cc = $('cc'), replyText = $('reply');
@@ -1599,6 +1627,9 @@ new MutationObserver(() => {
   const where = document.body.dataset.where, st = document.body.dataset.state;
   const moved = where !== seenWhere, turned = st !== seenState;
   seenWhere = where; seenState = st;
+  if (moved && where === 'entering') announce('Walking into ' + current.name);
+  if (moved && where === 'leaving') announce('Stepping outside');
+  if (turned) markBusy();
   if (moved){ toast.hidden = true; waiting = null; }   // walking in or out: say() or Leave silences the voice
   else if (turned){
     if (waiting && st === 'listening'){ const w = waiting; waiting = null; describeNow(w.drawer); }   // the clerk has finished
