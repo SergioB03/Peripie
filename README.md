@@ -4,7 +4,7 @@ Walk into a small shop's website and ask the clerk. A 3D storefront with a voice
 
 ![Walk-in](docs/screenshots/01-street.jpg)
 
-**Live demo:** coming after deploy · **Demo video:** coming Saturday night · **Submission:** coming
+**Live demo:** https://peripie.replit.app · **Demo video:** coming · **Submission:** coming
 
 ## Inspiration
 
