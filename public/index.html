@@ -314,6 +314,19 @@
   [aria-checked=true] .sw::after{transform:translateX(18px);background:#1c1917}
   #a11y p{margin:0;font-size:13px;line-height:1.5;color:var(--s300)}
 
+  /* Captions (drawer): what the clerk is saying (greeting, answer or replay), in large type on a black
+     strip just above the counter panel, so it never covers the input; shown while the clerk speaks
+     (data-state answering), then it fades. A copy of #reply for the eyes only: #reply is the text
+     screen readers read, so this one is aria-hidden. */
+  #cc{position:absolute;left:8px;right:8px;bottom:100%;max-width:576px;margin:0 auto 8px;padding:10px 16px;
+    border-radius:16px;background:rgb(0 0 0/.88);border:2px solid #fbbf24;color:#fff;font-size:20px;line-height:1.35;
+    font-weight:600;text-align:center;overflow-wrap:anywhere;pointer-events:none;opacity:0;visibility:hidden;
+    transition:opacity .5s,visibility .5s}
+  html.cc body[data-state=answering] #cc:not(:empty){opacity:1;visibility:visible}
+  html.hc #cc{background:#000}
+  @media (min-width:640px){#cc{left:16px;right:16px}}
+  @media (max-height:520px) and (orientation:landscape){#cc{font-size:16px;padding:6px 12px}}
+
   /* Larger text (drawer): the street card's and the counter panel's words at 1.25 times */
   html.big #shop-name{font-size:17.5px;line-height:24px}
   html.big .dock-card .chip{font-size:12.5px;line-height:17px}
@@ -441,6 +454,7 @@
 <div id="walking" aria-hidden="true"><span class="ping"></span><span class="in">Walking in…</span><span class="out">Stepping outside…</span></div>
 
 <div id="panel" hidden>
+  <p id="cc" aria-hidden="true"></p>
   <div class="panel-card glass">
     <div class="panel-top">
       <span class="st"><span id="status" class="listening" role="status" aria-live="polite">Listening</span><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span></span>
@@ -1411,6 +1425,11 @@ a11y.addEventListener('click', e => {                           // a tap on the 
     a11y.close();
 });
 a11y.addEventListener('close', () => $('a11y-open').focus());  // Close, Escape or a tap outside
+
+// Captions: #cc copies whatever say() writes into #reply; the CSS shows it while the clerk speaks.
+const cc = $('cc'), replyText = $('reply');
+new MutationObserver(() => { cc.textContent = replyText.textContent; })
+  .observe(replyText, { childList:true, characterData:true, subtree:true });
 
 build(SHOPS[0]);
 </script>
