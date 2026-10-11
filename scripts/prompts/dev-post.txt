@@ -1,0 +1,11 @@
+Draft a DEV.to post (the MLH DEV Writing Challenge: judged on technical substance, originality, storytelling and popularity) about the project described in the plan above. Markdown only, no preamble. First person, Sergio speaking. Plain words, short sentences, no exclamation marks, no marketing adjectives. 900 to 1200 words.
+
+Structure:
+- Title: a plain sentence, under 80 characters, no colon tricks.
+- Opening: the two reasons the project exists, in Sergio's own words: he runs a painting company whose customers call to ask one thing, "do you have it?", and some days he is the customer who would rather not ask, especially with a large order.
+- What a visit looks like: street, door, the clerk's greeting out loud, a question by voice, the clerk turning to the stock room, the answer in the shop's own words (a bakery says when the next tray comes out of the oven; a paint store says when the supplier's truck comes and that rollers are usually back in about four days).
+- The three technical decisions worth a paragraph each, each with why it mattered: (1) the first Gemini round is forced to call the stock tool, so the clerk cannot make stock up; (2) "usually back in about four days" is a LAG over sixty days of shelf counts in Tiger Data, measured not guessed; (3) when the model fails, the server composes the answer from the stock record, so a bad minute for the model still gives a correct spoken answer.
+- A short section on building for people the usual channels leave out: captions, larger text, high contrast, reduce motion, describe the view, a mic, Replay, and preferences kept only in memory because nothing about the visitor is stored.
+- One honest paragraph on what went wrong in the weekend (a model that returned 503s, a 12 second tie between page and server, a hosting platform's assistant rewriting the workspace at 3 am) and what the fix was each time.
+- Close with the sandbox builder as what is next, and one line inviting readers to try the live link https://peripie.replit.app and read the code at github.com/SergioB03/Peripie.
+Use only facts from the plan. Do not invent numbers, names or quotes.
