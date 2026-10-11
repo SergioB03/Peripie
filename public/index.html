@@ -1220,13 +1220,17 @@ function settingsText(shop, cols){
   };
   return out(shop, '', 0);
 }
+function columnsIn(pre){                                       // monospace characters that fit on one line
+  const cs = getComputedStyle(pre), pen = document.createElement('canvas').getContext('2d');
+  let ch = parseFloat(cs.fontSize) * 0.6 || 7.2;
+  if (pen){ pen.font = cs.fontSize + ' ' + cs.fontFamily; ch = pen.measureText('0000000000').width / 10 || ch; }
+  return Math.max(24, Math.floor((pre.clientWidth - 24 - 16) / ch));   // less its padding and a scrollbar
+}
 $('brand').onclick = () => {
   if (settings.open || typeof settings.showModal !== 'function') return;
-  settings.showModal();
-  const pre = $('settings-json'), cs = getComputedStyle(pre), pen = document.createElement('canvas').getContext('2d');
-  pen.font = cs.fontSize + ' ' + cs.fontFamily;                // the width of one monospace character
-  const ch = pen.measureText('0000000000').width / 10 || parseFloat(cs.fontSize) * 0.6;
-  pre.textContent = settingsText(current, Math.max(24, Math.floor((pre.clientWidth - 24 - 16) / ch)));   // padding, scrollbar
+  settings.showModal();                                         // first, so the box has its width
+  const pre = $('settings-json');
+  pre.textContent = settingsText(current, columnsIn(pre));
   pre.scrollTop = 0; $('settings-close').focus();
 };
 $('settings-close').onclick = () => settings.close();
