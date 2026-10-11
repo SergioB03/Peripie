@@ -87,7 +87,7 @@
   #shops button:hover{color:var(--s200);background:rgb(41 37 36/.6)}
   #shops button.on{background:var(--accent);color:#fff;box-shadow:var(--sh-md)}
   #hint{display:none}
-  @media (max-width:379px){#event{display:none}}
+  @media (max-width:429px){#event{display:none}}   /* phones: room for four buttons at the right */
   @media (min-width:640px){
     #top{padding:max(16px,env(safe-area-inset-top)) 16px 0}
     #skyline{padding:0 12px}
@@ -274,23 +274,82 @@
     #shops{justify-self:start}
   }
 
-  /* Settings drawer, read-only: the brand card opens the shop's settings, drawn from its SHOPS entry */
-  #settings{width:min(560px,calc(100% - 32px));max-height:calc(100% - 48px);padding:0;border-radius:20px;
+  /* Settings drawer, read-only: the brand card opens the shop's settings, drawn from its SHOPS entry.
+     The accessibility drawer (#a11y) shares its look. */
+  #settings,#a11y{width:min(560px,calc(100% - 32px));max-height:calc(100% - 48px);padding:0;border-radius:20px;
     color:var(--s100);background:rgb(28 25 23/.97);border:1px solid rgb(255 255 255/.12);box-shadow:var(--sh-2xl);
     overflow:hidden}
-  #settings[open]{display:flex;flex-direction:column}
-  #settings::backdrop{background:rgb(12 10 9/.6)}
-  #settings .sheet{display:flex;flex-direction:column;gap:12px;min-height:0;padding:16px}
-  #settings h2{margin:0;font-size:15px;line-height:20px;font-weight:700;color:#fff}
+  #settings[open],#a11y[open]{display:flex;flex-direction:column}
+  #settings::backdrop,#a11y::backdrop{background:rgb(12 10 9/.6)}
+  :is(#settings,#a11y) .sheet{display:flex;flex-direction:column;gap:12px;min-height:0;padding:16px}
+  :is(#settings,#a11y) h2{margin:0;font-size:15px;line-height:20px;font-weight:700;color:#fff}
   #settings pre{flex:1 1 auto;min-height:0;margin:0;overflow:auto;padding:12px;border-radius:12px;
     background:var(--s950);border:1px solid var(--s800);color:var(--s200);
     font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
     white-space:pre-wrap;overflow-wrap:anywhere;-webkit-user-select:text;user-select:text}
   #settings pre:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
   #settings p{margin:0;font-size:13px;line-height:1.5;color:var(--s300)}
-  #settings-close{align-self:flex-end;min-height:40px;padding:8px 18px;border-radius:12px;background:var(--accent);
+  #settings-close,#a11y-close{align-self:flex-end;min-height:40px;padding:8px 18px;border-radius:12px;background:var(--accent);
     color:#fff;font-size:14px;font-weight:700;box-shadow:var(--sh-md);transition:filter .15s}
-  #settings-close:hover{filter:brightness(1.1)}
+  :is(#settings-close,#a11y-close):hover{filter:brightness(1.1)}
+
+  /* Accessibility drawer (the header's Accessibility button): switches, each a whole row, kept in memory
+     only (script section 6). Each switch is named by its title and described by the line under it. */
+  #a11y{width:min(440px,calc(100% - 32px))}
+  #a11y .sheet{overflow-y:auto}
+  #a11y-open .i{color:#fbbf24}
+  #a11y .prefs{display:flex;flex-direction:column;gap:6px}
+  #a11y [role=switch]{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:52px;
+    padding:8px 12px;border-radius:14px;text-align:left;background:rgb(12 10 9/.7);border:1px solid var(--s800);
+    transition:border-color .15s}
+  #a11y [role=switch]:hover{border-color:var(--s700)}
+  .pf{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .pf-name{font-size:14px;line-height:20px;font-weight:700;color:#fff}
+  .pf-hint{font-size:13px;line-height:18px;color:var(--s400)}
+  .sw{position:relative;flex:none;width:42px;height:24px;border-radius:9999px;background:var(--s700);
+    border:1px solid var(--s500);transition:background-color .15s,border-color .15s}
+  .sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:9999px;
+    background:var(--s300);transition:transform .15s,background-color .15s}
+  [aria-checked=true] .sw{background:#f59e0b;border-color:#fbbf24}
+  [aria-checked=true] .sw::after{transform:translateX(18px);background:#1c1917}
+  #a11y p{margin:0;font-size:13px;line-height:1.5;color:var(--s300)}
+
+  /* Larger text (drawer): the street card's and the counter panel's words at 1.25 times */
+  html.big #shop-name{font-size:17.5px;line-height:24px}
+  html.big .dock-card .chip{font-size:12.5px;line-height:17px}
+  html.big :is(.duty,.zero){font-size:14px;line-height:20px}
+  html.big .zero .i{width:15px;height:15px}
+  html.big #enter{font-size:17.5px}
+  html.big #status{font-size:14px;line-height:20px}
+  html.big #leave{font-size:14px}
+  html.big .who{font-size:15px;line-height:20px}
+  html.big #replay{font-size:14px}
+  html.big #reply{font-size:17.5px}
+  html.big #stock-note{font-size:15px;line-height:20px}
+  html.big #chips button{font-size:14px}
+  html.big #q{font-size:20px;line-height:28px}
+  html.big #f button{font-size:17.5px}
+  @media (min-width:400px){html.big :is(#status,#leave){font-size:15px}}
+  @media (hover:hover) and (pointer:fine){html.big #q{font-size:17.5px}}
+
+  /* High contrast (drawer): solid panels with no blur, stronger borders, lighter greys. The 3D scene is
+     unchanged. White on the bakery's and the plant shop's colour is under 4.5:1, so buttons in the shop's
+     colour take a darker mix of it (at least 5:1 for all three shops). */
+  html.hc{--s400:#d6d3d1;--s500:#a8a29e}
+  html.hc :is(.glass,.solid,.dock-card,#walking,#door-cue,#hint,#settings,#a11y){background:rgb(12 10 9/.97);
+    border:2px solid #fbbf24;-webkit-backdrop-filter:none;backdrop-filter:none}
+  html.hc .reply-card{background:#0c0a09;border-color:var(--s500)}
+  html.hc :is(#leave,#replay,#chips button,#a11y [role=switch]){background:#1c1917;border-color:var(--s400)}
+  html.hc #q{border-color:var(--s300)}
+  html.hc #status.listening{background:#022c22;border-color:#34d399}
+  html.hc #status.checking{background:#451a03;border-color:#fbbf24}
+  html.hc #status.answering{background:#172554;border-color:#60a5fa}
+  html.hc :is(#enter,#f button,#settings-close,#a11y-close,#shops button.on,.tile,#avatar){
+    background:color-mix(in srgb,var(--accent) 70%,#000)}
+  html.hc .sw{border-color:var(--s300)}
+
+  /* Reduce motion (drawer): the system setting's rule below, on demand; the 3D motion is in script section 4 */
+  html.calm *,html.calm *::before,html.calm *::after{animation:none!important;transition:none!important}
 
   @keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
   @keyframes ping{75%,100%{transform:scale(2);opacity:0}}
@@ -300,6 +359,21 @@
   @keyframes bar{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
   @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
+<script>
+  /* Accessibility defaults, set before the first paint from the system's settings alone: reduced
+     motion turns on Reduce motion and Captions, a contrast setting turns on Captions, and "more"
+     contrast turns on High contrast. The drawer (script section 6) changes them for this visit;
+     nothing is ever stored, so a reload starts from these again. */
+  (() => {
+    const m = q => { try { return matchMedia(q).matches; } catch { return false; } };
+    const calm = m('(prefers-reduced-motion: reduce)'), more = m('(prefers-contrast: more)');
+    const set = more || m('(prefers-contrast: less)') || m('(prefers-contrast: custom)');
+    const c = document.documentElement.classList;
+    if (calm || set) c.add('cc');      // Captions
+    if (more) c.add('hc');             // High contrast
+    if (calm) c.add('calm');           // Reduce motion
+  })();
+</script>
 <!-- Three.js 0.186.1 is served from this app (public/vendor/three-0.186.1: build/three.module.js and
      build/three.core.js, byte-identical to the npm package), so the page loads nothing from a CDN.
      three.module.js imports ./three.core.js, so both files stay together in that folder. -->
@@ -324,6 +398,7 @@
   <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
   <symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
   <symbol id="i-send" viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></symbol>
+  <symbol id="i-accessibility" viewBox="0 0 24 24"><circle cx="16" cy="4" r="1"/><path d="m18 19 1-7-6 1"/><path d="m5 8 3-3 5.5 3-2.36 3.5"/><path d="M4.24 14.5a5 5 0 0 0 6.88 6"/><path d="M13.76 17.5a5 5 0 0 0-6.88-6"/></symbol>
 </svg>
 
 <canvas id="c" role="img" aria-label="A shop front on a city street; inside, a clerk behind the counter"></canvas>
@@ -340,6 +415,7 @@
   <div id="actions">
     <button id="skyline" class="solid pill-btn" type="button" aria-pressed="false" title="Look up at the skyline"><svg class="i" aria-hidden="true"><use href="#i-building-2"/></svg><span id="skyline-label">Skyline</span></button>
     <button id="sound" class="solid pill-btn" type="button" aria-pressed="true" aria-label="Sound effects" title="Sound effects"><svg class="i" aria-hidden="true"><use href="#i-volume-2"/></svg></button>
+    <button id="a11y-open" class="solid pill-btn" type="button" aria-haspopup="dialog" aria-label="Accessibility" title="Accessibility"><svg class="i" aria-hidden="true"><use href="#i-accessibility"/></svg></button>
   </div>
 </header>
 <p id="hint">Drag to look around</p>
@@ -391,6 +467,21 @@
     <p>Stock lives in the stock room, not in this file. The list here is only what the shop carries.</p>
     <p>Each shop is one settings file. The builder we're making next lets an owner edit it by dragging things around.</p>
     <button id="settings-close" type="button">Close</button>
+  </div>
+</dialog>
+
+<!-- Accessibility drawer: four switches, kept in memory for this visit only (script section 6) -->
+<dialog id="a11y" aria-labelledby="a11y-title">
+  <div class="sheet">
+    <h2 id="a11y-title">Accessibility</h2>
+    <div class="prefs">
+      <button type="button" role="switch" aria-checked="false" data-pref="captions" aria-labelledby="pf-cc" aria-describedby="pf-cc-d"><span class="pf"><span class="pf-name" id="pf-cc">Captions</span><span class="pf-hint" id="pf-cc-d">The clerk's words in large type while they are spoken</span></span><span class="sw" aria-hidden="true"></span></button>
+      <button type="button" role="switch" aria-checked="false" data-pref="big" aria-labelledby="pf-big" aria-describedby="pf-big-d"><span class="pf"><span class="pf-name" id="pf-big">Larger text</span><span class="pf-hint" id="pf-big-d">Bigger words on the shop card and the counter panel</span></span><span class="sw" aria-hidden="true"></span></button>
+      <button type="button" role="switch" aria-checked="false" data-pref="contrast" aria-labelledby="pf-hc" aria-describedby="pf-hc-d"><span class="pf"><span class="pf-name" id="pf-hc">High contrast</span><span class="pf-hint" id="pf-hc-d">Solid panels, no blur, stronger borders</span></span><span class="sw" aria-hidden="true"></span></button>
+      <button type="button" role="switch" aria-checked="false" data-pref="calm" aria-labelledby="pf-calm" aria-describedby="pf-calm-d"><span class="pf"><span class="pf-name" id="pf-calm">Reduce motion</span><span class="pf-hint" id="pf-calm-d">No camera walk, swaying or mist: a cut straight to the counter</span></span><span class="sw" aria-hidden="true"></span></button>
+    </div>
+    <p class="note">For this visit only. Nothing is stored; a reload goes back to your device's settings.</p>
+    <button id="a11y-close" type="button">Close</button>
   </div>
 </dialog>
 
@@ -877,6 +968,10 @@ function build(shop){
 }
 
 /* ---------- 4. MOTION ---------- */
+// The accessibility drawer's switches (section 6), for this visit only and never stored. They start
+// from the classes the script in <head> set from the system's settings.
+const prefOn = c => document.documentElement.classList.contains(c);
+const prefs = { captions:prefOn('cc'), big:prefOn('big'), contrast:prefOn('hc'), calm:prefOn('calm') };
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const ease = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(2 - 2 * k, 3) / 2;   // easeInOutCubic, as in AI Studio
 const basePos = new THREE.Vector3(), lookNow = new THREE.Vector3();
@@ -1274,6 +1369,33 @@ $('sound').onclick = () => {
   $('sound').setAttribute('aria-pressed', !effectsOff);
   $('sound').querySelector('use').setAttribute('href', effectsOff ? '#i-volume-x' : '#i-volume-2');
 };
+
+/* ---------- 6. ACCESSIBILITY: the AI Studio app's tools, rebuilt for this page ----------
+   The header's Accessibility button opens a drawer of four switches: Captions, Larger text, High
+   contrast and Reduce motion. Each is a class on <html> (cc, big, hc, calm) plus `prefs`, in memory
+   for this visit only: nothing is stored, so a reload goes back to the system's settings. A switch
+   applies at once and announces nothing beyond its own on or off. The drawer is a native modal
+   dialog, like the settings drawer: Escape, Close or a tap outside closes it, and focus goes back
+   to the button. */
+const a11y = $('a11y'), PREF_CLASS = { captions:'cc', big:'big', contrast:'hc', calm:'calm' };
+const switches = [...a11y.querySelectorAll('[role=switch]')];
+function applyPrefs(){
+  for (const [k, c] of Object.entries(PREF_CLASS)) document.documentElement.classList.toggle(c, prefs[k]);
+  for (const s of switches) s.setAttribute('aria-checked', prefs[s.dataset.pref]);
+}
+for (const s of switches) s.onclick = () => { prefs[s.dataset.pref] = !prefs[s.dataset.pref]; applyPrefs(); };
+applyPrefs();
+$('a11y-open').onclick = () => {
+  if (a11y.open || typeof a11y.showModal !== 'function') return;
+  a11y.showModal(); switches[0].focus();
+};
+$('a11y-close').onclick = () => a11y.close();
+a11y.addEventListener('click', e => {                           // a tap on the dimmed page around it
+  const r = a11y.getBoundingClientRect();
+  if (e.target === a11y && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom))
+    a11y.close();
+});
+a11y.addEventListener('close', () => $('a11y-open').focus());  // Close, Escape or a tap outside
 
 build(SHOPS[0]);
 </script>
