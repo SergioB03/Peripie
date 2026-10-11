@@ -28,7 +28,7 @@ Rules from here:
 
 ## Sunday morning (6:00 to 8:30)
 
-1. Re-run `db/seed.sql` against Tiger (the second Docker command in db/README.md) so "tomorrow" moves to Monday and the history ends today.
+1. **Pull and republish, once, in the NEW Repl** (the clean one): Shell → `git pull origin main` → if it says package.json changed, `npm ci` → **Run** → Console shows `listening`, `using TIGER_DATABASE_URL`, `greetings warmed (3/3)` and `guide: phrases warmed` → **Publishing → Republish**. Then tell Claude Code "republished" for the outside check. (No re-seed is needed: Tiger was reloaded at 3:20 am Sunday with 27 products, and the bakery's tray and batch times are computed at the moment you ask.)
 2. Warm the public link from the second device; ask one question so the first judge does not pay the cold start.
 3. Rehearse the pitch out loud twice with the slides (https://claude.ai/artifact/Gu3infzvexEQmrrWRwK5Lr; export PPTX or PDF from its Share menu as a backup); the judge Q&A and failure drills are in docs/demo-day.md.
 4. The top-right button mutes sound effects only; the clerk's voice cannot be muted from the page.
