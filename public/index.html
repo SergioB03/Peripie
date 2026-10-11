@@ -698,13 +698,13 @@ let doorTarget = 0, doorValue = 0, state = 'listening', tween = null;
 // room light's strength), the counter's woods (body, top, trim), the storefront's paint and the
 // ceiling fixture. A shop without an entry gets the bakery's.
 const DECOR = {
-  bakery: { hours:['Daily', '7 am – 6 pm'], floor:'tile', font:'Georgia, "Times New Roman", serif',
+  bakery: { hours:['Open daily', '7 am to 5 pm'], floor:'tile', font:'Georgia, "Times New Roman", serif',
             sun:['#ffe0b2', 1.7], sky:['#fde7c8', '#8b7355', 0.9], room:2.6,
             counter:['#5a3a22', '#c9915a', '#3b2314'], frame:'#5b3a1e', fixture:'pendants' },
-  paint:  { hours:['Mon–Sat 7 am – 7 pm', 'Sun 9 am – 5 pm'], floor:'concrete', font:'"Arial Black", Impact, "Arial Narrow", sans-serif',
+  paint:  { hours:['Open daily', '8 am to 6 pm'], floor:'concrete', font:'"Arial Black", Impact, "Arial Narrow", sans-serif',
             sun:['#f8fafc', 2.0], sky:['#e0f2fe', '#94a3b8', 1.05], room:3.2,
             counter:['#334155', '#64748b', '#1e293b'], frame:'#1e3a8a', fixture:'tubes' },
-  plants: { hours:['Daily', '9 am – 6 pm'], floor:'quarry', font:'"Trebuchet MS", Verdana, sans-serif',
+  plants: { hours:['Open daily', '9 am to 6 pm'], floor:'quarry', font:'"Trebuchet MS", Verdana, sans-serif',
             sun:['#fff7ed', 1.35], sky:['#ecfccb', '#4d7c0f', 1.15], room:2.3,
             counter:['#6b4a2b', '#a8795a', '#4a3220'], frame:'#14532d', fixture:'skylight' } };
 const decorOf = shop => DECOR[shop.id] || DECOR.bakery;
@@ -718,7 +718,9 @@ const basic = color => new THREE.MeshBasicMaterial({ color });
 const FAM = { wood:[0.72, 0], varnish:[0.38, 0.05], paint:[0.5, 0.05], steel:[0.35, 0.75], brass:[0.22, 0.9],
               cloth:[0.95, 0], stone:[0.92, 0], ceramic:[0.25, 0], plastic:[0.45, 0], leaf:[0.62, 0] };
 const PAINT = ['#1d4ed8', '#059669', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#ea580c', '#65a30d'];   // the paint store's hues
-const mat = (fam, color, o) => std(color, { roughness:FAM[fam][0], metalness:FAM[fam][1], ...o });
+// Metal (brass, steel) reflects a tiny six-colour room (TEX.env, made with the textures below): without
+// one a metalness near 1 has nothing to reflect and draws as a dark block.
+const mat = (fam, color, o) => std(color, { roughness:FAM[fam][0], metalness:FAM[fam][1], ...(FAM[fam][1] > 0.5 ? { envMap:TEX.env, envMapIntensity:0.9 } : {}), ...o });
 const vmat = (fam, o) => mat(fam, '#ffffff', { vertexColors:true, ...o });   // a colour per part, from merge()
 const glass = o => std('#ffffff', { roughness:0.05, metalness:0.1, transparent:true, opacity:0.22, depthWrite:false, ...o });
 const Box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
@@ -831,6 +833,11 @@ function brickTexture(tones, mortar){   // a metre square: four bricks across, t
   }, true));
 }
 (function makeTextures(){
+  // The room the metals reflect: a cube of six flat colours (right, left, up, down, front, back), a
+  // cream ceiling over warm walls and a dark floor; the renderer blurs it per roughness on first use.
+  const face = c => { const cv = document.createElement('canvas'); cv.width = cv.height = 16; const x = cv.getContext('2d'); x.fillStyle = c; x.fillRect(0, 0, 16, 16); return cv; };
+  TEX.env = new THREE.CubeTexture(['#d9b58c', '#c2a079', '#fff6e0', '#3f3022', '#efe3d0', '#a9886a'].map(face));
+  TEX.env.colorSpace = THREE.SRGBColorSpace; TEX.env.needsUpdate = true; TEX.env.userData.shared = true;
   // Wood, light and neutral, grain along u: the material's colour sets the species. woodUp has the
   // grain along v, for posts and trunks.
   TEX.wood = shared(canvasTexture(1024, 512, (x, w, h) => {
@@ -1163,12 +1170,18 @@ solid(scene, trimMat, [[Box(6.5, 0.12, 0.04), 0, 0.27, -4.63], [Box(0.04, 0.12, 
   [Box(0.1, 2.5, 0.12), 1.25, 1.45, -4.58], [Box(0.1, 2.5, 0.12), 2.55, 1.45, -4.58], [Box(1.4, 0.22, 0.12), 1.9, 2.72, -4.58]]);
 solid(scene, mat('wood', '#3b2314', { map:TEX.wood }), [-2, 0, 2].map(z => [TexBox(6.4, 0.2, 0.25), 0, 4.1, z]));
 put(scene, Box(1.2, 2.4, 0.1), mat('paint', '#ffffff', { map:TEX.stockDoor, emissiveMap:TEX.stockGlow, emissive:'#fff1b8', emissiveIntensity:1.1, roughness:0.55 }), 1.9, 1.4, -4.6);
+// The STOCK ROOM sign: on the wall beside the door, at hand height, pointing at it. (On the lintel it
+// ran off the right of a 390 px phone's frame, and a phone held sideways hides the lintel behind the
+// header; x 0.56 to 1.2 at y 2.2 is in frame at every station on every screen, section 6's HANDOFF.)
 const stockLabel = canvasTexture(512, 128, x => {
   x.fillStyle = '#78350f'; x.fillRect(0, 0, 512, 128);
-  x.fillStyle = '#fef3c7'; x.font = 'bold 60px ' + FONT; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.fillText('STOCK ROOM', 256, 66);
+  x.strokeStyle = '#fde68a'; x.lineWidth = 6; x.strokeRect(10, 10, 492, 108);
+  x.fillStyle = '#fef3c7'; x.font = 'bold 60px ' + FONT; x.textAlign = 'left'; x.textBaseline = 'middle';
+  x.fillText('STOCK ROOM', 30, 66);
+  x.beginPath(); x.moveTo(418, 64); x.lineTo(470, 64); x.moveTo(446, 40); x.lineTo(472, 64); x.lineTo(446, 88);   // the arrow
+  x.strokeStyle = '#fef3c7'; x.lineWidth = 10; x.lineCap = 'round'; x.lineJoin = 'round'; x.stroke();
 });
-put(scene, new THREE.PlaneGeometry(0.9, 0.2), mat('paint', '#ffffff', { map:stockLabel }), 1.9, 2.72, -4.515);
+put(scene, new THREE.PlaneGeometry(0.64, 0.16), mat('paint', '#ffffff', { map:stockLabel }), 0.88, 2.2, -4.62);
 
 // Counter: a panelled wooden body, a thicker varnished top (at y 1.225), and on it the brass
 // register at the left end and the bell at the right; each shop sets the woods and adds its own things.
@@ -1181,7 +1194,11 @@ solid(counter, counterTrim, [[Box(3.22, 0.1, 0.87), 0, 0.05, 0], [Box(3.0, 0.05,
 const register = group(counter, -1.25, 1.025, 0), regBrass = mat('brass', '#d97706', { roughness:0.3 });
 put(register, Box(0.45, 0.25, 0.4), regBrass, 0, 0.125, 0, { cast:true });
 put(register, Box(0.35, 0.2, 0.3), regBrass, 0, 0.3, -0.04);
-put(register, Box(0.12, 0.1, 0.02), basic('#fef08a'), 0, 0.48, -0.04);
+const regDisplay = canvasTexture(128, 64, x => {   // the register's lit display
+  x.fillStyle = '#14291c'; x.fillRect(0, 0, 128, 64); x.fillStyle = '#86efac'; x.font = 'bold 40px ' + FONT;
+  x.textAlign = 'right'; x.textBaseline = 'middle'; x.fillText('0.00', 118, 34);
+});
+put(register, Box(0.16, 0.1, 0.02), new THREE.MeshBasicMaterial({ map:regDisplay }), 0, 0.48, -0.04);
 put(counter, Sph(0.08, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat('brass', '#f59e0b', { roughness:0.15 }), 0.65, 1.025, 0.15, { cast:true });
 put(counter, Cyl(0.015, 0.015, 0.04, 8), regBrass, 0.65, 1.105, 0.15);
 
@@ -1260,14 +1277,16 @@ function drawList(x, w, h, shop, s){      // s.listW: the share of the width the
   if (s.note){ x.fillStyle = s.noteColor || s.text; x.font = 'italic ' + Math.round(h * 0.055) + 'px ' + FONT; x.fillText(s.note, pad, h * 0.92); }
 }
 // A board hanging on two chains from the beams behind the clerk, tilted a little toward the
-// counter, with the shop's list in its own hand (a canvas per shop, disposed with its props).
-function hanging(g, shop, s){               // s.y: the board's centre height (2.65 unless the wall behind needs showing)
-  const W = 2.0, H = 0.7, x0 = -0.6, y0 = s.y || 2.65, z0 = -2.6;
+// counter, with the shop's list in its own hand (a canvas per shop, disposed with its props). Its
+// top stays under y 3.05: higher than that, at z -2.6, is behind the page's header at the counter
+// station, on a desktop and on a 390 px phone alike, and the heading is the first thing to go.
+function hanging(g, shop, s){               // s.y: the centre height (2.6); s.w, s.h: the size (2.0 by 0.7); s.x: the centre (-0.6)
+  const W = s.w || 2.0, H = s.h || 0.7, x0 = s.x ?? -0.6, y0 = s.y || 2.6, z0 = -2.6;
   const b = group(g, x0, y0, z0); b.rotation.x = 0.1;
   put(b, Box(W + 0.08, H + 0.08, 0.04), mat('wood', s.frame, { map:TEX.wood }));
-  const tex = canvasTexture(1024, 358, (x, w, h) => { drawList(x, w, h, shop, s); s.extra?.(x, w, h); });
+  const tex = canvasTexture(1024, Math.round(1024 * H / W), (x, w, h) => { drawList(x, w, h, shop, s); s.extra?.(x, w, h); });
   put(b, new THREE.PlaneGeometry(W, H), mat('paint', '#ffffff', { map:tex, roughness:s.rough ?? 0.9 }), 0, 0, 0.021);
-  solid(g, mat('steel', '#1c1917'), [-0.9, 0.9].map(dx => [Cyl(0.006, 0.006, 4.2 - (y0 + H / 2), 4), x0 + dx, (4.2 + y0 + H / 2) / 2, z0]));
+  solid(g, mat('steel', '#1c1917'), [-W * 0.45, W * 0.45].map(dx => [Cyl(0.006, 0.006, 4.2 - (y0 + H / 2), 4), x0 + dx, (4.2 + y0 + H / 2) / 2, z0]));
   return b;
 }
 // Baked goods as simple shapes, picked by the product's name (a name nothing matches is a bun):
@@ -1474,7 +1493,7 @@ function paintProps(g, shop, anims){
   for (const y of [0.55, 0.9, 1.25, 1.6]) METAL.push([Box(0.42, 0.03, 0.08), lx, y, lz + 0.32 - (y - 0.2) * 0.2, { color:'#cbd5e1' }]);
   METAL.push([Box(0.5, 0.04, 0.14), lx, 0.2 + lh * Math.cos(0.2), lz, { color:'#94a3b8' }]);
   // The sign behind the clerk: the list, and the help desk beside it. The board on the left wall.
-  hanging(g, shop, { y:3.15, frame:'#1e293b', bg:'#f8fafc', border:'#cbd5e1', title:'#1e3a8a', text:'#0f172a', rule:'#2563eb', heading:'WHAT WE CARRY', weight:'600', listW:0.62, rough:0.6,
+  hanging(g, shop, { y:2.8, w:1.6, h:0.5, x:-0.8, frame:'#1e293b', bg:'#f8fafc', border:'#cbd5e1', title:'#1e3a8a', text:'#0f172a', rule:'#2563eb', heading:'WHAT WE CARRY', weight:'600', listW:0.62, rough:0.6,
     extra:(x, w, h) => {
       const x0 = w * 0.64, lines = ['Which primer for a bathroom?', 'Finishes, coverage, how-tos', 'Ask the clerk: free advice'];
       x.fillStyle = '#1e3a8a'; x.fillRect(x0, h * 0.08, 3, h * 0.84);
@@ -1688,7 +1707,7 @@ addEventListener('resize', resize); resize();
 const UP = new THREE.Vector3(0, 1, 0), dir = new THREE.Vector3(), side = new THREE.Vector3();
 const aim = new THREE.Vector3(), doorMark = new THREE.Vector3(), cue = document.getElementById('door-cue');
 let last = 0, cueX = NaN, cueY = NaN;
-renderer.setAnimationLoop(now => {
+function renderFrame(now){
   const dt = last ? Math.min(0.1, (now - last) / 1000) : 0, t = now / 1000; last = now;
   // Reduce motion (prefs.calm): every eased turn, slide and walk below snaps to its end, and w = 0
   // takes the sway out of the idle and talking poses. The poses themselves (the clerk turned to the
@@ -1732,7 +1751,11 @@ renderer.setAnimationLoop(now => {
     const x = Math.round((doorMark.x + 1) * innerWidth / 2), y = Math.round((1 - doorMark.y) * innerHeight / 2);
     if (x !== cueX || y !== cueY){ cueX = x; cueY = y; cue.style.left = x + 'px'; cue.style.top = y + 'px'; }
   }
-});
+}
+renderer.setAnimationLoop(renderFrame);
+// Opened as /#perf, the page hands its renderer and frame to a measuring script (draw calls, ms per
+// frame, driven from a Worker when the tab is hidden). Nothing in the page reads this.
+if (location.hash === '#perf') window.__peripie = { renderer, scene, camera, frame:renderFrame };
 
 /* ---------- 5. UI ---------- */
 const $ = id => document.getElementById(id);
