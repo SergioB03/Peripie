@@ -2768,7 +2768,10 @@ function setPref(key, on){
 for (const s of switches) s.onclick = () => {
   const key = s.dataset.pref, on = !prefs[key];
   if (key === 'handsfree' && on){                                 // the tap itself: see handsFree()
-    if (!micApi()) return announce('Hands-free needs a browser with speech recognition over https');
+    if (!micApi()){                                               // no mic button (mic.js): no speech recognition, or not https
+      $('pf-hf-d').textContent = 'Needs a browser with speech recognition, over https';
+      return announce('Hands-free needs a browser with speech recognition, over https');
+    }
     if (document.body.dataset.where === 'street' && player.paused) unlockAudio();   // iOS: prime the voices in this tap
   }
   setPref(key, on);
