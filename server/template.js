@@ -2,10 +2,14 @@
 // the same facts the model would give, composed from the check_stock record, so a model outage
 // still speaks the right count or restock date.
 export function templatedReply(found) {
-  const { product, inStock, onHand, nextRestockText, typicalRestockDays } = found;
+  const { product, inStock, onHand, restockNote, nextRestockText, typicalRestockDays } = found;
   if (inStock) return `Yes, we have ${product} in stock, ${onHand} on hand.`;
+  const days = usualDays(nextRestockText, typicalRestockDays);
+  // The shop's own sentence with the time filled in, when the stock agent supplies one (Oct 11):
+  // "We're out of croissant right now. The next tray comes out of the oven in about 12 minutes."
+  const note = typeof restockNote === 'string' ? restockNote.trim() : '';
+  if (note) return `We're out of ${product} right now. ${note}${days ? ` It usually takes about ${dayCount(days)}.` : ''}`;
   if (!nextRestockText) return `We're out of ${product} right now, and I don't have a restock date yet.`;
-  const days = wholeDays(typicalRestockDays);
   const usual = days ? `, and it usually takes about ${dayCount(days)}.` : '.';
   return `We're out of ${product} right now. It's back ${nextRestockText}${usual}`;
 }
@@ -13,6 +17,14 @@ export function templatedReply(found) {
 // Spoken aloud, so whole days: 4.5 becomes "about 5 days". Null when there is no history.
 function wholeDays(typicalRestockDays) {
   return typicalRestockDays > 0 ? Math.max(1, Math.round(typicalRestockDays)) : null;
+}
+
+// The typical days are worth saying only next to a day-only time ("Friday, October 16", the
+// paint store's Tiger line); next to "in about 18 minutes", "today at 2 pm" or "tomorrow at
+// 7 am" they would contradict it (the bakery's history sits on a 6-hour grid), so null then.
+function usualDays(nextRestockText, typicalRestockDays) {
+  if (typeof nextRestockText !== 'string' || /^(in about|today|tomorrow)\b/i.test(nextRestockText)) return null;
+  return wholeDays(typicalRestockDays);
 }
 
 const dayCount = (days) => `${days} day${days === 1 ? '' : 's'}`;
@@ -40,7 +52,8 @@ export function listFacts(stocks) {
         outOfStock.push({
           product: s.product,
           nextRestockText: s.nextRestockText ?? null,
-          typicalRestockDays: wholeDays(s.typicalRestockDays),
+          restockNote: typeof s.restockNote === 'string' && s.restockNote.trim() ? s.restockNote.trim() : null,
+          typicalRestockDays: usualDays(s.nextRestockText, s.typicalRestockDays),
         });
       }
     } else {

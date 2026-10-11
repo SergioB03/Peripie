@@ -1,6 +1,6 @@
 // Peripie server: serves the shop page and answers POST /api/clerk (contract: PLAN.md section 3).
-// Zero Data: the visitor's text, a list's items, the clerk's reply and request bodies are never
-// logged or stored.
+// Zero Data: the visitor's text, a question's conversation history, a list's items, the clerk's
+// reply and request bodies are never logged or stored.
 // Logs carry method, path, status and milliseconds, plus error types.
 import 'dotenv/config';
 import compression from 'compression';
@@ -10,6 +10,8 @@ import { SHOPS } from './shops.js';
 import { synthesize, textToSpeech } from './voice.js';
 
 const MAX_TEXT = 300;
+// A question's memory (additive to the contract, Oct 11): up to 3 prior { q, a } pairs.
+const MAX_HISTORY = 3;
 // A list request (PLAN.md section 3): 1 to 12 items, each 1 to 60 characters after trimming.
 const MAX_ITEMS = 12;
 const MAX_ITEM_CHARS = 60;
@@ -41,7 +43,26 @@ function loadClerk() {
   return clerkModule;
 }
 
-const greetingText = (shop) => `Welcome to ${shop.name}. How can I help you today?`;
+// Spoken at the door, the same for every shop (Sergio, Oct 11: no hurry, no question to answer).
+const greetingText = (shop) => `Welcome to ${shop.name}. Take your time, and ask me about anything on the shelves whenever you're ready.`;
+
+// A question's conversation history: the earlier questions and the clerk's replies, oldest
+// first, so a follow-up like "and the sourdough?" resolves. Each string is validated like text
+// (1 to 300 characters after trimming). Absent or null means a fresh conversation; anything
+// else that breaks the rule is null, which the route answers with 400 bad_text. Never logged.
+function conversationHistory(value) {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value) || value.length > MAX_HISTORY) return null;
+  const pairs = [];
+  for (const pair of value) {
+    if (!pair || typeof pair !== 'object' || Array.isArray(pair)) return null;
+    const q = typeof pair.q === 'string' ? pair.q.trim() : '';
+    const a = typeof pair.a === 'string' ? pair.a.trim() : '';
+    if (q.length < 1 || q.length > MAX_TEXT || a.length < 1 || a.length > MAX_TEXT) return null;
+    pairs.push({ q, a });
+  }
+  return pairs;
+}
 
 // A list request's items, trimmed, with runs of spaces or line breaks made one space; null if
 // the list breaks the contract.
@@ -154,11 +175,13 @@ app.post('/api/clerk', express.json({ limit: '4kb' }), async (req, res) => {
 
   const text = typeof body.text === 'string' ? body.text.trim() : '';
   if (text.length < 1 || text.length > MAX_TEXT) return res.status(400).json({ error: 'bad_text' });
+  const history = conversationHistory(body.history);
+  if (!history) return res.status(400).json({ error: 'bad_text' });
 
   let answer;
   try {
     const { askClerk } = await loadClerk();
-    answer = await askClerk(shop, text);
+    answer = await askClerk(shop, text, history);
   } catch (err) {
     console.warn(`clerk_unavailable: ${errorType(err)}`);
     return res.status(502).json({ error: 'clerk_unavailable' });
