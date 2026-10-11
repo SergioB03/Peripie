@@ -60,7 +60,8 @@
     padding:var(--top) 12px 0;pointer-events:none}
   #top>*{pointer-events:auto}
   #brand{grid-area:brand;display:flex;align-items:center;gap:10px;min-width:0;padding:6px 14px 6px 6px;
-    border-radius:16px}
+    border-radius:16px;text-align:left;transition:border-color .15s}   /* a button: it opens the settings drawer */
+  #brand:hover{border-color:rgb(255 255 255/.25)}
   .brand-text{display:flex;flex-direction:column;min-width:0}
   .brand-line{display:flex;align-items:center;gap:6px}
   .brand-line b{font-size:14px;line-height:20px;font-weight:800;letter-spacing:-.025em}
@@ -77,7 +78,7 @@
   #skyline[aria-pressed=true]{color:#fcd34d;border-color:#fbbf24;background:rgb(69 26 3/.8);
     box-shadow:0 0 0 2px rgb(251 191 36/.5),var(--sh-lg)}
   #sound .i{color:#34d399}
-  #sound[aria-pressed=true] .i{color:var(--s500)}
+  #sound[aria-pressed=false] .i{color:var(--s500)}   /* sound effects off; the clerk's voice still plays */
   #shops{grid-area:tabs;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;
     border-radius:16px}
   #shops button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px;
@@ -110,6 +111,7 @@
     color:#fff;font-size:12px;font-weight:600;letter-spacing:.025em;white-space:nowrap;box-shadow:var(--sh-xl);
     transform:translate(-50%,-50%);transition:opacity .3s,border-color .3s,transform .3s}
   #door-cue:hover{border-color:#fbbf24;transform:translate(-50%,-50%) scale(1.05)}
+  #door-cue::after{content:"";position:absolute;inset:-110px -70px}   /* the street's tap target covers the doors around the pill */
   #door-cue .i{width:14px;height:14px}
   #door-cue.off{opacity:0;pointer-events:none}
   body:not([data-where=street]) :is(#dock,#door-cue,#skyline,#hint){display:none}
@@ -128,6 +130,11 @@
   .duty{font-size:11px;line-height:16px;font-weight:500;color:var(--s400);white-space:nowrap;overflow:hidden;
     text-overflow:ellipsis}
   @media (max-width:399px){.duty{white-space:normal;text-wrap:balance}}   /* small phones: the staff line wraps, never clips */
+  /* Staff and the Zero Data line: side by side when they fit, else the Zero Data line goes under */
+  .dock-sub{display:flex;flex-wrap:wrap;align-items:center;column-gap:10px;min-width:0}
+  .zero{display:inline-flex;align-items:center;gap:4px;font-size:11px;line-height:16px;font-weight:500;
+    color:var(--s400);white-space:nowrap}
+  .zero .i{width:12px;height:12px;color:#34d399}
   #enter{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 20px;
     border-radius:12px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;letter-spacing:.025em;
     box-shadow:var(--sh-lg);transition:filter .15s,transform .15s,background-color .3s}
@@ -185,6 +192,13 @@
   .who{display:flex;align-items:center;gap:8px;min-width:0;font-size:12px;line-height:16px;font-weight:700;
     color:var(--s200)}
   #who{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Replay the last answer: at the right of the card's header, without making the header taller */
+  #replay{display:inline-flex;align-items:center;gap:5px;flex:none;margin:-4px 0 -4px auto;min-height:28px;
+    padding:2px 10px;border-radius:9999px;background:rgb(41 37 36/.8);border:1px solid rgb(68 64 60/.6);
+    color:var(--s300);font-size:11px;font-weight:600;transition:background-color .15s,color .15s,opacity .15s}
+  #replay:hover:not(:disabled){background:var(--s800);color:#fff}
+  #replay:disabled{opacity:.4;cursor:default}
+  #replay .i{width:12px;height:12px}
   #avatar{width:24px;height:24px;border-radius:9999px;background:var(--accent);color:#fff;font-size:10px;
     font-weight:700;display:grid;place-items:center;flex:none;box-shadow:var(--sh-sm)}
   body[data-state=checking] #avatar{box-shadow:0 0 0 2px rgb(251 191 36/.5);
@@ -194,6 +208,12 @@
   #reply:empty{display:none}
   #reply::before{content:"\201C"}
   #reply::after{content:"\201D"}
+  /* Under the answer: the stock room's record behind it, or a note that it came from the printed list */
+  #stock-note{margin:0;padding-left:32px;font-size:12px;line-height:16px;font-weight:500;color:var(--s400);
+    overflow-wrap:anywhere}
+  #stock-note:empty{display:none}
+  #stock-note .tag{font-weight:600;color:#fcd34d}   /* the stock room's amber, as in its status chip */
+  #stock-note.canned{font-style:italic}
   .typing{display:none;align-self:flex-start;align-items:center;gap:6px;margin-left:32px;padding:8px 14px;
     border-radius:16px;background:rgb(28 25 23/.9);border:1px solid var(--s800);
     box-shadow:inset 0 2px 4px 0 rgb(0 0 0/.05)}
@@ -242,7 +262,10 @@
     .dock-card{flex-direction:row;align-items:center;justify-content:space-between;padding:6px 6px 6px 10px;
       border-radius:9999px}
     #enter{flex:none;min-height:40px;border-radius:9999px}
-    #chips,.who{display:none}
+    #chips,#avatar,#who{display:none}
+    .reply-card{position:relative}                          /* Replay keeps the card's top-right corner */
+    .who{position:absolute;top:8px;right:8px}
+    .reply-card:has(#replay:not([hidden])) #reply{padding-right:84px}
     .panel-card{gap:8px;padding:10px}
   }
   @media (max-height:520px) and (orientation:landscape) and (max-width:699px){
@@ -250,6 +273,24 @@
     #top{grid-template-columns:1fr auto;grid-template-areas:"tabs actions"}
     #shops{justify-self:start}
   }
+
+  /* Settings drawer, read-only: the brand card opens the shop's entry in SHOPS as its settings file */
+  #settings{width:min(560px,calc(100% - 32px));max-height:calc(100% - 48px);padding:0;border-radius:20px;
+    color:var(--s100);background:rgb(28 25 23/.97);border:1px solid rgb(255 255 255/.12);box-shadow:var(--sh-2xl);
+    overflow:hidden}
+  #settings[open]{display:flex;flex-direction:column}
+  #settings::backdrop{background:rgb(12 10 9/.6)}
+  #settings .sheet{display:flex;flex-direction:column;gap:12px;min-height:0;padding:16px}
+  #settings h2{margin:0;font-size:15px;line-height:20px;font-weight:700;color:#fff}
+  #settings pre{flex:1 1 auto;min-height:0;margin:0;overflow:auto;padding:12px;border-radius:12px;
+    background:var(--s950);border:1px solid var(--s800);color:var(--s200);
+    font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    white-space:pre-wrap;overflow-wrap:anywhere;-webkit-user-select:text;user-select:text}
+  #settings pre:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
+  #settings p{margin:0;font-size:13px;line-height:1.5;color:var(--s300)}
+  #settings-close{align-self:flex-end;min-height:40px;padding:8px 18px;border-radius:12px;background:var(--accent);
+    color:#fff;font-size:14px;font-weight:700;box-shadow:var(--sh-md);transition:filter .15s}
+  #settings-close:hover{filter:brightness(1.1)}
 
   @keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
   @keyframes ping{75%,100%{transform:scale(2);opacity:0}}
@@ -259,13 +300,14 @@
   @keyframes bar{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
   @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
+<!-- Three.js 0.186.1 is served from this app (public/vendor/three-0.186.1: build/three.module.js and
+     build/three.core.js, byte-identical to the npm package), so the page loads nothing from a CDN.
+     three.module.js imports ./three.core.js, so both files stay together in that folder. -->
 <script type="importmap">
-{ "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/" } }
+{ "imports": { "three": "/vendor/three-0.186.1/three.module.js" } }
 </script>
-<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js">
-<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.core.js">
+<link rel="modulepreload" href="/vendor/three-0.186.1/three.module.js">
+<link rel="modulepreload" href="/vendor/three-0.186.1/three.core.js">
 </head>
 <body data-where="street" data-state="listening">
 <!-- Icons: Lucide (lucide-static 0.546.0, the version the AI Studio design used), ISC licence -->
@@ -279,28 +321,30 @@
   <symbol id="i-volume-x" viewBox="0 0 24 24"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/></symbol>
   <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
   <symbol id="i-corner-up-left" viewBox="0 0 24 24"><path d="M20 20v-7a4 4 0 0 0-4-4H4"/><path d="M9 14 4 9l5-5"/></symbol>
+  <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
   <symbol id="i-send" viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></symbol>
 </svg>
 
 <canvas id="c" role="img" aria-label="A shop front on a city street; inside, a clerk behind the counter"></canvas>
 
 <header id="top">
-  <div id="brand" class="glass">
+  <button id="brand" class="glass" type="button" aria-haspopup="dialog" aria-label="Peripie: this shop's settings file" title="This shop's settings file">
     <span class="tile"><svg class="i" data-shop-icon aria-hidden="true"><use href="#i-croissant"/></svg></span>
     <span class="brand-text">
       <span class="brand-line"><b>Peripie</b><span class="chip amber" id="event">HackLanta '26</span></span>
       <span class="where"><svg class="i" aria-hidden="true"><use href="#i-map-pin"/></svg><span id="area"></span></span>
     </span>
-  </div>
+  </button>
   <nav id="shops" class="solid" aria-label="Shops"></nav>
   <div id="actions">
     <button id="skyline" class="solid pill-btn" type="button" aria-pressed="false" title="Look up at the skyline"><svg class="i" aria-hidden="true"><use href="#i-building-2"/></svg><span id="skyline-label">Skyline</span></button>
-    <button id="sound" class="solid pill-btn" type="button" aria-pressed="false" aria-label="Mute sound" title="Mute sound and voice"><svg class="i" aria-hidden="true"><use href="#i-volume-2"/></svg></button>
+    <button id="sound" class="solid pill-btn" type="button" aria-pressed="true" aria-label="Sound effects" title="Sound effects"><svg class="i" aria-hidden="true"><use href="#i-volume-2"/></svg></button>
   </div>
 </header>
 <p id="hint">Drag to look around</p>
 
-<button id="door-cue" type="button"><span class="ping"></span>Tap the doors to walk in<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
+<button id="door-cue" type="button"><span class="ping"></span>Tap here to walk in<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
 
 <div id="dock">
   <div class="dock-card glass">
@@ -308,7 +352,10 @@
       <span class="tile round"><svg class="i" data-shop-icon aria-hidden="true"><use href="#i-croissant"/></svg></span>
       <div class="dock-text">
         <div class="dock-title"><h1 id="shop-name"></h1><span class="chip green">Open now</span></div>
-        <span class="duty" id="duty">Desk clerk and stock agent on duty</span>
+        <div class="dock-sub">
+          <span class="duty" id="duty">Desk clerk and stock agent on duty</span>
+          <span class="zero"><svg class="i" aria-hidden="true"><use href="#i-shield-check"/></svg>No account. Nothing stored.</span>
+        </div>
       </div>
     </div>
     <button id="enter" type="button">Enter shop<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
@@ -324,8 +371,9 @@
       <button id="leave" type="button"><svg class="i" aria-hidden="true"><use href="#i-corner-up-left"/></svg>Leave shop</button>
     </div>
     <div class="reply-card">
-      <div class="who"><span id="avatar" aria-hidden="true"></span><span id="who"></span></div>
+      <div class="who"><span id="avatar" aria-hidden="true"></span><span id="who"></span><button id="replay" type="button" hidden title="Hear the last answer again"><svg class="i" aria-hidden="true"><use href="#i-rotate-ccw"/></svg>Replay</button></div>
       <p id="reply"></p>
+      <p id="stock-note"></p>
       <span class="typing" aria-hidden="true"><i></i><i></i><i></i></span>
     </div>
     <div id="chips" role="group" aria-label="Questions to try"></div>
@@ -335,6 +383,15 @@
     </form>
   </div>
 </div>
+
+<dialog id="settings" aria-labelledby="settings-title">
+  <div class="sheet">
+    <h2 id="settings-title">This shop's settings file</h2>
+    <pre id="settings-json" tabindex="0"></pre>
+    <p>Each shop is one settings file. The builder we're making next lets an owner edit it by dragging things around.</p>
+    <button id="settings-close" type="button">Close</button>
+  </div>
+</dialog>
 
 <script type="module">
 import * as THREE from 'three';
@@ -390,7 +447,8 @@ const SHOPS = [
    Greeting: POST { shop: "bakery", greet: true }   sent on the Enter tap, during the walk-in
    200:      { reply, audioUrl, stock }   reply: the clerk's words, always a string;
              audioUrl: an mp3 data URL, or null to use the browser's voice;
-             stock: the last check_stock result, or null (the page does not use it yet)
+             stock: the last check_stock result that found a product, or null; display only,
+             as the stock room's record under the answer (the reply is what is spoken)
    Errors:   400 { error: "bad_shop" | "bad_text" }, 502 { error: "clerk_unavailable" }
    Fallback: a network error, a non-2xx status, no answer within 15 s, or a body without a
              string reply counts as no answer. A question then gets the canned answer below,
@@ -398,7 +456,10 @@ const SHOPS = [
 if (window.CLERK_ENDPOINT === undefined) window.CLERK_ENDPOINT = '/api/clerk';
 const MAX_TEXT = 300, CLERK_TIMEOUT_MS = 15000;
 
-// One POST to the clerk. Resolves to { reply, audioUrl } or null; never throws.
+// The stock room's record in a reply: the contract's found shape (it names a product), or null.
+const stockOf = s => s && typeof s === 'object' && typeof s.product === 'string' && s.product.trim() ? s : null;
+
+// One POST to the clerk. Resolves to { reply, audioUrl, stock } or null; never throws.
 async function callClerk(body){
   if (!window.CLERK_ENDPOINT) return null;
   const abort = new AbortController(), timer = setTimeout(() => abort.abort(), CLERK_TIMEOUT_MS);
@@ -409,7 +470,8 @@ async function callClerk(body){
       body: JSON.stringify(body), signal: abort.signal });
     const data = r.ok ? await r.json() : null;
     if (typeof data?.reply === 'string' && data.reply.trim())
-      return { reply: data.reply, audioUrl: (typeof data.audioUrl === 'string' && data.audioUrl) || null };
+      return { reply: data.reply, audioUrl: (typeof data.audioUrl === 'string' && data.audioUrl) || null,
+               stock: stockOf(data.stock) };
     why = r.ok ? 'no reply in the body' : 'HTTP ' + r.status;
   } catch (err){ why = err.name; }            // AbortError after 15 s, TypeError when offline
   finally { clearTimeout(timer); }
@@ -420,13 +482,13 @@ async function callClerk(body){
 async function askClerk(text){
   const shop = current, t0 = performance.now();
   const live = await callClerk({ shop: shop.id, text });
-  if (live) return live;
+  if (live) return live;                                        // { reply, audioUrl, stock }
   await wait(Math.max(0, 1500 - (performance.now() - t0)));   // canned answers, as before
-  const t = text.toLowerCase();
+  const t = text.toLowerCase();                                 // canned: true marks the printed list
   const item = shop.inventory.find(i => t.includes(i.name) || t.includes(i.name.replace(/s$/,'')));
-  if (!item) return { reply: 'I checked with the back. We don\'t carry that, but we do have ' +
+  if (!item) return { canned: true, reply: 'I checked with the back. We don\'t carry that, but we do have ' +
     shop.inventory.filter(i => i.inStock).map(i => i.name).join(', ') + '.' };
-  return { reply: item.inStock
+  return { canned: true, reply: item.inStock
     ? 'Good news, ' + item.name + ' is in stock.'
     : 'We\'re out of ' + item.name + ' right now. It\'ll be back ' + item.restock + '.' };
 }
@@ -888,6 +950,7 @@ const coarse = matchMedia('(pointer:coarse)').matches;   // phones: keep the key
 function setState(s){
   state = s; $('status').textContent = LABEL[s]; $('status').className = s;
   document.body.dataset.state = s;                  // the CSS keys the dots, bars and chips on it
+  $('replay').disabled = s !== 'listening';         // no replay while the clerk checks or talks
   if (s === 'checking'){ sfx.rustle(); targetYaw = targetPitch = 0; }   // face the hand-off
 }
 const setWhere = w => { document.body.dataset.where = w; };   // street, entering, inside, leaving
@@ -898,7 +961,8 @@ const player = new Audio();
 const hasTTS = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
 let endSay = () => {};          // resolves the reply being spoken now (Leave uses it)
 let visit = 0;                  // bumped by Leave, so an answer that arrives after it is dropped
-let muted = false;              // the sound button; kept in memory only
+let lastAnswer = null;          // the last answer this visit, for Replay; in memory only, Leave drops it
+let effectsOff = false;         // the sound-effects button (never the clerk's voice); kept in memory only
 
 function silentWav(samples){    // 16-bit mono PCM at 8 kHz: a 44-byte header, then zero samples
   const b = new Uint8Array(44 + samples * 2), v = new DataView(b.buffer);
@@ -929,7 +993,7 @@ function say(reply){
     const arm = ms => { clearTimeout(timer); timer = setTimeout(finish, ms); };
     const speak = () => {        // the browser's voice
       if (done) return;
-      if (!hasTTS || muted) return arm(2500);
+      if (!hasTTS) return arm(2500);
       const u = new SpeechSynthesisUtterance(reply.reply); u.onend = finish; u.onerror = finish;
       speechSynthesis.speak(u); arm(12000);
     };
@@ -944,13 +1008,34 @@ function say(reply){
   });
 }
 
+// Under the clerk's words, as plain text after the reply: the stock room's record behind a live
+// answer ("Stock room · croissant · 0 on hand · back Tuesday, October 13 · usually about 3 days"),
+// or, for an answer from the canned list, where it came from. Nothing for a greeting, for a
+// reply whose stock is null, or for null (a question in flight).
+function showStock(reply){
+  const note = $('stock-note'), s = reply?.stock;
+  note.classList.toggle('canned', !!reply?.canned);
+  if (reply?.canned){ note.textContent = 'From the printed list at the counter (stock room unreachable)'; return; }
+  if (!s){ note.replaceChildren(); return; }
+  const parts = [s.product], n = s.onHand, days = s.typicalRestockDays;   // days: null if it never sold out
+  if (s.inStock) parts.push(Number.isFinite(n) ? 'in stock, ' + n + ' on hand' : 'in stock');
+  else {
+    parts.push(Number.isFinite(n) ? n + ' on hand' : 'out of stock');
+    if (typeof s.nextRestockText === 'string' && s.nextRestockText) parts.push('back ' + s.nextRestockText);
+    const d = Number.isFinite(days) ? Math.round(days * 10) / 10 : 0;
+    if (d > 0) parts.push(d < 1 ? 'usually under a day' : 'usually about ' + d + (d === 1 ? ' day' : ' days'));
+  }
+  const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'Stock room';
+  note.replaceChildren(tag, ' · ' + parts.join(' · '));
+}
+
 /* Sound effects from the AI Studio design (soundEffects.ts): synthesised with Web Audio, no files.
    The context is made inside the Enter tap, like the voice. Any failure is silent. */
 const sfx = (() => {
   let ctx = null;
   const run = fn => () => {
     try {
-      if (muted) return;
+      if (effectsOff) return;
       const C = window.AudioContext || window.webkitAudioContext;
       if (!ctx && C) ctx = new C();
       if (!ctx) return;
@@ -1030,7 +1115,8 @@ function askChip(text){          // through the form, so the trim, the cap and t
   $('f').dispatchEvent(new Event('submit', { cancelable:true }));
 }
 
-// Every way in (the button, the door cue, a tap on the street) runs this inside the tap.
+// Both ways in (the Enter button and the door cue on the doors) run this inside the tap: a click
+// event, so iOS counts it as a tap.
 async function enterShop(){
   if (document.body.dataset.where !== 'street' || tween) return;
   unlockAudio();                                                // first, while still inside the tap
@@ -1043,6 +1129,7 @@ async function enterShop(){
   sfx.footsteps();
   await moveCamera(INSIDE, 2400);
   const live = await Promise.race([greeting, wait(2000)]);      // at most 2 s more, then the local line
+  showStock(null);                                              // a greeting has no stock-room record
   $('panel').hidden = false; setWhere('inside'); setState('answering');
   await say(live || { reply: 'Welcome to ' + shop.name + '. How can I help you today?' });
   setState('listening'); if (!coarse) $('q').focus();
@@ -1055,22 +1142,36 @@ $('f').onsubmit = async e => {
   const text = $('q').value.trim().slice(0, MAX_TEXT);
   if (!text || state !== 'listening') return;
   const here = visit;
-  $('q').value = ''; setState('checking'); $('reply').textContent = ''; if (coarse) $('q').blur();
+  $('q').value = ''; setState('checking'); $('reply').textContent = ''; showStock(null); if (coarse) $('q').blur();
   const reply = await askClerk(text);                           // never throws; canned on failure
   if (here !== visit) return;                                   // the visitor left while we checked
-  setState('answering'); await say(reply); setState('listening'); if (!coarse) $('q').focus();
+  lastAnswer = reply; $('replay').hidden = false;
+  setState('answering'); showStock(reply); await say(reply); setState('listening'); if (!coarse) $('q').focus();
+};
+
+// Replay, for a loud room: the last answer again through say(), so the cached mp3 plays on the
+// shared Audio element (inside this tap, which iOS needs), else the browser's voice. The answer
+// is kept in memory for this visit only; Leave drops it.
+$('replay').onclick = async () => {
+  if (!lastAnswer || state !== 'listening' || $('panel').hidden) return;
+  const here = visit, btn = $('replay'), refocus = document.activeElement === btn;
+  setState('answering');                                        // disables the button and the form
+  await say(lastAnswer);
+  if (here !== visit) return;                                   // the visitor left during the replay
+  setState('listening'); if (refocus) btn.focus();              // a disabled button drops focus; give it back
 };
 
 $('leave').onclick = async () => {
   if (tween) return;
-  visit++; endSay(); silence();
+  visit++; endSay(); silence(); lastAnswer = null; $('replay').hidden = true;
   $('panel').hidden = true; setState('listening'); setWhere('leaving'); sfx.footsteps();
   await moveCamera(DOOR, 1800); doorTarget = 0;
   await moveCamera(STREET, 2200);
   $('enter').hidden = false; bar.hidden = false; setWhere('street');
 };
 
-// Look around: drag on the 3D view (AI Studio's controls). A tap without a drag, on the street, walks in.
+// Look around: drag on the 3D view (AI Studio's controls). A tap on the street walks in only on
+// the door cue or the Enter button; anywhere else on the 3D view it does nothing.
 let drag = null, dragged = false;
 canvas.addEventListener('pointerdown', e => {
   if (drag) return;                                             // one pointer looks; a second finger is ignored
@@ -1090,7 +1191,6 @@ addEventListener('pointermove', e => {
 const endDrag = e => { if (drag && e.pointerId === drag.id){ drag = null; document.body.classList.remove('dragging'); } };
 addEventListener('pointerup', endDrag);
 addEventListener('pointercancel', endDrag);
-canvas.addEventListener('click', () => { if (!dragged) enterShop(); });   // a click, so iOS counts it as a tap
 
 // Skyline: tilt up toward Bank of America Plaza, on the street only.
 let skyline = false;
@@ -1101,12 +1201,54 @@ function setSkyline(on, keepView){
 }
 $('skyline').onclick = () => setSkyline(!skyline);
 
-// Sound: mutes the effects and the clerk's voice. The answers still show and the states still advance.
+// Settings drawer, read-only: the brand card shows the current shop's entry in SHOPS (all of it
+// display data) as the settings file it is. Nothing in it is editable and nothing is stored. The
+// native modal dialog keeps focus inside and closes on Escape; focus then returns to the card.
+const settings = $('settings');
+// The entry as JSON, indented two spaces, with an object or list on one line when that line fits
+// in `cols` characters, so a phone shows short clean lines instead of wrapped ones.
+function settingsText(shop, cols){
+  const out = (v, ind, lead) => {                               // lead: characters before v on its line
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    const arr = Array.isArray(v), inner = ind + '  ';
+    const items = arr ? v.map(x => out(x, inner, inner.length))
+      : Object.entries(v).map(([k, x]) => { const key = JSON.stringify(k) + ': '; return key + out(x, inner, inner.length + key.length); });
+    if (!items.length) return arr ? '[]' : '{}';
+    const one = arr ? '[' + items.join(', ') + ']' : '{ ' + items.join(', ') + ' }';
+    if (!one.includes('\n') && lead + one.length + 1 <= cols) return one;   // + 1 for a comma after it
+    return (arr ? '[' : '{') + '\n' + items.map(i => inner + i).join(',\n') + '\n' + ind + (arr ? ']' : '}');
+  };
+  return out(shop, '', 0);
+}
+function columnsIn(pre){                                       // monospace characters that fit on one line
+  const cs = getComputedStyle(pre), pen = document.createElement('canvas').getContext('2d');
+  let ch = parseFloat(cs.fontSize) * 0.6 || 7.2;
+  if (pen){ pen.font = cs.fontSize + ' ' + cs.fontFamily; ch = pen.measureText('0000000000').width / 10 || ch; }
+  return Math.max(24, Math.floor((pre.clientWidth - 24 - 16) / ch));   // less its padding and a scrollbar
+}
+$('brand').onclick = () => {
+  if (settings.open || typeof settings.showModal !== 'function') return;
+  settings.showModal();                                         // first, so the box has its width
+  const pre = $('settings-json');
+  pre.textContent = settingsText(current, columnsIn(pre));
+  pre.scrollTop = 0; $('settings-close').focus();
+};
+$('settings-close').onclick = () => settings.close();
+settings.addEventListener('click', e => {                       // a tap on the dimmed page around it
+  const r = settings.getBoundingClientRect();
+  if (e.target === settings && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom))
+    settings.close();
+});
+settings.addEventListener('close', () => $('brand').focus());  // Close, Escape or a tap outside
+
+// Sound effects: turns the footsteps, the door chime and the stock room's rustle off and on. The
+// clerk's voice (the shared Audio element and the browser's voice) always plays: a muted
+// greeting would be a failed step 2 of the demo. Pressed means the effects are on.
 $('sound').onclick = () => {
-  muted = !muted; player.muted = muted;
-  if (muted){ if (hasTTS) speechSynthesis.cancel(); } else sfx.unlock();
-  $('sound').setAttribute('aria-pressed', muted);
-  $('sound').querySelector('use').setAttribute('href', muted ? '#i-volume-x' : '#i-volume-2');
+  effectsOff = !effectsOff;
+  if (!effectsOff) sfx.unlock();
+  $('sound').setAttribute('aria-pressed', !effectsOff);
+  $('sound').querySelector('use').setAttribute('href', effectsOff ? '#i-volume-x' : '#i-volume-2');
 };
 
 build(SHOPS[0]);
