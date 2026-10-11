@@ -7,7 +7,7 @@ I run a painting company. My customers call to ask one thing: do you have it? An
 Let's open the bakery. As soon as I tap "Enter," the camera moves through the door and the clerk greets me out loud. I ask for sourdough. In stock. Now, I ask for croissants. We are out of them right now. They will be back Tuesday. The clerk adds that they usually come back within three days. That number isn't a guess; it comes directly from the restock history in the database.
 
 ## 1:05 – The Versatility
-Now, let's switch to the paint store. Same code, different shop: a different inventory, a different clerk, not a line of server code changed.
+Now, let's switch to the paint store. Same code, different shop: a different inventory, a different clerk, not a line of server code changed. And a third agent: ask which primer to use in a bathroom, and the support agent gives you the tip before the stock room gives you the count.
 
 ## 1:20 – How It Works
 It works because we use three specific tools. Gemini runs the clerk and decides exactly when to call the stock tool. Tiger Data holds the inventory and the restock history as a time series, so we can calculate typical wait times. ElevenLabs gives the clerk a natural voice. And critically, nothing about the visitor is stored anywhere on our servers.
@@ -24,7 +24,7 @@ A chatbot answers in text from whatever it was told. This one walks you in, talk
 Because you watch the clerk turn to the stock room before answering. For someone who would rather not ask in person, an answer they can see being checked is one they can trust, from wherever they are.
 
 **What happens if the network fails at the venue?**
-The page falls back to its canned answers and uses the browser's built-in voice so the demo survives without internet access.
+The page falls back to its canned answers and uses the browser's built-in voice, so the demo survives an API failure or a dropped connection once the page is open.
 
 **What is stored about the visitor?**
 Nothing; we strictly follow the Zero Data rule, meaning no accounts, cookies, analytics, or local storage of anything about the visitor.

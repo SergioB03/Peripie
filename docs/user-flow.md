@@ -30,14 +30,14 @@ flowchart TD
     O -->|"keeps counts and restock dates"| S
 ```
 
-The solid path is a normal visit. The dotted path is what happens when the Wi-Fi drops.
+The solid path is a normal visit. The dotted path is what happens when the connection drops after the page has loaded, or when the clerk cannot answer in time.
 
 ## Step by step
 
 1. **On the street.** You see a shop front and the names of three shops: Rosa's Bakery, Southside Paint Supply and Fern & Pot. Tap a name to switch shops.
 2. **Through the door.** Tap **Enter shop**. The view walks you up to the door, the doors slide open, and you stop in front of the counter.
 3. **The greeting.** The clerk says out loud, "Welcome to Rosa's Bakery. How can I help you today?" The words also appear on screen.
-4. **Asking.** Type into the **Ask for a product** box and tap **Ask**. This build takes typing only. Speaking is planned, not built.
+4. **Asking.** Type into the **Ask for a product** box and tap **Ask**, or tap the mic button and speak (the mic appears on the https link, not on a plain http address).
 5. **The clerk checks.** The label changes to **Checking with the stock room**. The clerk turns away, and a second person appears in the back.
 6. **The answer.** The clerk turns back and says it: in stock, or out and when it returns. The clerk may add how long that item usually takes to come back.
 7. **Again, or leave.** Ask again when the label reads **Listening**. Or tap **Leave shop**: the view walks you back out, the doors close, and you can pick another shop.
@@ -50,7 +50,7 @@ Not every question names a product. Say hello and the clerk greets you back. Ask
 
 **There is nothing to sign up for.** No account and no login. You open the link and you are on the street. The shop keeps nothing about you: no cookies, and your question is not saved or logged.
 
-**If the Wi-Fi drops, the clerk still answers.** The clerk turns to the back as usual, then answers from a printed list kept at the counter, in the device's own, plainer voice. The greeting works the same way.
+**If the connection drops once you are inside, the clerk still answers.** The page itself needs the network to load; after that, the clerk turns to the back as usual, then answers from a printed list kept at the counter, in the device's own, plainer voice. The greeting works the same way.
 
 The printed list is written into the shop's page, so it can be out of date. It is also used when the answer does not come back, or takes more than 15 seconds.
 

@@ -39,7 +39,7 @@ The date comes from the shelf list; "about three days" is computed from 60 days 
 | Replit | Hosts the Node + Express server and the page |
 | Three.js | The storefront, the walk-in, the clerk and the stock-room figure, in one HTML file with no build step |
 
-Two agents with a visible hand-off: the clerk (Gemini) and the stock agent (`check_stock` over Tiger Data). You see the hand-off on screen; that is the trust signal, not decoration.
+Two agents with a visible hand-off: the clerk (Gemini) and the stock agent (`check_stock` over Tiger Data). You see the hand-off on screen; that is the trust signal, not decoration. The paint store staffs a third: a support agent. Ask which primer to use in a bathroom and you get one sentence of advice, then the stock of what it recommends. Each shop lists its staff in its settings; that list is the seed of the builder in What's next.
 
 Diagrams, written for shop owners first and engineers second: [who talks to whom](docs/architecture.md), [one question at the counter](docs/sequence.md), [a visit to the shop](docs/user-flow.md), [the two records an owner already keeps](docs/data-model.md). Decisions and the ideas we dropped: [docs/decisions.md](docs/decisions.md).
 

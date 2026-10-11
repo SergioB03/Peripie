@@ -10,11 +10,11 @@ Steps for Sergio, checked against docs.replit.com on Sat Oct 10, 2026. The repo'
 **Tools** > **Secrets** (under Setup) > **New Secret** > enter Key and Value > **Add Secret**. Values come from your `.env`.
 - `GEMINI_API_KEY`
 - `ELEVENLABS_API_KEY`
-- `DATABASE_URL`: the Tiger Data URL, ending in `?sslmode=require`
+- `TIGER_DATABASE_URL`: the Tiger Data URL, ending in `?sslmode=require` (not `DATABASE_URL`: Replit uses that name for its own database, and the server reads `TIGER_DATABASE_URL` first for exactly that reason)
 - `ELEVENLABS_VOICE_ID`: optional, the code has a default voice
 - `GEMINI_MODEL`: optional, leave it out (the code defaults to `gemini-3.5-flash-lite`)
 
-Do not add `PORT`; Replit sets it. Do not add Replit's own database. If a `DATABASE_URL` is already listed and contains `helium` or `neon.tech`, that is Replit's database: edit it to the Tiger Data URL.
+Do not add `PORT`; Replit sets it. Do not add Replit's own database. If a `DATABASE_URL` is already listed and contains `helium` or `neon.tech`, that is Replit's database: leave it alone and make sure `TIGER_DATABASE_URL` is set; the boot log must read `[stock] using TIGER_DATABASE_URL (…timescale.com)`.
 
 ## 3. Run it once in the workspace
 1. Open the **Shell** tool and run `npm ci` (installs exactly what `package-lock.json` lists).
@@ -58,7 +58,7 @@ Replit does not pull from GitHub by itself. The Git pane's auto-sync is two-way 
 ## If it breaks
 - **Port not detected** ("Application failed to respond", or Promote fails): the Console must print `listening on 0.0.0.0:3000`. If it prints another port, set `localPort` in `.replit` to that number. Keep one `[[ports]]` entry, with `externalPort = 80`; delete any extra entry Replit added, then publish again.
 - **Cold start** (Autoscale only): after 15 minutes idle, the first request takes a few seconds and the greeting may fall back to the browser voice. Switch to Reserved VM, or open the URL on the second device a minute before each judge.
-- **Missing secret**: Publishing > **Logs** shows `GEMINI_API_KEY not set`, `ELEVENLABS_API_KEY not set` or `[stock] DATABASE_URL is not set`. Add it under **Production app secrets**, then publish again. `[stock] database unavailable` means the Tiger URL is wrong or Tiger is down; `[stock] no inventory rows ... (seed not loaded?)` means `DATABASE_URL` is Replit's database or Tiger is not seeded.
+- **Missing secret**: Publishing > **Logs** shows `GEMINI_API_KEY not set`, `ELEVENLABS_API_KEY not set` or `[stock] TIGER_DATABASE_URL and DATABASE_URL are not set`. Add it under **Production app secrets**, then publish again. `[stock] using DATABASE_URL` at boot means the `TIGER_DATABASE_URL` secret is missing and the app is on Replit's database; `[stock] database unavailable` means the Tiger URL is wrong or Tiger is down; `[stock] database has no inventory rows for bakery: seed not loaded?` or `missing the Peripie tables` means `db/schema.sql` and `db/seed.sql` were not run on that database.
 - **Publish stuck**: Ctrl+K > **Restart compute**, then publish again. After judging, shut the deployment down in Publishing to stop the charge.
 
 ## Sources (docs.replit.com, read Oct 10, 2026)

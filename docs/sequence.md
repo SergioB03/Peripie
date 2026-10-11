@@ -85,7 +85,7 @@ Each person and place above is one part of the code.
 | Welcome line | `{ shop, greet: true }`: fixed text per shop, no Gemini; the mp3 is kept in server memory per shop |
 | Plainer voice | The browser's built-in speech, used when `audioUrl` is null or the mp3 will not play |
 | Printed list at the counter | The canned answers in `SHOPS` in `public/index.html` |
-| Copy of the morning list | The built-in seed in `db/seed-data.js`, rebuilt each day; used when `DATABASE_URL` is unset or the database cannot be reached |
+| Copy of the morning list | The built-in seed in `db/seed-data.js`, rebuilt each day; used when `TIGER_DATABASE_URL` is unset or the database cannot be reached |
 
 ## The same question, for engineers
 
