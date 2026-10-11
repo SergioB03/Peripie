@@ -133,9 +133,15 @@ function attach(form, input){
   btn.addEventListener('click', () => live ? stop(live) : start());
   input.addEventListener('input', () => { hint.textContent = ''; cancel(); });   // typing wins
   form.addEventListener('submit', () => { if (!ours) cancel(); });               // Ask, Enter or a chip
+  const replay = $('replay');
+  if (replay) replay.addEventListener('click', cancel);                         // never transcribe the clerk's replayed voice
   if (panel) new MutationObserver(() => { if (panel.hidden) cancel(); })          // Leave
     .observe(panel, { attributes: true, attributeFilter: ['hidden'] });
-  const busy = () => btn.classList.toggle('pp-busy', !!status && !listening());  // dim while the clerk is busy
+  const busy = () => {                                                           // dim while the clerk is busy,
+    const b = !!status && !listening();                                          // and stop listening the moment the
+    btn.classList.toggle('pp-busy', b);                                          // clerk starts talking, so its own
+    if (b && live) cancel();                                                     // voice is never sent as a question
+  };
   if (status) new MutationObserver(busy)
     .observe(status, { attributes: true, childList: true, characterData: true, subtree: true });
   busy();

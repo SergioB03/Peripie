@@ -66,7 +66,7 @@ If something is slow or down, the visit still works:
 
 | In the story | File | Outside service |
 |---|---|---|
-| Street, front door, counter, clerk and stock agent on screen | `public/index.html`, a Three.js scene | jsDelivr CDN, which serves the Three.js library |
+| Street, front door, counter, clerk and stock agent on screen | `public/index.html`, a Three.js scene; the library is served by the app itself from `public/vendor/three-0.186.1/` | none |
 | Clerk taking the question and handing back the answer | `server/index.js`: `POST /api/clerk` on Express | none |
 | Understands the question | `server/clerk.js` | Gemini API, with `check_stock` as its only tool |
 | Stock room | `server/stock.js`: `check_stock` | none |

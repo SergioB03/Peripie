@@ -22,7 +22,7 @@ Everything a judge sees runs from `main`. The laptop server is on `http://192.16
 1. Re-run `db/seed.sql` against Tiger (the second Docker command in db/README.md) so "tomorrow" moves to Monday and the history ends today.
 2. Warm the public link from the second device; ask one question so the first judge does not pay the cold start.
 3. Rehearse the pitch out loud twice; the Q&A is at the bottom of pitch.md.
-4. Glance at the mute button (top right) before each judge; it silences the clerk's voice too.
+4. The top-right button mutes sound effects only; the clerk's voice cannot be muted from the page.
 5. Submit by 8:30 am.
 
 ## If something breaks
@@ -32,7 +32,7 @@ Everything a judge sees runs from `main`. The laptop server is on `http://192.16
 | Clerk answers but no ElevenLabs voice | `ELEVENLABS_API_KEY` missing or out of credits; the browser voice reads the same words. Demo still passes steps 1, 3, 4 |
 | Every answer is the canned one ("Tuesday morning") | Gemini is down or the key is wrong; server log shows `clerk_unavailable`. Check the key; the fallback keeps the demo alive |
 | Log says `answering from the built-in seed` | Tiger not loaded or `TIGER_DATABASE_URL` missing; answers are still correct (same data) |
-| Silent greeting on an iPhone | Volume and silent switch first; then the one-line kill switch for sound effects is in PLAN.md's checkpoint notes (`if (muted) return;` → `return;` in `sfx`) |
+| Silent greeting on an iPhone | Volume and silent switch first; then the one-line kill switch for sound effects: `if (effectsOff) return;` → `return;` in `sfx` in public/index.html; the voice path is untouched by it |
 | Page shows the old scene | Hard refresh; the page is cached by the browser |
 | Need the previous page | `git checkout page-v1 -- public/index.html` (today's pre-design page) |
 
