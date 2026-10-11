@@ -1607,8 +1607,9 @@ $('check-list').onclick = async () => {
 
 /* Take this with you: the list's answer as plain text, one line per item, to show at the counter
    or send to whoever goes in. Shared through the device's share sheet where there is one, else
-   copied, with "Copied" on the button for 2 s; where neither works it is shown here to copy by
-   hand. It is made from the answer on screen when pressed and kept nowhere. */
+   copied; the button then says "Shared" or "Copied" for 2 s, and so does the screen reader. Where
+   neither works it is shown here to copy by hand. It is made from the answer on screen when
+   pressed and kept nowhere. */
 const SITE = 'peripie.replit.app';
 function cardText(answer){
   const { shop, at, items } = answer.list;
@@ -1621,20 +1622,23 @@ function tookBack(){                          // the button's own words again
   $('take').querySelector('use').setAttribute('href', '#i-share');
   $('take').lastChild.textContent = 'Take this with you';
 }
+function took(word){                          // "Shared" or "Copied", with a tick, for 2 s
+  tookBack(); $('take').querySelector('use').setAttribute('href', '#i-check'); $('take').lastChild.textContent = word;
+  announce(word);
+  tookTimer = setTimeout(tookBack, 2000);
+}
 $('take').onclick = async () => {
   const answer = lastAnswer;
   if (!answer?.list) return;
   const text = cardText(answer);
   if (typeof navigator.share === 'function' && (!navigator.canShare || navigator.canShare({ text }))){
-    try { await navigator.share({ text }); return; }
+    try { await navigator.share({ text }); if (answer === lastAnswer) took('Shared'); return; }
     catch (err){ if (err?.name === 'AbortError') return; }      // closed without sharing: nothing to do
   }
   try {
     await navigator.clipboard.writeText(text);
     if (answer !== lastAnswer) return;
-    tookBack(); $('take').querySelector('use').setAttribute('href', '#i-check'); $('take').lastChild.textContent = 'Copied';
-    announce('Copied');
-    tookTimer = setTimeout(tookBack, 2000);
+    took('Copied');
   } catch {                                                     // no clipboard here (plain http): show it instead
     if (answer !== lastAnswer) return;
     $('take-text').textContent = text; $('take-text').hidden = false;
