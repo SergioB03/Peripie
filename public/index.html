@@ -300,6 +300,12 @@
     transition:filter .15s}
   #check-list:hover,#take:hover{filter:brightness(1.1)}
   #check-list .i,#take .i{width:14px;height:14px}
+  /* After a list's answer the area folds to one line, "3 items checked · Edit list", so the panel
+     stops covering the clerk on a phone; Edit list opens it again */
+  #list-folded{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11px;line-height:16px;font-weight:600;color:var(--s300)}
+  #list-edit{min-height:30px;padding:4px 10px;border-radius:9999px;background:rgb(41 37 36/.8);border:1px solid rgb(68 64 60/.6);
+    color:var(--s200);font-size:11px;font-weight:600;transition:background-color .15s,color .15s}
+  #list-edit:hover{background:var(--s800);color:#fff}
   @media (min-width:400px){
     #status{gap:8px;padding:4px 12px;font-size:12px;letter-spacing:.025em}
     #leave{gap:6px;padding:4px 12px;font-size:12px}
@@ -434,6 +440,7 @@
   html.big .carry-chip{font-size:14px}
   html.big .pick{font-size:15px}
   html.big :is(#check-list,#take){font-size:15px}
+  html.big #list-folded,html.big #list-edit{font-size:14px;line-height:20px}
   html.big #record{font-size:15.5px;line-height:22px}
   html.big #take-text{font-size:15px}
   @media (min-width:400px){html.big :is(#status,#leave){font-size:15px}}
@@ -446,7 +453,7 @@
   html.hc :is(.glass,.solid,.dock-card,#walking,#door-cue,#hint,#scene-toast,#settings,#a11y){background:rgb(12 10 9/.97);
     border:2px solid #fbbf24;-webkit-backdrop-filter:none;backdrop-filter:none}
   html.hc .reply-card{background:#0c0a09;border-color:var(--s500)}
-  html.hc :is(#leave,#replay,#chips button,#a11y [role=switch],#a11y .tools button){background:#1c1917;border-color:var(--s400)}
+  html.hc :is(#leave,#replay,#list-edit,#chips button,#a11y [role=switch],#a11y .tools button){background:#1c1917;border-color:var(--s400)}
   html.hc :is(.carry-chip,.pick){background:#1c1917}
   html.hc .carry-chip{border-color:var(--s300)}
   html.hc #q{border-color:var(--s300)}
@@ -584,6 +591,7 @@
     <div id="chips" role="group" aria-label="Questions to try"></div>
     <!-- My list (script section 5): what the shop carries, and the visitor's list, checked all at once -->
     <div id="list-area">
+      <div id="list-folded" hidden><span id="list-folded-text">Your list checked</span><span aria-hidden="true">·</span><button id="list-edit" type="button">Edit list</button></div>
       <div id="mylist" role="group" aria-labelledby="mylist-label" hidden><span class="list-label" id="mylist-label">My list</span><button id="check-list" type="button"><svg class="i" aria-hidden="true"><use href="#i-list-checks"/></svg>Check my list</button></div>
       <div id="carry" role="group" aria-labelledby="carry-label"><span class="list-label" id="carry-label">What we carry <span class="sub">· tap to add to your list</span></span></div>
     </div>
@@ -2189,8 +2197,16 @@ function renderList(){
     x.onclick = () => removeFromList(name);
     p.append(name, x); row.insertBefore(p, $('check-list'));
   }
-  row.hidden = !items.length;
+  row.hidden = folded || !items.length;
+  $('carry').hidden = folded;
+  $('list-folded').hidden = !folded;
 }
+// After a list's answer the whole area folds to "3 items checked · Edit list" (one line, so the
+// panel stops covering the clerk on a phone); Edit list, a new visit or another shop opens it again.
+let folded = false;
+function foldList(count){ folded = true; $('list-folded-text').textContent = howMany(count) + ' checked'; renderList(); }
+function unfoldList(){ folded = false; renderList(); }
+$('list-edit').onclick = () => { unfoldList(); (listFor(current).length ? $('check-list') : $('carry').querySelector('.carry-chip'))?.focus(); };
 // The chip under the visitor's finger must still be the chip they meant. The list sits above the
 // chips and the panel grows upward from the bottom, so a list that appears or wraps moves only what
 // is above it. Once the panel is as tall as the screen allows it scrolls instead (Larger text on a
@@ -2244,7 +2260,7 @@ async function enterShop(){
   }
   const live = await Promise.race([greeting, wait(grace)]);
   const hello = live || { reply: 'Welcome to ' + shop.name + '. How can I help you today?' };
-  showStock(null);                                              // a greeting has no stock-room record
+  showStock(null); unfoldList();                                // a greeting has no stock-room record; a new visit, the list open
   $('panel').hidden = false; setWhere('inside'); setState('answering');
   lastAnswer = hello; $('replay').hidden = false;               // Replay works from the greeting on; an answer replaces it
   await say(hello);
@@ -2277,7 +2293,7 @@ $('check-list').onclick = async () => {
   const reply = await askList(items);                           // never throws; the printed list on failure
   if (here !== visit) return;                                   // the visitor left while we checked
   lastAnswer = reply; $('replay').hidden = false;
-  setState('answering'); showStock(reply); await say(reply); setState('listening');
+  setState('answering'); showStock(reply); foldList(items.length); await say(reply); setState('listening');
   if (here === visit && focusLost()) $('take').focus();         // the button they pressed has gone: the next step
 };
 
@@ -2286,7 +2302,7 @@ $('check-list').onclick = async () => {
    copied; the button then says "Shared" or "Copied" for 2 s, and so does the screen reader. Where
    neither works it is shown here to copy by hand. It is made from the answer on screen when
    pressed and kept nowhere. */
-const SITE = 'peripie.replit.app';
+const SITE = 'allyou.select';                 // the list's own domain: all you select, checked at once
 function cardText(answer){
   const { shop, at, items } = answer.list;
   return [shop + ' · checked ' + clock(at), ...items.map(cardLine),
