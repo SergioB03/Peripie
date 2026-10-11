@@ -130,7 +130,8 @@ app.listen(port, '0.0.0.0', (err) => {
   if (!process.env.GEMINI_API_KEY) console.warn('GEMINI_API_KEY not set: questions answer 502 clerk_unavailable');
   if (!process.env.ELEVENLABS_API_KEY) console.warn('ELEVENLABS_API_KEY not set: audioUrl is null');
   loadClerk().catch(() => {});
-  // The voice SDK import blocks for about 2 s; start it just after boot, once /health is
-  // answering, instead of inside the first greeting or question.
-  setTimeout(warmUpVoice, 500);
+  // The voice SDK import (about 72 MB, 23k files) blocks the event loop for about 2 s, far
+  // longer on a busy disk. Start it 10 s after boot, so the deploy probe and the first page
+  // load land before the block; a greeting that comes sooner loads it inside its own budget.
+  setTimeout(warmUpVoice, 10_000);
 });

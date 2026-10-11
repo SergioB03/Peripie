@@ -22,8 +22,8 @@ function errorType(err) {
 }
 
 // The SDK takes about 2 s to import and blocks the event loop while it does. index.js calls
-// warmUpVoice shortly after listening, so /health is answered first and the first greeting or
-// question does not pay the load; if it has not run yet, the first call loads it.
+// warmUpVoice 10 s after listening, once the deploy probe and the first page load are served;
+// a greeting or question that comes sooner loads it, inside its own time budget.
 let sdk;
 function loadSdk() {
   sdk ??= import('@elevenlabs/elevenlabs-js').catch((err) => {
