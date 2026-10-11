@@ -6,7 +6,7 @@ import compression from 'compression';
 import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { SHOPS } from './shops.js';
-import { textToSpeech } from './voice.js';
+import { synthesize, textToSpeech } from './voice.js';
 
 const MAX_TEXT = 300;
 // Timing (PLAN.md section 3): the page waits 15 s and clerk.js gives Gemini 10 s, so a reply's
@@ -37,21 +37,36 @@ function loadClerk() {
   return clerkModule;
 }
 
-// Greeting audio per shop, kept in memory to save ElevenLabs credits. A failed attempt is
-// dropped so the next visit tries again.
+const greetingText = (shop) => `Welcome to ${shop.name}. How can I help you today?`;
+
+// Greeting audio per shop, kept in memory to save ElevenLabs credits. The map holds the promise
+// of { url, reason }, so a greeting asked for while the boot warm-up is voicing that shop waits
+// for the same call. A failed attempt is dropped so the next visit tries again.
 const greetings = new Map();
 function greetingAudio(shopId, text) {
   let audio = greetings.get(shopId);
   if (!audio) {
-    audio = textToSpeech(text)
-      .catch(() => null)
-      .then((url) => {
-        if (!url) greetings.delete(shopId);
-        return url;
+    audio = synthesize(text)
+      .catch((err) => ({ url: null, reason: err?.name || 'Error' }))
+      .then((result) => {
+        if (!result.url) greetings.delete(shopId);
+        return result;
       });
     greetings.set(shopId, audio);
   }
   return audio;
+}
+
+// After a restart, voice the three greetings one after another, so the first visitor hears
+// the ElevenLabs voice at the door. These are network calls; nothing waits on them.
+async function warmGreetings() {
+  let warmed = 0;
+  for (const [id, shop] of SHOPS) {
+    const { url, reason } = await greetingAudio(id, greetingText(shop));
+    if (url) warmed += 1;
+    else console.warn(`voice: warm-up ${id} failed (${reason})`);
+  }
+  console.log(`voice: greetings warmed (${warmed}/${SHOPS.size})`);
 }
 
 const app = express();
@@ -87,9 +102,10 @@ app.post('/api/clerk', express.json({ limit: '4kb' }), async (req, res) => {
   const shop = { id: body.shop, ...settings }; // { id, name, staff }
 
   if (body.greet === true) {
-    const reply = `Welcome to ${shop.name}. How can I help you today?`;
-    const audioUrl = await greetingAudio(shop.id, reply);
-    return res.json({ reply, audioUrl, stock: null });
+    const reply = greetingText(shop);
+    const { url, reason } = await greetingAudio(shop.id, reply);
+    if (!url) console.warn(`voice: ${reason}`);
+    return res.json({ reply, audioUrl: url, stock: null });
   }
 
   const text = typeof body.text === 'string' ? body.text.trim() : '';
@@ -105,7 +121,9 @@ app.post('/api/clerk', express.json({ limit: '4kb' }), async (req, res) => {
   }
 
   const audioMs = Math.floor(Math.min(MAX_AUDIO_MS, RESPONSE_BUDGET_MS - (performance.now() - started)));
-  const audioUrl = audioMs >= MIN_AUDIO_MS ? await textToSpeech(answer.reply, { timeoutMs: audioMs }) : null;
+  let audioUrl = null;
+  if (audioMs >= MIN_AUDIO_MS) audioUrl = await textToSpeech(answer.reply, { timeoutMs: audioMs });
+  else console.warn(`voice: no time left (${audioMs} ms)`);
   res.json({ reply: answer.reply, audioUrl, stock: answer.stock ?? null });
 });
 
@@ -140,4 +158,5 @@ app.listen(port, '0.0.0.0', (err) => {
   if (!process.env.GEMINI_API_KEY) console.warn('GEMINI_API_KEY not set: questions about a stocked product get the templated reply, others 502');
   if (!process.env.ELEVENLABS_API_KEY) console.warn('ELEVENLABS_API_KEY not set: audioUrl is null');
   loadClerk().catch(() => {});
+  if (process.env.ELEVENLABS_API_KEY) setTimeout(() => warmGreetings().catch(() => {}), 1_000);
 });
