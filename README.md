@@ -20,7 +20,7 @@ Some days I'm also the customer who won't ask. I'll order at a drive-through bef
    ![Greeting](docs/screenshots/03-greeting.jpg)
 3. Ask for a product by typing. The clerk turns to the stock agent; the label reads *Checking with the stock room*.
    ![Checking](docs/screenshots/04-checking.jpg)
-4. Hear the answer, which comes from the database: in stock, or out with the restock date and how long that item usually takes to come back.
+4. Hear the answer, which comes from the database: in stock, or out with the restock date and how long that item usually takes to come back. Under the clerk's words you see the stock room's record itself ("Stock room · croissant · 0 on hand · back Tuesday, October 13 · usually about 3 days"), and a Replay button for loud rooms.
    ![Answer](docs/screenshots/05-answer.jpg)
 
 What the clerk actually said on the first real run (Oct 10, 3:45 pm):
@@ -47,7 +47,7 @@ The build itself: a plan in [PLAN.md](PLAN.md), a task board, four Claude Code a
 
 ## Zero Data statement
 
-Nothing about the visitor is collected or stored. No accounts, no cookies set by us, no analytics, no local storage. The server logs method, path, status and milliseconds, never the question or the reply. The database receives only the shop id; the product is matched in Node.
+Nothing about the visitor is collected or stored. No accounts, no cookies set by us, no analytics, no local storage, and the page loads no third-party scripts: the 3D library is served by the app itself. The server logs method, path, status and milliseconds, never the question or the reply. The database receives only the shop id; the product is matched in Node.
 
 What leaves the server to answer a question: the visitor's words go to Gemini; the clerk's reply text (never the question) goes to ElevenLabs. If the visitor uses the microphone button, the browser does the transcribing: Chrome sends the audio to Google's speech service and Safari to Apple's; the page never sees or stores the audio, only the words that come back. What those services keep on their side: on Google's free tier, Gemini may use the question to improve its products; ElevenLabs keeps the clerk's replies in the account's history. The host counts requests and unique IPs and keeps deployment logs for 30 days, and its front end sets a routing cookie (`GAESA`) on every app it serves, which carries no identity and which we never read. None of it is tied to a name or an account.
 
