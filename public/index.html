@@ -195,6 +195,12 @@
   #reply:empty{display:none}
   #reply::before{content:"\201C"}
   #reply::after{content:"\201D"}
+  /* Under the answer: the stock room's record behind it, or a note that it came from the printed list */
+  #stock-note{margin:0;padding-left:32px;font-size:12px;line-height:16px;font-weight:500;color:var(--s400);
+    overflow-wrap:anywhere}
+  #stock-note:empty{display:none}
+  #stock-note .tag{font-weight:600;color:#fcd34d}   /* the stock room's amber, as in its status chip */
+  #stock-note.canned{font-style:italic}
   .typing{display:none;align-self:flex-start;align-items:center;gap:6px;margin-left:32px;padding:8px 14px;
     border-radius:16px;background:rgb(28 25 23/.9);border:1px solid var(--s800);
     box-shadow:inset 0 2px 4px 0 rgb(0 0 0/.05)}
@@ -328,6 +334,7 @@
     <div class="reply-card">
       <div class="who"><span id="avatar" aria-hidden="true"></span><span id="who"></span></div>
       <p id="reply"></p>
+      <p id="stock-note"></p>
       <span class="typing" aria-hidden="true"><i></i><i></i><i></i></span>
     </div>
     <div id="chips" role="group" aria-label="Questions to try"></div>
@@ -392,7 +399,8 @@ const SHOPS = [
    Greeting: POST { shop: "bakery", greet: true }   sent on the Enter tap, during the walk-in
    200:      { reply, audioUrl, stock }   reply: the clerk's words, always a string;
              audioUrl: an mp3 data URL, or null to use the browser's voice;
-             stock: the last check_stock result, or null (the page does not use it yet)
+             stock: the last check_stock result that found a product, or null; display only,
+             as the stock room's record under the answer (the reply is what is spoken)
    Errors:   400 { error: "bad_shop" | "bad_text" }, 502 { error: "clerk_unavailable" }
    Fallback: a network error, a non-2xx status, no answer within 15 s, or a body without a
              string reply counts as no answer. A question then gets the canned answer below,
@@ -400,7 +408,10 @@ const SHOPS = [
 if (window.CLERK_ENDPOINT === undefined) window.CLERK_ENDPOINT = '/api/clerk';
 const MAX_TEXT = 300, CLERK_TIMEOUT_MS = 15000;
 
-// One POST to the clerk. Resolves to { reply, audioUrl } or null; never throws.
+// The stock room's record in a reply: the contract's found shape (it names a product), or null.
+const stockOf = s => s && typeof s === 'object' && typeof s.product === 'string' && s.product.trim() ? s : null;
+
+// One POST to the clerk. Resolves to { reply, audioUrl, stock } or null; never throws.
 async function callClerk(body){
   if (!window.CLERK_ENDPOINT) return null;
   const abort = new AbortController(), timer = setTimeout(() => abort.abort(), CLERK_TIMEOUT_MS);
@@ -411,7 +422,8 @@ async function callClerk(body){
       body: JSON.stringify(body), signal: abort.signal });
     const data = r.ok ? await r.json() : null;
     if (typeof data?.reply === 'string' && data.reply.trim())
-      return { reply: data.reply, audioUrl: (typeof data.audioUrl === 'string' && data.audioUrl) || null };
+      return { reply: data.reply, audioUrl: (typeof data.audioUrl === 'string' && data.audioUrl) || null,
+               stock: stockOf(data.stock) };
     why = r.ok ? 'no reply in the body' : 'HTTP ' + r.status;
   } catch (err){ why = err.name; }            // AbortError after 15 s, TypeError when offline
   finally { clearTimeout(timer); }
@@ -422,13 +434,13 @@ async function callClerk(body){
 async function askClerk(text){
   const shop = current, t0 = performance.now();
   const live = await callClerk({ shop: shop.id, text });
-  if (live) return live;
+  if (live) return live;                                        // { reply, audioUrl, stock }
   await wait(Math.max(0, 1500 - (performance.now() - t0)));   // canned answers, as before
-  const t = text.toLowerCase();
+  const t = text.toLowerCase();                                 // canned: true marks the printed list
   const item = shop.inventory.find(i => t.includes(i.name) || t.includes(i.name.replace(/s$/,'')));
-  if (!item) return { reply: 'I checked with the back. We don\'t carry that, but we do have ' +
+  if (!item) return { canned: true, reply: 'I checked with the back. We don\'t carry that, but we do have ' +
     shop.inventory.filter(i => i.inStock).map(i => i.name).join(', ') + '.' };
-  return { reply: item.inStock
+  return { canned: true, reply: item.inStock
     ? 'Good news, ' + item.name + ' is in stock.'
     : 'We\'re out of ' + item.name + ' right now. It\'ll be back ' + item.restock + '.' };
 }
@@ -946,6 +958,27 @@ function say(reply){
   });
 }
 
+// Under the clerk's words, as plain text after the reply: the stock room's record behind a live
+// answer ("Stock room · croissant · 0 on hand · back Tuesday, October 13 · usually about 3 days"),
+// or, for an answer from the canned list, where it came from. Nothing for a greeting, for a
+// reply whose stock is null, or for null (a question in flight).
+function showStock(reply){
+  const note = $('stock-note'), s = reply?.stock;
+  note.classList.toggle('canned', !!reply?.canned);
+  if (reply?.canned){ note.textContent = 'From the printed list at the counter (stock room unreachable)'; return; }
+  if (!s){ note.replaceChildren(); return; }
+  const parts = [s.product], n = s.onHand, days = s.typicalRestockDays;   // days: null if it never sold out
+  if (s.inStock) parts.push(Number.isFinite(n) ? 'in stock, ' + n + ' on hand' : 'in stock');
+  else {
+    parts.push(Number.isFinite(n) ? n + ' on hand' : 'out of stock');
+    if (typeof s.nextRestockText === 'string' && s.nextRestockText) parts.push('back ' + s.nextRestockText);
+    const d = Number.isFinite(days) ? Math.round(days * 10) / 10 : 0;
+    if (d > 0) parts.push(d < 1 ? 'usually under a day' : 'usually about ' + d + (d === 1 ? ' day' : ' days'));
+  }
+  const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'Stock room';
+  note.replaceChildren(tag, ' · ' + parts.join(' · '));
+}
+
 /* Sound effects from the AI Studio design (soundEffects.ts): synthesised with Web Audio, no files.
    The context is made inside the Enter tap, like the voice. Any failure is silent. */
 const sfx = (() => {
@@ -1046,6 +1079,7 @@ async function enterShop(){
   sfx.footsteps();
   await moveCamera(INSIDE, 2400);
   const live = await Promise.race([greeting, wait(2000)]);      // at most 2 s more, then the local line
+  showStock(null);                                              // a greeting has no stock-room record
   $('panel').hidden = false; setWhere('inside'); setState('answering');
   await say(live || { reply: 'Welcome to ' + shop.name + '. How can I help you today?' });
   setState('listening'); if (!coarse) $('q').focus();
@@ -1058,10 +1092,10 @@ $('f').onsubmit = async e => {
   const text = $('q').value.trim().slice(0, MAX_TEXT);
   if (!text || state !== 'listening') return;
   const here = visit;
-  $('q').value = ''; setState('checking'); $('reply').textContent = ''; if (coarse) $('q').blur();
+  $('q').value = ''; setState('checking'); $('reply').textContent = ''; showStock(null); if (coarse) $('q').blur();
   const reply = await askClerk(text);                           // never throws; canned on failure
   if (here !== visit) return;                                   // the visitor left while we checked
-  setState('answering'); await say(reply); setState('listening'); if (!coarse) $('q').focus();
+  setState('answering'); showStock(reply); await say(reply); setState('listening'); if (!coarse) $('q').focus();
 };
 
 $('leave').onclick = async () => {
