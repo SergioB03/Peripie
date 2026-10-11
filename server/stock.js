@@ -197,11 +197,13 @@ function warnNoDatabase() {
   console.warn('[stock] TIGER_DATABASE_URL and DATABASE_URL are not set: check_stock answers from the built-in seed (db/seed-data.js), not Tiger Data.');
 }
 // Once at startup, after the entry module has run (and loaded .env): which variable is in
-// use and its host, or the warning that there is no database.
+// use and its host, or the warning that there is no database. With a database, the first
+// connection is opened now, in the background, so the first question finds it ready.
 setImmediate(() => {
   const db = databaseSetting();
-  if (db) console.log(`[stock] using ${db.name} (${hostOf(db.url)})`);
-  else warnNoDatabase();
+  if (!db) return warnNoDatabase();
+  console.log(`[stock] using ${db.name} (${hostOf(db.url)})`);
+  warmUp(db.url);
 });
 
 // ---------- Tiger Data ----------
@@ -225,11 +227,16 @@ function getPool(databaseUrl) {
     const { default: pg } = await import('pg'); // loaded only when a database is configured
     const pool = new pg.Pool({
       ...connectionOptions(databaseUrl),
-      max: 4,
-      connectionTimeoutMillis: 4000,
+      max: 3,
+      // Covers TCP, TLS and login (pg clears it at ReadyForQuery). A host that hangs costs
+      // this once: after that the breaker below answers from the seed without waiting.
+      connectionTimeoutMillis: 2000,
       query_timeout: 3000,
-      idleTimeoutMillis: 30_000,
+      // Keep connections open and reuse them, so questions do not pay a TLS handshake;
+      // TCP keepalive stops NAT or a load balancer from silently dropping an idle one.
+      idleTimeoutMillis: 0,
       keepAlive: true,
+      keepAliveInitialDelayMillis: 10_000,
       allowExitOnIdle: true,
     });
     pool.on('error', (err) => console.warn(`[stock] idle database connection dropped (${describe(err)})`));
@@ -251,10 +258,15 @@ function describe(err) {
   return String(err?.code || err?.message || err).slice(0, 100);
 }
 
-async function databaseRows(shopId, databaseUrl) {
-  let result;
+// A pg DatabaseError: the server answered with an SQL error, so it cost no waiting.
+function isSqlError(err) {
+  return typeof err?.severity === 'string' && typeof err?.code === 'string';
+}
+
+// One parameterized query on the pool, with the certificate-error retry from the PLAN pins.
+async function runQuery(databaseUrl, sql, params) {
   try {
-    result = await (await getPool(databaseUrl)).query(SHOP_SQL, [shopId]);
+    return await (await getPool(databaseUrl)).query(sql, params);
   } catch (err) {
     if (!isCertificateError(err)) throw err;
     // PLAN.md pins: on a certificate error, keep TLS but skip verifying the chain.
@@ -265,8 +277,48 @@ async function databaseRows(shopId, databaseUrl) {
       poolPromise = null;
       old?.then((p) => p.end()).catch(() => {});
     }
-    result = await (await getPool(databaseUrl)).query(SHOP_SQL, [shopId]);
+    return await (await getPool(databaseUrl)).query(sql, params);
   }
+}
+
+// Breaker: after a failed connect or a timed-out query the database is marked down, and
+// questions answer from the seed at once instead of each waiting out a timeout. A
+// background check retries every RETRY_MS and marks it up again when it answers. SQL errors
+// (a missing table) do not trip it: the server answered, so they cost no time.
+const RETRY_MS = 10_000;
+let downSince = 0;
+let retryTimer = null;
+
+function markDown(databaseUrl, err) {
+  if (!downSince) {
+    downSince = Date.now();
+    console.warn(`[stock] database unavailable (${describe(err)}); answering from the built-in seed and retrying every ${RETRY_MS / 1000} s in the background`);
+  }
+  if (retryTimer) return;
+  retryTimer = setTimeout(async () => {
+    try {
+      await runQuery(databaseUrl, 'SELECT 1');
+      console.log(`[stock] database reachable again after ${Math.round((Date.now() - downSince) / 1000)} s; answering from it`);
+      downSince = 0;
+      retryTimer = null;
+    } catch (e) {
+      retryTimer = null;
+      markDown(databaseUrl, e);
+    }
+  }, RETRY_MS);
+  retryTimer.unref(); // never keeps a script alive
+}
+
+async function warmUp(databaseUrl) {
+  try {
+    await runQuery(databaseUrl, 'SELECT 1');
+  } catch (err) {
+    if (!isSqlError(err)) markDown(databaseUrl, err);
+  }
+}
+
+async function databaseRows(shopId, databaseUrl) {
+  const result = await runQuery(databaseUrl, SHOP_SQL, [shopId]);
   return result.rows.map((r) => ({
     product: r.product,
     onHand: r.on_hand,
@@ -282,13 +334,18 @@ export async function checkStock(shopId, query) {
     warnNoDatabase();
     return answer(memoryRows(shop), query);
   }
+  if (downSince) return answer(memoryRows(shop), query); // breaker open: no waiting
   let rows;
   try {
     rows = await databaseRows(shop, db.url);
   } catch (err) {
-    console.warn(err?.code === '42P01'
-      ? '[stock] database is missing the Peripie tables (42P01): schema not loaded? answering from the built-in seed'
-      : `[stock] database unavailable (${describe(err)}); answering from the built-in seed`);
+    if (err?.code === '42P01') {
+      console.warn('[stock] database is missing the Peripie tables (42P01): schema not loaded? answering from the built-in seed');
+    } else if (isSqlError(err)) {
+      console.warn(`[stock] database error (${describe(err)}); answering from the built-in seed`);
+    } else {
+      markDown(db.url, err);
+    }
     return answer(memoryRows(shop), query);
   }
   // Logged only for the three seed shops, so no visitor input ever reaches this line.

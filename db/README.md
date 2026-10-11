@@ -48,13 +48,14 @@ At startup the server logs which variable it uses, with the host only, never cre
 [stock] using TIGER_DATABASE_URL (xyz.tsdb.cloud.timescale.com)
 ```
 
-If it says `using DATABASE_URL`, the `TIGER_DATABASE_URL` secret is missing. Other lines mean the clerk is answering from the built-in seed:
+If it says `using DATABASE_URL`, the `TIGER_DATABASE_URL` secret is missing. All but the last of these lines mean the clerk is answering from the built-in seed:
 
 | Log line | Meaning |
 |---|---|
 | `TIGER_DATABASE_URL and DATABASE_URL are not set` | No database configured |
 | `database has no inventory rows for bakery: seed not loaded?` | Connected, but `seed.sql` was not run on that database |
 | `database is missing the Peripie tables (42P01): schema not loaded?` | Connected, but `schema.sql` was not run on that database |
-| `database unavailable (<code>)` | Connecting or the query failed |
+| `database unavailable (<code>); ... retrying every 10 s in the background` | Connecting failed or timed out (2 s), or a query timed out (3 s). Later questions skip the database without waiting until a background check gets through |
+| `database reachable again after N s; answering from it` | That background check got through; questions use the database again |
 
-The server never needs the database to start, and `checkStock` never fails: in each case above it answers from the built-in seed and says why in the log. It never logs the visitor's text.
+The server never needs the database to start, and `checkStock` never fails: when the database cannot answer, it answers from the built-in seed and says why in the log. A healthy connection is opened at startup and kept open, so questions do not pay a new TLS handshake. It never logs the visitor's text.
