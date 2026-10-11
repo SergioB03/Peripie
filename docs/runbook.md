@@ -33,6 +33,7 @@ Everything a judge sees runs from `main`. The laptop server is on `http://192.16
 | Answers sound flat ("We're out of croissant right now. It's back Tuesday, October 13, and it usually takes about 3 days.") | The model failed or was rate-limited and the server answered from the stock record itself; log shows `clerk: templated reply, model unavailable`. Facts are right; check the Gemini key and quota when there is a pause |
 | Every answer is the canned one ("Tuesday morning", from the page) | The server returned 502: model down AND no product matched, or the server is unreachable; log shows `clerk_unavailable`. Check the key and the server; the page keeps the demo alive |
 | Log says `answering from the built-in seed` | Tiger not loaded or `TIGER_DATABASE_URL` missing; answers are still correct (same data) |
+| Log says `TLS certificate not verified (SELF_SIGNED_CERT_IN_CHAIN); reconnecting` | Expected with this Tiger service: Node does not trust its certificate chain, the server reconnects without verification once per boot, and answers come from Tiger. Seen on the laptop at 12:05 am Sunday; harmless |
 | Silent greeting on an iPhone | Volume and silent switch first; then the one-line kill switch for sound effects: `if (effectsOff) return;` → `return;` in `sfx` in public/index.html; the voice path is untouched by it |
 | Page shows the old scene | Hard refresh; the page is cached by the browser |
 | Need the previous page | `git checkout page-v1 -- public/index.html` (today's pre-design page) |
