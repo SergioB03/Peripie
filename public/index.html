@@ -111,7 +111,7 @@
     color:#fff;font-size:12px;font-weight:600;letter-spacing:.025em;white-space:nowrap;box-shadow:var(--sh-xl);
     transform:translate(-50%,-50%);transition:opacity .3s,border-color .3s,transform .3s}
   #door-cue:hover{border-color:#fbbf24;transform:translate(-50%,-50%) scale(1.05)}
-  #door-cue::after{content:"";position:absolute;inset:-8px -6px}   /* the street's tap target: about 47 px tall */
+  #door-cue::after{content:"";position:absolute;inset:-110px -70px}   /* the street's tap target covers the doors around the pill */
   #door-cue .i{width:14px;height:14px}
   #door-cue.off{opacity:0;pointer-events:none}
   body:not([data-where=street]) :is(#dock,#door-cue,#skyline,#hint){display:none}
@@ -344,7 +344,7 @@
 </header>
 <p id="hint">Drag to look around</p>
 
-<button id="door-cue" type="button"><span class="ping"></span>Tap the doors to walk in<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
+<button id="door-cue" type="button"><span class="ping"></span>Tap here to walk in<svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
 
 <div id="dock">
   <div class="dock-card glass">
