@@ -710,7 +710,8 @@ const DECOR = {
 const decorOf = shop => DECOR[shop.id] || DECOR.bakery;
 
 const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-const std = (color, o) => new THREE.MeshStandardMaterial({ color, ...o });
+const CHALK = '"Bradley Hand", "Segoe Print", "Comic Sans MS", cursive';   // the bakery's chalk hand
+const std =(color, o) => new THREE.MeshStandardMaterial({ color, ...o });
 const basic = color => new THREE.MeshBasicMaterial({ color });
 // Material families: roughness and metalness per kind of surface, so wood, paint, steel, brass,
 // cloth, stone, ceramic, plastic and leaves each take the light their own way.
@@ -882,6 +883,26 @@ function brickTexture(tones, mortar){   // a metre square: four bricks across, t
     x.fillStyle = '#000000'; x.fillRect(0, 0, w, h);
     const g = x.createRadialGradient(256, 240, 20, 256, 240, 220); g.addColorStop(0, '#fff7cc'); g.addColorStop(1, '#8a6a10');
     x.fillStyle = g; x.fillRect(104, 118, 304, 244);
+  }));
+  // The bakery's: a flour sack's burlap with its stamp (centred on u 0.5, so a sack turned by
+  // half a turn shows it), the oven's arched mouth with its fire, and a dusting of flour.
+  TEX.sack = shared(canvasTexture(256, 256, (x, w, h) => {
+    x.fillStyle = '#efe4cf'; x.fillRect(0, 0, w, h); speckle(x, w, h, 4000, 3, ['#d8c8a8', '#fff8ea', '#c9b48e'], 0.5);
+    x.fillStyle = '#b91c1c'; x.beginPath(); x.ellipse(128, 128, 62, 40, 0, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#fff7ed'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = 'bold 30px ' + FONT; x.fillText('FLOUR', 128, 122); x.font = '600 13px ' + FONT; x.fillText('STONE GROUND', 128, 148);
+  }));
+  TEX.fire = shared(canvasTexture(256, 192, (x, w, h) => {
+    x.fillStyle = '#1a0d08'; x.fillRect(0, 0, w, h);
+    const g = x.createRadialGradient(128, 150, 10, 128, 150, 130);
+    g.addColorStop(0, '#fff3b0'); g.addColorStop(0.3, '#fb923c'); g.addColorStop(0.7, '#7c2d12'); g.addColorStop(1, '#1a0d08');
+    x.fillStyle = g; x.beginPath(); x.moveTo(30, 192); x.lineTo(30, 90); x.arc(128, 90, 98, Math.PI, 0); x.lineTo(226, 192); x.closePath(); x.fill();
+    x.fillStyle = '#3b1a0a'; for (const [lx, ly] of [[70, 160], [120, 170], [165, 158]]) x.fillRect(lx, ly, 50, 14);
+  }));
+  TEX.flour = shared(canvasTexture(256, 256, (x, w, h) => {
+    x.clearRect(0, 0, w, h);
+    const g = x.createRadialGradient(128, 128, 10, 128, 128, 120); g.addColorStop(0, 'rgba(255,255,255,.8)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.fillRect(0, 0, w, h); speckle(x, w, h, 2500, 5, ['#ffffff', '#fdf6e3'], 0.9);
   }));
 })();
 // Each shop's floor, drawn on its first visit from the shop's floor colour: tile, concrete or quarry.
@@ -1109,7 +1130,6 @@ put(register, Box(0.35, 0.2, 0.3), regBrass, 0, 0.3, -0.04);
 put(register, Box(0.12, 0.1, 0.02), basic('#fef08a'), 0, 0.48, -0.04);
 put(counter, Sph(0.08, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat('brass', '#f59e0b', { roughness:0.15 }), 0.65, 1.025, 0.15, { cast:true });
 put(counter, Cyl(0.015, 0.015, 0.04, 8), regBrass, 0.65, 1.105, 0.15);
-put(counter, Box(0.28, 0.02, 0.38), mat('cloth', '#fef9c3'), 0.1, 1.035, 0.1, { ry:0.12 });
 
 // The clerk faces the street; no legs, the counter hides them.
 const clerk = group(scene, 0, 0.2, -0.6);
@@ -1146,7 +1166,7 @@ stocker.visible = false;
 // a skylight with a soft shaft of light falling through it.
 function fixtures(g, kind){
   if (kind === 'tubes'){
-    const zs = [-3.0, -1.0];
+    const zs = [-3.6, -1.4];
     solid(g, mat('paint', '#e2e8f0'), zs.flatMap(z => [[Box(2.4, 0.08, 0.3), 0, 3.0, z], [Cyl(0.008, 0.008, 1.16, 4), -1.0, 3.62, z], [Cyl(0.008, 0.008, 1.16, 4), 1.0, 3.62, z]]));
     solid(g, basic('#f8fafc'), zs.map(z => [Cyl(0.02, 0.02, 2.2, 8), 0, 2.95, z, { rz:Math.PI / 2 }]));
   } else if (kind === 'skylight'){
@@ -1159,12 +1179,59 @@ function fixtures(g, kind){
     shaft.setAttribute('color', new THREE.BufferAttribute(col, 3));
     put(g, shaft, new THREE.MeshBasicMaterial({ color:'#fff7d6', vertexColors:true, transparent:true, opacity:0.14, blending:THREE.AdditiveBlending,
       depthWrite:false, side:THREE.DoubleSide, fog:false }), sx - 0.45, 2.3, sz - 0.3, { rz:-0.22, rx:0.14 });
-  } else {
-    const xs = [-1.2, 0, 1.2], z = -1.0;
-    solid(g, basic('#1c1917'), xs.map(x => [Cyl(0.008, 0.008, 1.6, 4), x, 3.4, z]));
-    solid(g, mat('brass', '#d97706', { side:THREE.DoubleSide }), xs.map(x => [new THREE.ConeGeometry(0.24, 0.22, 16, 1, true), x, 2.5, z]));
-    solid(g, basic('#fef3c7'), xs.map(x => [Sph(0.05, 10, 8), x, 2.43, z]));
+  } else {                   // three brass pendants on long cords behind the clerk, clear of the STOCK ROOM sign
+    const xs = [-1.6, -0.5, 0.7], z = -2.2;
+    solid(g, basic('#1c1917'), xs.map(x => [Cyl(0.008, 0.008, 1.9, 4), x, 3.26, z]));
+    solid(g, mat('brass', '#d97706', { side:THREE.DoubleSide, emissive:'#92400e', emissiveIntensity:0.35 }), xs.map(x => [new THREE.ConeGeometry(0.24, 0.22, 16, 1, true), x, 2.2, z]));
+    solid(g, basic('#fef3c7'), xs.map(x => [Sph(0.05, 10, 8), x, 2.13, z]));
   }
+}
+
+// Signs that list what the shop carries, from SHOPS (names only, never stock): one column up to
+// six names, two past that, in the largest type that fits the board.
+function drawList(x, w, h, shop, s){
+  const names = shop.inventory.map(i => cap(i.name)), n = names.length, cols = n > 6 ? 2 : 1, rows = Math.ceil(n / cols);
+  const font = s.font || FONT, pad = Math.round(w * 0.05), colW = (w - pad * 2) / cols, top = h * 0.22, bottom = s.note ? h * 0.84 : h * 0.95;
+  x.fillStyle = s.bg; x.fillRect(0, 0, w, h);
+  if (s.border){ x.strokeStyle = s.border; x.lineWidth = Math.max(4, h * 0.02); x.strokeRect(pad / 2, pad / 2, w - pad, h - pad); }
+  x.textBaseline = 'middle'; x.textAlign = 'left';
+  x.fillStyle = s.title; fit(x, s.heading, w - pad * 2, Math.round(h * 0.13), 'bold', font); x.fillText(s.heading, pad, h * 0.11);
+  if (s.rule){ x.fillStyle = s.rule; x.fillRect(pad, h * 0.185, w - pad * 2, Math.max(2, h * 0.006)); }
+  const lineH = (bottom - top) / rows, bullet = s.bullet ?? '• ';
+  let size = Math.floor(Math.min(lineH * 0.74, h * 0.1));
+  for (const t of names) size = Math.min(size, fit(x, bullet + t, colW - pad, size, s.weight || '500', font));
+  x.font = (s.weight || '500') + ' ' + size + 'px ' + font; x.fillStyle = s.text;
+  names.forEach((t, i) => x.fillText(bullet + t, pad + (i >= rows ? colW : 0), top + lineH * (i % rows + 0.5)));
+  if (s.note){ x.fillStyle = s.noteColor || s.text; x.font = 'italic ' + Math.round(h * 0.055) + 'px ' + FONT; x.fillText(s.note, pad, h * 0.92); }
+}
+// A board hanging on two chains from the beams behind the clerk, tilted a little toward the
+// counter, with the shop's list in its own hand (a canvas per shop, disposed with its props).
+function hanging(g, shop, s){
+  const W = 2.0, H = 0.7, x0 = -0.6, y0 = 2.65, z0 = -2.6;
+  const b = group(g, x0, y0, z0); b.rotation.x = 0.1;
+  put(b, Box(W + 0.08, H + 0.08, 0.04), mat('wood', s.frame, { map:TEX.wood }));
+  const tex = canvasTexture(1024, 358, (x, w, h) => { drawList(x, w, h, shop, s); s.extra?.(x, w, h); });
+  put(b, new THREE.PlaneGeometry(W, H), mat('paint', '#ffffff', { map:tex, roughness:s.rough ?? 0.9 }), 0, 0, 0.021);
+  solid(g, mat('steel', '#1c1917'), [-0.9, 0.9].map(dx => [Cyl(0.006, 0.006, 4.2 - (y0 + H / 2), 4), x0 + dx, (4.2 + y0 + H / 2) / 2, z0]));
+  return b;
+}
+// Baked goods as simple shapes, picked by the product's name (a name nothing matches is a bun):
+// parts for one merged mesh with a colour per piece, at scale k around (x, y, z), y the shelf.
+const BAKED = [
+  [/croissant/, p => p.push([new THREE.TorusGeometry(0.06, 0.028, 6, 10, Math.PI * 1.25), 0, 0.028, 0, { rx:Math.PI / 2, rz:0.4, color:'#d98c3a' }])],
+  [/baguette|bread ?stick|ficelle/, p => p.push([Cyl(0.028, 0.028, 0.34, 8), 0, 0.028, 0, { rx:Math.PI / 2, color:'#d7a45c' }])],
+  [/rye|pumpernickel/, p => p.push([Sph(0.08, 10, 8), 0, 0.055, 0, { s:[1.3, 0.7, 0.9], color:'#6b4423' }])],
+  [/sourdough|boule|loaf|bread|batard|miche|challah|focaccia/, p => p.push([Sph(0.085, 10, 8), 0, 0.06, 0, { s:[1.15, 0.7, 1], color:'#c48a4a' }])],
+  [/concha/, p => p.push([Sph(0.07, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), 0, 0, 0, { s:[1, 0.75, 1], color:pick(['#f1dcc0', '#f4b6c2', '#f5d58a']) }])],
+  [/muffin|cupcake|magdalena/, p => p.push([Cyl(0.04, 0.032, 0.05, 10), 0, 0.025, 0, { color:'#c99a5b' }], [Sph(0.05, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), 0, 0.05, 0, { s:[1, 0.7, 1], color:'#b9783a' }])],
+  [/cookie|biscuit|galleta|macaron|shortbread|polvor/, p => p.push([Cyl(0.045, 0.045, 0.012, 12), 0, 0.006, 0, { color:'#c9975a' }], [Cyl(0.045, 0.045, 0.012, 12), 0.06, 0.006, 0.03, { color:'#b07a3c' }])],
+  [/cake|tart|pie|flan|cheesecake|tres leches|pastel/, p => p.push([Cyl(0.08, 0.08, 0.05, 16), 0, 0.025, 0, { color:'#f5e6c8' }], [Cyl(0.08, 0.08, 0.012, 16), 0, 0.056, 0, { color:'#c2410c' }])],
+  [/bagel|donut|doughnut|rosca|pretzel/, p => p.push([new THREE.TorusGeometry(0.045, 0.02, 8, 12), 0, 0.02, 0, { rx:Math.PI / 2, color:'#d9a05b' }])],
+  [/./, p => p.push([Sph(0.05, 10, 8), 0, 0.035, 0, { s:[1.2, 0.7, 1], color:'#e0b070' }])] ];
+function baked(parts, name, x, y, z, k = 1){
+  const n = name.toLowerCase(), tmp = [];
+  BAKED.find(([re]) => re.test(n))[1](tmp);
+  for (const [geo, px, py, pz, o] of tmp) parts.push([geo, x + px * k, y + py * k, z + pz * k, { ...o, s:(o.s || [1, 1, 1]).map(v => v * k) }]);
 }
 
 // Each shop's own props: a shelf unit, a machine in the back-left corner, a board on the left
@@ -1186,38 +1253,99 @@ function board(g, shop, c, swatches){      // what the shop carries, from SHOPS:
   put(b, new THREE.PlaneGeometry(1.7, 1.1), std('#ffffff', { map, roughness:c.rough ?? 1 }), 0, 0, 0.03);
 }
 
+// Rosa's Bakery: warm cream, terracotta and dark wood. A hutch of bread on the back wall, the
+// hearth oven in the back-left corner, a glass pastry case on the counter with the products as
+// baked shapes, a chalk menu hanging behind the clerk, pendants, a cake under a dome, a floor
+// basket of baguettes, a window display and a café table outside. Everything still is one of nine
+// merged meshes (wood, wood on end, bread, wicker, glass, brass, sacks, china, iron).
 function bakeryProps(g, shop, anims){
   fixtures(g, 'pendants');
-  const shelf = group(g, -1.2, 0.2, -3.8), wood = std('#78350f', { roughness:0.8 });
-  for (const x of [-1.2, 1.2]) put(shelf, Box(0.08, 3.2, 0.5), wood, x, 1.6, 0);
-  const plank = Box(2.4, 0.06, 0.5);
-  for (const y of [0.7, 1.4, 2.1, 2.8]) put(shelf, plank, wood, 0, y, 0);
-  const sack = Cyl(0.24, 0.26, 0.55, 8), sackMat = std('#fef3c7', { roughness:0.95 });
-  for (const x of [-0.7, 0, 0.7]) put(shelf, sack, sackMat, x, 1.0, 0);
-  const basket = Cyl(0.24, 0.18, 0.14, 8), basketMat = std('#b45309', { roughness:0.9 });
-  const loaf = Sph(0.2, 10, 8), loafMat = std('#d97706', { roughness:0.85 });
-  for (const x of [-0.8, -0.2, 0.4, 0.9]){
-    put(shelf, basket, basketMat, x, 1.48, 0);
-    put(shelf, loaf, loafMat, x, 1.58, 0, { s:[1.1, 0.75, 0.9] });
+  const W = [], WV = [], BREAD = [], WICKER = [], GLASS = [], BRASS = [], SACK = [], WHITE = [], BLACK = [];
+  const names = shop.inventory.map(i => i.name);
+  // The hutch (x -2.4 to 0): flour sacks below, bread in wicker baskets, a crock of baguettes and
+  // a tray of pastries, jars of biscuits and cake boxes on top.
+  const hx = -1.2, hz = -3.8;
+  WV.push([Box(0.08, 3.2, 0.5), hx - 1.2, 1.8, hz], [Box(0.08, 3.2, 0.5), hx + 1.2, 1.8, hz]);
+  for (const y of [0.9, 1.6, 2.3, 3.0]) W.push([Box(2.4, 0.06, 0.5), hx, y, hz]);
+  W.push([Box(2.4, 3.2, 0.03), hx, 1.8, hz - 0.235], [Box(2.5, 0.08, 0.55), hx, 3.44, hz]);
+  for (const dx of [-0.75, 0, 0.75]) SACK.push([Cyl(0.24, 0.26, 0.55, 12), hx + dx, 1.205, hz, { ry:Math.PI }], [Sph(0.09, 8, 6), hx + dx, 1.5, hz, { s:[1, 0.7, 1] }]);
+  [-0.85, -0.3, 0.25, 0.8].forEach((dx, i) => {
+    WICKER.push([Cyl(0.22, 0.17, 0.14, 12, 1, true), hx + dx, 1.7, hz], [Cyl(0.17, 0.17, 0.012, 12), hx + dx, 1.636, hz]);
+    const name = names[i % names.length] || 'loaf';
+    baked(BREAD, name, hx + dx - 0.05, 1.66, hz - 0.04, 0.9); baked(BREAD, name, hx + dx + 0.06, 1.66, hz + 0.06, 0.9);
+  });
+  WHITE.push([Cyl(0.2, 0.17, 0.4, 14), hx - 0.8, 2.53, hz]);
+  for (let b = 0; b < 5; b++) BREAD.push([Cyl(0.028, 0.028, 0.6, 8), hx - 0.8 + (b - 2) * 0.06, 2.78, hz + (b % 2) * 0.05, { rz:(b - 2) * 0.12, color:'#d7a45c' }]);
+  W.push([Box(1.0, 0.025, 0.38), hx + 0.35, 2.345, hz]);
+  for (let i = 0; i < 4; i++) baked(BREAD, 'concha', hx - 0.05 + i * 0.22, 2.36, hz - 0.08);
+  for (let i = 0; i < 3; i++) baked(BREAD, 'croissant', hx + 0.05 + i * 0.26, 2.36, hz + 0.1);
+  for (const dx of [-0.9, -0.62, -0.34]){
+    GLASS.push([Cyl(0.1, 0.1, 0.26, 14), hx + dx, 3.16, hz]); BRASS.push([Cyl(0.105, 0.105, 0.03, 14), hx + dx, 3.3, hz]);
+    BREAD.push([Cyl(0.08, 0.08, 0.18, 10), hx + dx, 3.12, hz, { color:'#b07a3c' }]);
   }
-  put(shelf, Cyl(0.22, 0.22, 0.4, 10), std('#e2e8f0', { roughness:0.3 }), -0.6, 2.3, 0);
-  const stick = Cyl(0.04, 0.04, 0.65, 8), crust = std('#f59e0b', { roughness:0.8 });
-  for (let b = 0; b < 4; b++) put(shelf, stick, crust, -0.6 + (b - 1.5) * 0.08, 2.52, (b % 2) * 0.06, { rz:(b - 1.5) * 0.15 });
-  put(shelf, Box(0.8, 0.03, 0.35), wood, 0.5, 2.12, 0);
-  const crescent = new THREE.TorusGeometry(0.09, 0.04, 6, 8, Math.PI * 1.2), pastry = std('#f59e0b', { roughness:0.7 });
-  for (const x of [0.3, 0.7]) put(shelf, crescent, pastry, x, 2.17, 0, { rx:Math.PI / 2 });
-  // The hearth oven. Its fire mouth stands 2 cm proud of the brick (AI Studio's shared a plane and flickered).
-  const oven = group(g, -2.4, 0.2, -2.8), brick = std('#7c2d12', { roughness:0.9 });
-  put(oven, Box(1.2, 1.8, 1.4), brick, 0, 0.9, 0);
-  put(oven, Cyl(0.6, 0.6, 1.4, 12, 1, false, 0, Math.PI), brick, 0, 1.8, 0, { ry:Math.PI / 2, rz:Math.PI / 2 });
-  put(oven, Box(0.6, 0.4, 0.1), basic('#f97316'), 0.62, 0.8, 0, { ry:Math.PI / 2 });
-  put(oven, Cyl(0.18, 0.18, 1.8, 8), std('#1c1917', { roughness:0.8 }), 0, 2.7, 0);
-  anims.push(t => { ovenLight.intensity = prefs.calm ? 1.6 : 1.6 + Math.sin(t * 8) * 0.3 + Math.cos(t * 13) * 0.15; });   // steady under Reduce motion
+  WHITE.push([Box(0.32, 0.12, 0.32), hx + 0.5, 3.09, hz], [Box(0.28, 0.1, 0.28), hx + 0.5, 3.2, hz], [Box(0.32, 0.12, 0.32), hx + 0.9, 3.09, hz]);
+  // The hearth oven: brick with a barrel top, an arched mouth with a fire (a gradient on a plane,
+  // lit by the flickering oven light), a steel flue and hood, a peel against the wall, a log pile.
+  const ox = -2.4, oz = -2.8;
+  solid(g, mat('stone', '#ffffff', { map:TEX.brick }), [[TexBox(1.2, 1.8, 1.4), ox, 1.1, oz],
+    [uvMap(Cyl(0.6, 0.6, 1.4, 12, 1, false, 0, Math.PI), 1.9, 1.4), ox, 2.0, oz, { ry:Math.PI / 2, rz:Math.PI / 2 }]], 0, 0, 0, { cast:true });
+  BLACK.push([Box(0.08, 0.5, 0.7), ox + 0.62, 1.0, oz], [Cyl(0.18, 0.18, 1.6, 10), ox, 3.4, oz], [Cyl(0.32, 0.18, 0.22, 10), ox, 2.68, oz]);
+  put(g, new THREE.PlaneGeometry(0.6, 0.42), new THREE.MeshBasicMaterial({ map:TEX.fire }), ox + 0.665, 1.0, oz, { ry:Math.PI / 2 });
+  WV.push([Cyl(0.018, 0.018, 1.7, 6), -1.55, 1.05, -2.05, { rz:-0.12 }]);
+  W.push([Box(0.26, 0.36, 0.012), -1.43, 1.95, -2.05, { rz:-0.12 }]);
+  for (const [dz, y] of [[-0.11, 0.26], [0, 0.26], [0.11, 0.26], [-0.055, 0.35], [0.055, 0.35]]) W.push([Cyl(0.05, 0.05, 0.5, 8), ox + 0.1, y, oz + 0.95 + dz, { rz:Math.PI / 2 }]);
+  anims.push(t => { ovenLight.intensity = prefs.calm ? 1.5 : 1.5 + Math.sin(t * 8) * 0.25 + Math.cos(t * 13) * 0.12; });   // steady under Reduce motion
+  // The pastry case on the counter's left (clear of the clerk and of the line of sight to the stock
+  // room): a wooden base, brass posts, glass panes and a glass middle shelf; the shop's products on
+  // two tiers, two pieces each, smaller when there are many.
+  const cx = -0.725, cy = 1.225, cz = 0.25, cw = 0.85, cd = 0.46, ch = 0.36, top = cy + 0.03 + ch;
+  W.push([Box(cw, 0.03, cd), cx, cy + 0.015, cz]);
+  for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) BRASS.push([Box(0.02, ch, 0.02), cx + dx * (cw / 2 - 0.01), cy + 0.03 + ch / 2, cz + dz * (cd / 2 - 0.01)]);
+  BRASS.push([Box(cw, 0.02, 0.02), cx, top, cz - cd / 2 + 0.01], [Box(cw, 0.02, 0.02), cx, top, cz + cd / 2 - 0.01], [Box(0.02, 0.02, cd), cx - cw / 2 + 0.01, top, cz], [Box(0.02, 0.02, cd), cx + cw / 2 - 0.01, top, cz]);
+  GLASS.push([Box(cw, ch, 0.006), cx, cy + 0.03 + ch / 2, cz + cd / 2], [Box(cw, ch, 0.006), cx, cy + 0.03 + ch / 2, cz - cd / 2], [Box(0.006, ch, cd), cx - cw / 2, cy + 0.03 + ch / 2, cz],
+    [Box(0.006, ch, cd), cx + cw / 2, cy + 0.03 + ch / 2, cz], [Box(cw, 0.006, cd), cx, top, cz], [Box(cw - 0.04, 0.008, cd - 0.04), cx, cy + 0.03 + ch * 0.5, cz]);
+  const per = Math.ceil(names.length / 2), slot = (cw - 0.06) / per, k = Math.min(1, slot / 0.2);
+  names.forEach((name, i) => {
+    const tier = i < per ? 0 : 1, px = cx - cw / 2 + 0.03 + slot * (i % per + 0.5), py = cy + (tier ? 0.03 + ch * 0.5 + 0.008 : 0.03);
+    baked(BREAD, name, px - 0.01 * k, py, cz - 0.1, k); baked(BREAD, name, px + 0.02 * k, py, cz + 0.08, k);
+  });
+  // On the counter: a flour-dusted board with a rolling pin; at the right end a cake on a stand
+  // under a glass dome. Beside the counter, a floor basket of baguettes.
+  W.push([Box(0.45, 0.025, 0.32), 0.15, 1.238, 0.3], [Cyl(0.03, 0.03, 0.3, 10), 0.12, 1.28, 0.22, { rz:Math.PI / 2 }], [Cyl(0.012, 0.012, 0.44, 6), 0.12, 1.28, 0.22, { rz:Math.PI / 2 }]);
+  put(g, new THREE.PlaneGeometry(0.42, 0.3), mat('cloth', '#ffffff', { map:TEX.flour, transparent:true, depthWrite:false }), 0.17, 1.252, 0.32, { rx:-Math.PI / 2 });
+  WHITE.push([Cyl(0.16, 0.18, 0.02, 16), 1.3, 1.235, 0.2], [Cyl(0.03, 0.04, 0.1, 10), 1.3, 1.29, 0.2], [Cyl(0.19, 0.19, 0.015, 16), 1.3, 1.345, 0.2]);
+  BREAD.push([Cyl(0.13, 0.13, 0.07, 18), 1.3, 1.39, 0.2, { color:'#f5e6c8' }], [Cyl(0.13, 0.13, 0.014, 18), 1.3, 1.432, 0.2, { color:'#f4b6c2' }]);
+  GLASS.push([Sph(0.2, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), 1.3, 1.355, 0.2]);
+  WICKER.push([Cyl(0.22, 0.18, 0.5, 12, 1, true), -2.05, 0.46, 0.55], [Cyl(0.18, 0.18, 0.012, 12), -2.05, 0.22, 0.55]);
+  for (let b = 0; b < 5; b++) BREAD.push([Cyl(0.03, 0.03, 0.72, 8), -2.05 + (b - 2) * 0.05, 0.62, 0.55 + (b % 2) * 0.06, { rz:(b - 2) * 0.1, rx:(b % 2 - 0.5) * 0.2, color:'#d7a45c' }]);
+  // The chalk menu behind the clerk, and the board on the left wall.
+  hanging(g, shop, { frame:'#3b2314', bg:'#1f2a24', border:'#5b4a3a', title:'#fde68a', text:'#f5f0e6', rule:'#9ca3af', heading:'FRESH TODAY', bullet:'~ ', weight:'600',
+    font:CHALK, note:'ask what\'s in stock today', noteColor:'#d4d4d8', rough:0.95, extra:(x, w, h) => speckle(x, w, h, 1500, 6, ['#ffffff'], 0.08) });
   board(g, shop, { frame:'#78350f', bg:'#1e293b', title:'#fef08a', text:'#ffffff', note:'#fdba74', rough:0.5 });
-  const plate = group(g, 0.9, 1.23, 0.2);
-  put(plate, Cyl(0.24, 0.22, 0.04, 12), std('#f1f5f9', { roughness:0.2 }));
-  put(plate, Cyl(0.18, 0.16, 0.08, 12), std('#ea580c', { roughness:0.6 }), 0, 0.06, 0);
-  put(plate, Sph(0.23, 12, 10, 0, Math.PI * 2, 0, Math.PI / 2), std('#ffffff', { roughness:0.05, transparent:true, opacity:0.3 }), 0, 0.02, 0);
+  // In the left window: a table with a cake and a basket of rolls. Outside: a café table and chairs.
+  W.push([Box(1.3, 0.04, 0.5), -1.6, 0.97, 3.15]);
+  for (const [dx, dz] of [[-0.6, -0.2], [0.6, -0.2], [-0.6, 0.2], [0.6, 0.2]]) WV.push([Box(0.05, 0.75, 0.05), -1.6 + dx, 0.585, 3.15 + dz]);
+  WHITE.push([Cyl(0.14, 0.16, 0.02, 16), -1.95, 1.0, 3.15], [Cyl(0.03, 0.04, 0.08, 10), -1.95, 1.05, 3.15], [Cyl(0.17, 0.17, 0.015, 16), -1.95, 1.095, 3.15]);
+  BREAD.push([Cyl(0.12, 0.12, 0.07, 18), -1.95, 1.14, 3.15, { color:'#5c3a1e' }], [Cyl(0.12, 0.12, 0.012, 18), -1.95, 1.18, 3.15, { color:'#fde68a' }]);
+  WICKER.push([Cyl(0.2, 0.16, 0.12, 12, 1, true), -1.25, 1.05, 3.15], [Cyl(0.16, 0.16, 0.012, 12), -1.25, 0.996, 3.15]);
+  for (const [dx, dz] of [[-0.06, -0.05], [0.06, -0.05], [0, 0.06], [-0.05, 0.08]]) baked(BREAD, 'roll', -1.25 + dx, 1.02, 3.15 + dz, 0.9);
+  const tx = -1.9, tz = 5.3;
+  BLACK.push([Cyl(0.03, 0.03, 0.72, 8), tx, 0.56, tz], [Cyl(0.26, 0.3, 0.03, 16), tx, 0.215, tz], [Cyl(0.36, 0.36, 0.03, 20), tx, 0.935, tz]);
+  for (const side of [-1, 1]){
+    const sx = tx + side * 0.62;
+    BLACK.push([Cyl(0.19, 0.19, 0.025, 14), sx, 0.66, tz], [Box(0.02, 0.32, 0.34), sx + side * 0.17, 0.98, tz]);
+    for (const [dx, dz] of [[-0.14, -0.14], [0.14, -0.14], [-0.14, 0.14], [0.14, 0.14]]) BLACK.push([Cyl(0.012, 0.012, 0.45, 6), sx + dx, 0.425, tz + dz]);
+  }
+  WHITE.push([Cyl(0.04, 0.03, 0.08, 10), tx + 0.1, 0.99, tz - 0.08]);
+  solid(g, mat('wood', '#5c3a1e', { map:TEX.wood }), W, 0, 0, 0, { cast:true });
+  solid(g, mat('wood', '#5c3a1e', { map:TEX.woodUp }), WV, 0, 0, 0, { cast:true });
+  solid(g, vmat('cloth', { roughness:0.78 }), BREAD);
+  solid(g, mat('wood', '#ffffff', { map:TEX.wicker, roughness:0.85, side:THREE.DoubleSide }), WICKER);
+  solid(g, glass(), GLASS);
+  solid(g, mat('brass', '#d4a017'), BRASS);
+  solid(g, mat('cloth', '#ffffff', { map:TEX.sack }), SACK);
+  solid(g, mat('ceramic', '#f8fafc'), WHITE);
+  solid(g, mat('steel', '#1c1917', { roughness:0.5 }), BLACK, 0, 0, 0, { cast:true });
 }
 
 function paintProps(g, shop, anims){
