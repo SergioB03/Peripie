@@ -2515,6 +2515,7 @@ addEventListener('keydown', e => {                              // Escape on the
 const WALK_IN_MS = 5700;
 async function enterShop(){
   if (document.body.dataset.where !== 'street' || tween) return;
+  hushGuide();                                                  // a guide line still talking ends now (section 7); unlockAudio would orphan its end, and the greeting would wait for it
   unlockAudio();                                                // first, while still inside the tap
   sfx.footsteps();                                              // makes the effects' context in the tap too
   welcome.hidden = true;                                        // the first-visit card has done its job
