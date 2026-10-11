@@ -35,6 +35,12 @@ Rules from here:
 4b. **Check the demo phone's motion setting.** The page follows the device: with iOS Reduce Motion (Settings > Accessibility > Motion) or Windows "Animation effects" off, the walk-in becomes doors-open-then-cut-to-the-counter and captions turn on by default. For the demo you probably want the full walk-in, so make sure Reduce Motion is off on the phone you present with; the Accessibility drawer (top right) can also switch it per visit.
 5. Submit by 8:30 am.
 
+## Sunday, after the submission
+
+- **8:55 am.** The Devpost submission went in, with its text describing the live site as it was then.
+- **9:37 am republish**, from main `563bbc2` (tag `live-sun-0937`): the first real-shop visual pass, the real-shop clerk, the 27-product stock room and the guide's server half. In the new Repl's Shell a plain `git pull origin main` stops, because Replit adds its own "Published your App" commit on every publish and the branch has diverged. The line that worked: `git pull --no-rebase --no-edit origin main` (a merge commit, no editor), then **Run**, the boot lines from step 1 above, **Publishing → Republish**. From outside: the scene, `/api/guide` 200, 0 injected analytics tags, croissants with audio in 2.0 s.
+- **About 10:35 am.** integrate/final merged into main, after the submission: the list and catalog UI, follow-up memory, the first-visit card and the second visual pass. It goes live with the next republish: the same pull line, **Run**, **Republish**, then tell Claude Code "republished" for the outside check. The Devpost text keeps the 8:55 am state; README, TASKS and docs/decisions.md say when the merge happened.
+
 ## If something breaks
 
 | Symptom | Do |

@@ -6,12 +6,13 @@ Peripie (say "PAIR-ih-pie") is a small shop's website you walk into: the clerk g
 
 ## Try it in 60 seconds
 
-**Live:** https://peripie.replit.app (opens on the bakery; sound on). **Domain:** allyou.select, "all you select, checked at once", live and pointing at the same app: https://allyou.select. Built solo at HackLanta '26. Demo video and Devpost page: coming Sunday morning.
+**Live:** https://peripie.replit.app (opens on the bakery; sound on). **Domain:** allyou.select, "all you select, checked at once", live and pointing at the same app: https://allyou.select. Built solo at HackLanta '26. Submitted on Devpost Sunday at 8:55 am.
 
 1. Tap **Enter shop**, or the doors. The camera walks you in and the clerk says hello out loud.
 2. Tap the chip **Do you have sourdough?** The clerk turns to the stock room, then tells you it is on the shelf, and how many.
 3. Tap **Do you have croissants?** They are out, so the clerk says when the next tray comes out of the oven.
 4. Tap the round **mic** button next to Ask, allow the microphone, and ask for anything ("do you have bread?").
+5. Under **What we carry**, tap three or four items, then tap **Check my list**. The clerk checks the whole list at once and answers it in one go, with one line per item under the words. Tap **Take this with you** to share or copy that answer; it ends "via allyou.select". (Merged Sunday about 10:35 am, after the Devpost submission; on the live site from the next republish after that merge.)
 
 What you should see and hear: the label **Checking with the stock room** while the clerk turns to the stock agent, then the answer in the clerk's own voice, and under it a line that starts **Stock room ·** with the count and the restock time, straight from the database.
 
@@ -43,24 +44,29 @@ Some days I'm also the customer who won't ask. I'll order at a drive-through bef
    ![An out-of-stock answer with the stock room's record under it](docs/screenshots/05-answer.png)
    (Taken Saturday. Since then the bakery answers with its oven schedule instead of a date.)
 
-Beyond those four steps, all live today:
+Beyond those four steps, all of this is on the page too. The last four bullets, the Clerk voice switch, the record line's shop sentence and "2 left", and the nine-item wall board and **What we carry** merged Sunday about 10:35 am, after the Devpost submission; the live site carries them from the next republish after that merge, and the Devpost text describes the 8:55 am state.
 
-- **The stock room's record under every answer** ("Stock room · roller · 0 on hand · back Friday, October 16 · usually about 4.5 days"). Why it matters: you see the agent's work, not just the clerk's words.
+- **The stock room's record under every answer** ("Stock room · roller · 0 on hand · Our supplier's truck comes Friday, October 16 · usually about 4.5 days"): the shop's own sentence, "2 left" when stock is low, and the typical days only beside a weekday, never next to an oven time. Why it matters: you see the agent's work, not just the clerk's words.
 - **Replay** plays the greeting or the last answer again. Why it matters: loud rooms, and it works from memory, so nothing is stored.
-- **The accessibility drawer** (top right): Captions, Larger text, High contrast and Reduce motion, seeded from your phone's own settings and kept for this visit only. **Describe this view** reads out what is on screen in the browser's own voice, without touching the network. Why it matters: the second audience is people the usual shop website leaves out, and saving these settings would break Zero Data.
+- **The accessibility drawer** (top right): Captions, Larger text, High contrast and Reduce motion, seeded from your phone's own settings and kept for this visit only, and a fifth switch, **Clerk voice**, whose hint reads "Off: the clerk's words are shown, never spoken, for a quiet room". **Describe this view** reads out what is on screen in the browser's own voice, without touching the network. Why it matters: the second audience is people the usual shop website leaves out, and saving these settings would break Zero Data.
 - **The mic**: press to talk; typing stays. Why it matters: some people would rather say it than type it, and the browser does the transcribing, so the page only ever sees the words.
 - **The paint store's support agent**: ask "which primer for a bathroom?" and you get one practical tip, then the stock of what it recommends. Why it matters: two shops with different staff running from the same code is the platform idea, shown rather than described.
 - **Shops that speak in their own words**: the bakery counts loaves and talks about trays and the oven; the paint store about cans and the supplier's truck; the plant shop about the grower and pots. Why it matters: a bakery does not "restock in three days", it bakes, and each time the clerk gives is that shop's real schedule.
-- **27 products with aliases**, nine per shop: "bread" finds the sourdough and names the baguette; "two left" when stock is low; a price only when you ask; opening hours; and the clerk says plainly what it cannot do (deliver, hold, take payment). Why it matters: judges ask sideways questions, and "we don't carry that" to "do you have bread?" would end the conversation. The chips and the wall board show four per shop; ask for the rest by name.
+- **27 products with aliases**, nine per shop: "bread" finds the sourdough and names the baguette; "two left" when stock is low; a price only when you ask; opening hours; and the clerk says plainly what it cannot do (deliver, hold, take payment). Why it matters: judges ask sideways questions, and "we don't carry that" to "do you have bread?" would end the conversation. The question chips show four per shop; the wall board and **What we carry** list all nine.
+- **My list, Check my list, Take this with you**: under **What we carry** you tap what you need (nine items per shop; a tick marks what is on the list), then tap **Check my list**. The page sends the whole list in one request, the clerk turns to the stock room once, and the answer comes back as one spoken summary; under it sits one line per item in the stock room's own words, with the price and "2 left" when stock is low. The list then folds to "3 items checked · Edit list" so it stops covering the clerk. **Take this with you** hands you the answer as plain text through the phone's share sheet, or copies it, ending "via allyou.select". Nothing is stored. Why it matters: my own case is the large order I would rather not ask about three times. You prepare the list in private and walk in knowing the answer. (On a phone, three or four items is the comfortable size; with six to nine the clerk's summary makes the card tall enough to scroll over the clerk.)
+- **Follow-up questions**: ask about croissants, then "and the sourdough?", and the clerk knows what you mean. The page keeps the last three exchanges of the visit in memory and sends them with the next question; **Leave shop** clears them. Why it matters: a counter is a conversation, not a row of search boxes, and keeping that memory in the page rather than on the server keeps Zero Data true.
+- **The first-visit card and the dock line**: each time the page loads, a card on the street says three things: "Walk into a small shop's website and ask the clerk." "Make a list, check it all at once, take the answer with you." "Nothing about you is stored." Under the shop's name the dock reads "All you select, checked at once." and, in a quieter line, "Rehearse the question here; walk in knowing the answer."; under the input at the counter: "Take your time. No one is waiting behind you." Why it matters: the dock line is what the domain means. allyou.select is the list, all you select, checked at once, and the card tells a new visitor what this place is before they tap anything. The quiet lines are for the visitor who finds counters hard, which some days is me.
+- **Each shop its own storefront and counter**: Rosa's is brick, with an arch over each window and a deep striped awning, and inside the counter is a glass pastry case; Southside Paint Supply has a flat industrial front with a steel window grid and a pyramid of gallons in the window, and a mixing bench for a counter; Fern & Pot is a greenhouse, glass panels and a glass gable, with a fern and a snake plant on the pavement and a potting bench inside. The clerk and the stock agent are dressed for their shop (a toque at the bakery, a straw hat on the plant shop's stock agent), with a small smile and a slow breath while they wait; the STOCK ROOM plate hangs beside its door, and the hours card says what the clerk says: 7 am to 5 pm at the bakery, 8 am to 6 pm at the paint store, 9 am to 6 pm at the plant shop.
+  ![Rosa's Bakery from the street on a phone, Sunday morning, with the first-visit card](docs/screenshots/08-front.png)
+  Why it matters: the sandbox pitch only lands if the three shops look like three places an owner could have made, not one template in three colours.
 
-## Finishing tonight
+## After the submission
 
-None of these is usable on the live site yet. This heading changes when they merge.
+The Devpost text went in at 8:55 am Sunday and describes the live site as it was then: the list, the hands-free guide, follow-up questions and the second visual pass were built on the server but not on the live page. At 9:37 am the live site was republished from main as it stood at the submission. At about 10:35 am, after the submission, the page halves of the list and the nine-item **What we carry**, the record line in the shop's own words with "2 left" when stock is low, the follow-up questions, the first-visit card and the second visual pass merged into main; the live site carries them from the next republish after that merge. This README describes that later state and says so where those features are listed. The Devpost text keeps the 8:55 am state.
 
-- **My list**: write your list before you go in, tap **Check my list**, and the stock agent checks every item in one request; **Take this with you** hands you the text, nothing stored. The server half is live; the page half is in progress.
-- **The hands-free guide**: a second voice you talk to for everything that is not a shop question (enter the bakery, turn on captions, describe the view). Server half written; page half queued.
-- **Real-shop visuals**: each shop a distinct place from the outside, with a counter for its trade. In progress.
-- **Follow-up questions** ("and the sourdough?"): the server already takes the last three exchanges; the page does not send them yet.
+What did not make the cut:
+
+- **The hands-free guide's page half.** The Hands-free switch and the spoken commands (enter the bakery, turn on captions, describe the view) were not built. The server half is live: `POST /api/guide` answers with 28 cached phrases in a second ElevenLabs voice, chosen by `GUIDE_VOICE_ID` in the table below. It is listed here so no one goes looking for it on the page.
 
 ## How it works
 
@@ -82,7 +88,7 @@ Timing: the page waits 15 s, the model gets 10 s, and the voice gets what is lef
 1. The model fails, hangs or is rate-limited (the free key allows about six questions a minute), but the lookup found the product: the server answers from the record in plainer words, still in the ElevenLabs voice.
 2. ElevenLabs fails or runs out of time: the same words in the browser's own voice.
 3. Tiger Data cannot be reached: the stock room reads a built-in copy of the same seed, so the facts do not change.
-4. The server cannot be reached, or the model is down and nothing matched: the page answers from its printed list of four products per shop, in the browser's voice, and says so under the answer.
+4. The server cannot be reached, or the model is down and nothing matched: the page answers from its printed list, which now carries all 27 products, nine per shop, in the browser's voice, and says so under the answer. A list gets the printed list's line for each item.
 
 **Stored about you:** nothing. The street card says it: No account. Nothing stored. No cookie of ours, no local storage, no analytics, no third-party script; the 3D library is served by the app itself. The server log holds method, path, status and milliseconds, never the question or the reply.
 
@@ -97,7 +103,7 @@ Timing: the page waits 15 s, the model gets 10 s, and the voice gets what is lef
 | **Tiger Data** | The stock room: Postgres with a `stock_events` hypertable, sixty days of counts per product; "usually about N days" is computed from it at lookup time. |
 | **Replit** | Hosts the Node + Express server and the page at a public https URL. |
 
-Entered: the AI/ML track (two agents with a visible hand-off that take a real task off a shop owner's plate); the Replit "Small Business" challenge; Best Use of ElevenLabs (the voice is the product); Best Use of Gemini API (Gemini runs the clerk and decides when to call the stock tool); Best Use of Tiger Data (restock history as time-series data, used in the answers); the Zero Data challenge (no accounts, tracking, profiles or stored personal data); GoDaddy Registry (domain still to register).
+Entered: the AI/ML track (two agents with a visible hand-off that take a real task off a shop owner's plate); the Replit "Small Business" challenge; Best Use of ElevenLabs (the voice is the product); Best Use of Gemini API (Gemini runs the clerk and decides when to call the stock tool); Best Use of Tiger Data (restock history as time-series data, used in the answers); the Zero Data challenge (no accounts, tracking, profiles or stored personal data); GoDaddy Registry (allyou.select, registered at HackLanta and live, pointing at the same app).
 
 ## Built in a weekend
 

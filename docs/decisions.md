@@ -39,6 +39,7 @@
 | Forcing the stock lookup | Gemini's first round must call check_stock (function-calling mode ANY) | trusting the prompt to ask for it | Without it the model can answer "yes, we have that" from memory and the answer never touches the database |
 | Timing budget | page waits 15 s; server gives Gemini 10 s and ElevenLabs the time left before 12.5 s | 12 s on both sides | A 12 s tie meant a slow real answer lost to the canned one; now every reply is back 2.5 s before the page gives up |
 | Hosting | Replit for the submission (decided Oct 10, 3:05 pm) | AWS App Runner | Replit is in the prize table and is the fastest path to a public HTTPS URL with a secrets screen; the server is plain Express on PORT, so an AWS deployment stays a stretch goal after the submission, not a code change |
+| Ship the list and the visuals after the deadline, dated (Oct 11, 10:35 am) | merge integrate/final (the list and catalog UI, follow-up memory, the first-visit card, the second visual pass) into main after the 8:55 am Devpost submission; the live site gets them on the next republish; the Devpost text keeps the 8:55 am state; the README says when they merged | holding them back until after judging, or rewording the Devpost text to claim them | Judges see the live site, and the submission text stays what it was at the deadline; dating the merge in the README, TASKS and the docs means nothing is claimed that was not there when it was written down |
 
 ## Open questions for organizers
 

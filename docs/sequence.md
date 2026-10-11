@@ -34,7 +34,7 @@ The stock room reads loosely: "croissants" finds croissant, and "bread" finds th
 
 The stock room hands over the 3 days too, but the clerk says it only next to a day, like the paint store's "Friday, October 16"; next to a tray due in 18 minutes it would contradict the oven.
 
-Two more things the counter can do on the server side, which the page does not use yet: a question may come with the last three exchanges, so "and the sourdough?" would resolve; and a whole list can be checked in one request, every item at once. The page half of both is still being finished.
+Two more things the counter does. A question after the first comes with the last three exchanges of the visit, so "and the sourdough?" resolves. And a whole list can be checked in one request, every item at once: that is My list on the page, answered in one spoken summary with one line per item under it.
 
 The welcome line is recorded once per shop and replayed for every visitor. The clerk gets it ready while the visitor walks in.
 
@@ -71,7 +71,7 @@ sequenceDiagram
 ```
 
 - **The clerk voice is not available.** Same words, in a plainer voice: the one built into the visitor's phone or browser. The words are on screen either way.
-- **No answer in time, or no connection.** The clerk reads a short printed list kept at the counter, in the plainer voice. It holds four products per shop, and its times are rougher, like "tomorrow at 7am" or "Friday".
+- **No answer in time, or no connection.** The clerk reads a short printed list kept at the counter, in the plainer voice. It holds all 27 products, nine per shop, and its times are rougher, like "tomorrow morning at 7" or "Friday".
 - **The shelf list cannot be reached.** The stock room reads its own copy of the morning list. The answer sounds the same.
 - **The welcome is not ready.** Two seconds after the visitor reaches the counter, the clerk says the same line in the plainer voice.
 
@@ -88,7 +88,7 @@ Each person and place above is one part of the code.
 | Voice | ElevenLabs, through `server/voice.js`; the mp3 comes back as a data URL |
 | Welcome line | `{ shop, greet: true }`: fixed text per shop, no Gemini; the mp3 is kept in server memory per shop |
 | Plainer voice | The browser's built-in speech, used when `audioUrl` is null or the mp3 will not play |
-| Printed list at the counter | The canned answers in `SHOPS` in `public/index.html`: four products per shop, with rough times |
+| Printed list at the counter | The canned answers in `SHOPS` in `public/index.html`: all 27 products, nine per shop, with rough times |
 | Copy of the morning list | The built-in seed in `db/seed-data.js`, rebuilt each day; used when neither `TIGER_DATABASE_URL` nor `DATABASE_URL` is set, or the database cannot be reached |
 
 ## The same question, for engineers
@@ -116,6 +116,6 @@ sequenceDiagram
 - **Timing (PLAN.md section 3).** The page waits 15 s. The Gemini loop gets 10 s; if it fails or runs out and no lookup found the product, the server answers 502 `clerk_unavailable`; if a lookup did find it, the server words the record itself (`server/template.js`) and answers 200. ElevenLabs gets only the time left before 12.5 s, from 1.5 s to 6 s, or `audioUrl` is null. A 200 leaves by about 12.5 s.
 - **Tool rounds.** Round 1 must call `check_stock`. At most two tool rounds, then a round that must answer in words. If the main model fails, the fallback model gets what is left of the 10 s.
 - **The restock time.** `stock.js` turns the row's `restock_rule` into `nextRestockText` in America/New_York ("in about 18 minutes", "today at 2 pm", "tomorrow at 7 am", or "Friday, October 16" when only the day is known) and fills the shop's `restock_note` with it. The prompt tells the model to say the note as written and to add `typicalRestockDays` only beside a weekday.
-- **Memory and lists, server side.** A question may carry `history`, up to three prior `{ q, a }` pairs, sent to Gemini as earlier turns; the new question still gets the forced `check_stock` round. `{ shop, items }` with 1 to 12 items is one stock read for the whole list and one model call with no tools, worded by the template if the model fails, so a list never gets a 502. The page on main sends neither yet.
+- **Memory and lists, server side.** A question may carry `history`, up to three prior `{ q, a }` pairs, sent to Gemini as earlier turns; the new question still gets the forced `check_stock` round. `{ shop, items }` with 1 to 12 items is one stock read for the whole list and one model call with no tools, worded by the template if the model fails, so a list never gets a 502. The page sends both: `history` with every question after the first, cleared by Leave, and `items` when the visitor taps Check my list.
 - **The greeting** skips Gemini. The page asks for it on the Enter tap and waits up to 2 s past the walk-in.
 - **What each service sees.** Gemini gets the question. Tiger Data gets only the shop id. ElevenLabs gets only the clerk's reply. Server logs hold method, path, status, milliseconds and error types.

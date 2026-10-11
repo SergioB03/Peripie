@@ -6,7 +6,7 @@ This page shows who talks to whom, first as people and places, then as files and
 
 ## The shop
 
-- **The street.** One shopfront at a time, with three shops to pick from: Rosa's Bakery, Southside Paint Supply and Fern & Pot. The visitor picks one and taps Enter shop.
+- **The street.** One shopfront at a time, with three shops to pick from: Rosa's Bakery, Southside Paint Supply and Fern & Pot. On a first visit a card says in three lines what this place is and that nothing about you is stored. The visitor picks one and taps Enter shop.
 - **The door.** The doors open and the visitor walks to the counter. The clerk gets the greeting ready on the way in: one fixed line per shop, voiced once and kept in memory, never sent to the helper who understands questions. Leave shop walks the visitor back out.
 - **The counter.** The clerk greets the visitor out loud. The visitor types a question, and the clerk answers out loud in one or two short sentences.
 - **The stock room.** The clerk checks here before every answer. On screen, the clerk turns to a stock agent and the status reads "Checking with the stock room".
@@ -59,7 +59,7 @@ In the demo, the shelf list is sample data: nine products in each shop, 27 in al
 If something is slow or down, the visit still works:
 
 - **The helper who understands is down, but the stock room found the item:** the clerk says the record in plainer words, still in its own voice.
-- **No answer within 15 seconds, or the helper is down and nothing matched:** the clerk answers from a short list built into the page, in the phone's own voice.
+- **No answer within 15 seconds, or the helper is down and nothing matched:** the clerk answers from the printed list built into the page, all 27 products with rougher times, in the phone's own voice.
 - **The voice fails or is late:** the phone's own voice says the same words.
 - **The shelf list keeper cannot be reached:** the stock room reads a built-in copy of the sample list.
 
@@ -84,7 +84,7 @@ One question, step by step: [sequence.md](sequence.md). The tables behind the sh
 ```json
 { "shop": "bakery", "text": "do you have croissants?" }
 ```
-A question may also carry `history`, up to three prior `{ "q", "a" }` pairs, and `{ "shop", "items" }` checks a whole list of 1 to 12 items in one request (PLAN.md section 3). The page on main sends neither yet.
+A question may also carry `history`, up to three prior `{ "q", "a" }` pairs, and `{ "shop", "items" }` checks a whole list of 1 to 12 items in one request (PLAN.md section 3). The page sends both: `history` with every question after the first (Leave shop clears it), and `items` when the visitor taps Check my list.
 
 **Greeting:**
 ```json

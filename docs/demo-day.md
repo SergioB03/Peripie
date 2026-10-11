@@ -61,21 +61,22 @@ A plan with a fixed API contract, Claude Code agents building against it, a revi
 **19. Accessibility features, and why not saved?**
 Captions, larger text, high contrast and reduce motion, seeded from the phone's settings, plus Describe this view, Re-centre and Replay. They live in memory for the visit; saving them would break Zero Data.
 
-**20. What is "My list"?** (if the list feature shipped)
-Write your list before you go in, press Check my list, and the clerk checks every item with the stock room in one request; Take this with you hands you the text, nothing stored. If it did not ship: "That is next; today you ask one item at a time."
+**20. What is My list?**
+Under What we carry you tap what you need, nine items per shop, and press Check my list. The page sends the whole list in one request, the clerk checks it with the stock room and answers all of it in one spoken summary, with one line per item under it: the shop's own sentence, the price, and "2 left" when stock is low. Take this with you shares or copies that as text, ending "via allyou.select"; nothing is stored. It is my own case: the large order I would rather not ask about three times. (On the page since the Sunday 10:35 am merge, after the submission; the Devpost text describes the 8:55 am state.)
 
-## Ten failure drills
+## Eleven failure drills
 
 1. **Silent greeting.** Volume, the silent switch, or audio never unlocked because the walk-in did not start from a tap. Volume up, tap Replay. Say: "Loud room, let me have the clerk say that again."
 2. **Flat answer** ("We're out of croissant right now. The next tray of croissants comes out of the oven in about 18 minutes.", with the product in the singular; at the paint store "We're out of roller right now. Our supplier's truck comes Friday, October 16. It usually takes about 5 days."). Both model attempts failed (429, 503 or a hang); the server composed it from the stock record. Nothing to fix; space the next question. Say: "The clerk is being brief; that time is straight from the database."
 3. **Canned answer** ("Good news, sourdough is in stock") with the italic "printed list" line. A 502 (model down, no product matched) or no answer at all. Ask by product name; if it persists, check signal and reload. Say: "That is the printed list at the counter; the page works without the network."
-4. **"We don't carry that."** The judge asked for cookies or pizza: nine products per shop, matched by name and alias ("bread" finds the sourdough), but not everything; and each question stands alone, so a bare follow-up fails too. Point at the What we carry board or a chip. Say: "Nine products per shop this weekend; the board shows four, ask for the rest by name."
+4. **"We don't carry that."** The judge asked for cookies or pizza: nine products per shop, matched by name and alias ("bread" finds the sourdough), but not everything; and a bare follow-up like "and the sourdough?" works only within the visit's last three exchanges, which Leave shop clears. Point at the What we carry chips or the board. Say: "Nine products per shop this weekend; they are all on the board and under What we carry."
 5. **No walk-in, a cut to the counter, captions on.** The phone's Reduce Motion is on and the page follows it. Accessibility button, top right: Reduce motion off; Leave and enter again. Say: "The page follows the phone's motion setting; let me turn that off."
 6. **The sound button does not mute the clerk.** It mutes footsteps, chime and rustle only; the voice always plays. Use the phone's volume. Say: "That button is the sound effects; the clerk's voice is the product."
 7. **A tap on the storefront does nothing, or the view turns.** Only the "Tap here to walk in" pill and the Enter shop button walk in; the rest is a drag to look around. Tap Enter shop. Say: "Two ways in: the doors or the Enter button."
 8. **Slow first open, greeting in the plain voice.** Cold start: on Autoscale the app sleeps after fifteen idle minutes and voices greetings only after boot. Ask the first question; it comes back in the real voice. Say: "First visitor of the morning wakes the shop."
 9. **Mic trouble:** "Microphone blocked", words that do not send, or a quiet answer. Permission denied; iPhones deliver words only at the end; iOS can switch to the earpiece after the mic. Tap the red mic again, or type; volume up. Say: "Typing works too."
 10. **Flat or canned answers after rehearsing.** The free key allows about six questions a minute, two model calls each, three with the support agent. Pause a minute; the facts stay right. Say: "Busy counter this morning; the stock room still has the answer."
+11. **A tall list card on a phone.** With 6 to 9 items the clerk's summary makes the list card tall enough to scroll over the clerk. Keep the demo list to 3 or 4 items; Edit list trims it, and a reload clears it (Leave shop keeps it). Say: "Three things is a shopping trip; nine is a delivery."
 
 ## Pitch timing
 
@@ -103,9 +104,11 @@ For the Future beat, tap the Peripie card: the settings drawer shows the shop's 
 
 ## First-visit card
 
-A counter you can walk up to from anywhere.
-Ask for a product; the clerk checks the stock room before answering.
-No account. Nothing stored.
+As on the page since the Sunday 10:35 am merge, once per page load, gone on Close, Escape or Enter shop:
+
+Walk into a small shop's website and ask the clerk.
+Make a list, check it all at once, take the answer with you.
+Nothing about you is stored.
 
 ## The 6 am checklist
 
