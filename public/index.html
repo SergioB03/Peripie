@@ -192,7 +192,7 @@
   .who{display:flex;align-items:center;gap:8px;min-width:0;font-size:12px;line-height:16px;font-weight:700;
     color:var(--s200)}
   #who{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  /* Replay the last answer: at the right of the card's header, without making the header taller */
+  /* Replay the greeting or the last answer: at the right of the card's header, without making it taller */
   #replay{display:inline-flex;align-items:center;gap:5px;flex:none;margin:-4px 0 -4px auto;min-height:28px;
     padding:2px 10px;border-radius:9999px;background:rgb(41 37 36/.8);border:1px solid rgb(68 64 60/.6);
     color:var(--s300);font-size:11px;font-weight:600;transition:background-color .15s,color .15s,opacity .15s}
@@ -274,7 +274,7 @@
     #shops{justify-self:start}
   }
 
-  /* Settings drawer, read-only: the brand card opens the shop's entry in SHOPS as its settings file */
+  /* Settings drawer, read-only: the brand card opens the shop's settings, drawn from its SHOPS entry */
   #settings{width:min(560px,calc(100% - 32px));max-height:calc(100% - 48px);padding:0;border-radius:20px;
     color:var(--s100);background:rgb(28 25 23/.97);border:1px solid rgb(255 255 255/.12);box-shadow:var(--sh-2xl);
     overflow:hidden}
@@ -371,7 +371,7 @@
       <button id="leave" type="button"><svg class="i" aria-hidden="true"><use href="#i-corner-up-left"/></svg>Leave shop</button>
     </div>
     <div class="reply-card">
-      <div class="who"><span id="avatar" aria-hidden="true"></span><span id="who"></span><button id="replay" type="button" hidden title="Hear the last answer again"><svg class="i" aria-hidden="true"><use href="#i-rotate-ccw"/></svg>Replay</button></div>
+      <div class="who"><span id="avatar" aria-hidden="true"></span><span id="who"></span><button id="replay" type="button" hidden title="Hear the clerk again"><svg class="i" aria-hidden="true"><use href="#i-rotate-ccw"/></svg>Replay</button></div>
       <p id="reply"></p>
       <p id="stock-note"></p>
       <span class="typing" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -388,6 +388,7 @@
   <div class="sheet">
     <h2 id="settings-title">This shop's settings file</h2>
     <pre id="settings-json" tabindex="0"></pre>
+    <p>Stock lives in the stock room, not in this file. The list here is only what the shop carries.</p>
     <p>Each shop is one settings file. The builder we're making next lets an owner edit it by dragging things around.</p>
     <button id="settings-close" type="button">Close</button>
   </div>
@@ -961,7 +962,7 @@ const player = new Audio();
 const hasTTS = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
 let endSay = () => {};          // resolves the reply being spoken now (Leave uses it)
 let visit = 0;                  // bumped by Leave, so an answer that arrives after it is dropped
-let lastAnswer = null;          // the last answer this visit, for Replay; in memory only, Leave drops it
+let lastAnswer = null;          // the greeting, then the last answer this visit, for Replay; in memory only, Leave drops it
 let effectsOff = false;         // the sound-effects button (never the clerk's voice); kept in memory only
 
 function silentWav(samples){    // 16-bit mono PCM at 8 kHz: a 44-byte header, then zero samples
@@ -1129,9 +1130,11 @@ async function enterShop(){
   sfx.footsteps();
   await moveCamera(INSIDE, 2400);
   const live = await Promise.race([greeting, wait(2000)]);      // at most 2 s more, then the local line
+  const hello = live || { reply: 'Welcome to ' + shop.name + '. How can I help you today?' };
   showStock(null);                                              // a greeting has no stock-room record
   $('panel').hidden = false; setWhere('inside'); setState('answering');
-  await say(live || { reply: 'Welcome to ' + shop.name + '. How can I help you today?' });
+  lastAnswer = hello; $('replay').hidden = false;               // Replay works from the greeting on; an answer replaces it
+  await say(hello);
   setState('listening'); if (!coarse) $('q').focus();
 }
 $('enter').onclick = enterShop;
@@ -1149,9 +1152,9 @@ $('f').onsubmit = async e => {
   setState('answering'); showStock(reply); await say(reply); setState('listening'); if (!coarse) $('q').focus();
 };
 
-// Replay, for a loud room: the last answer again through say(), so the cached mp3 plays on the
-// shared Audio element (inside this tap, which iOS needs), else the browser's voice. The answer
-// is kept in memory for this visit only; Leave drops it.
+// Replay, for a loud room: the greeting, or the last answer once there is one, again through
+// say(), so the cached mp3 plays on the shared Audio element (inside this tap, which iOS needs),
+// else the browser's voice. It is kept in memory for this visit only; Leave drops it.
 $('replay').onclick = async () => {
   if (!lastAnswer || state !== 'listening' || $('panel').hidden) return;
   const here = visit, btn = $('replay'), refocus = document.activeElement === btn;
@@ -1171,7 +1174,21 @@ $('leave').onclick = async () => {
 };
 
 // Look around: drag on the 3D view (AI Studio's controls). A tap on the street walks in only on
-// the door cue or the Enter button; anywhere else on the 3D view it does nothing.
+// the door cue or the Enter button; anywhere else on the 3D view it does nothing. On the street a
+// drag turns the view half as fast as inside, and only as far as keeps the doors and their cue on
+// screen; inside, the view may turn 0.95 rad either way.
+const PITCH_DOWN = -0.32, PITCH_UP = 0.38;                      // radians, both places
+// The street's turn limit, in radians: as far as the view can turn with the doors (x -0.71 to 0.71
+// at z 3.75) inside the middle 80% of the screen and the cue on them 16 px clear of its sides,
+// even at the steepest look up (a tilted view spreads its sides by 1 / cos). Worked out from this
+// lens, screen and cue, so a 390 px phone (where the cue limits it) and a desktop (the doors) both
+// keep them in view: about 8 degrees on a portrait phone, 25 to 30 on a desktop.
+function streetYawLimit(){
+  const side = Math.tan(camera.fov * Math.PI / 360) * camera.aspect * Math.cos(PITCH_UP);   // tan of half the view's width
+  const doors = Math.atan(0.71 / (STREET.pos[2] - 3.75));       // half the doors' width, as an angle
+  const byDoors = Math.atan(side * 0.8) - doors, byCue = Math.atan(side * (1 - (cue.offsetWidth + 32) / innerWidth));
+  return Math.max(0, Math.min(byDoors, byCue));
+}
 let drag = null, dragged = false;
 canvas.addEventListener('pointerdown', e => {
   if (drag) return;                                             // one pointer looks; a second finger is ignored
@@ -1184,9 +1201,10 @@ addEventListener('pointermove', e => {
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY;
   if (!dragged && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) >= 8){ dragged = true; if (skyline) setSkyline(false, true); }
   if (tween) return;                                            // no looking around while walking
-  const maxYaw = document.body.dataset.where === 'inside' ? 0.95 : 1.75;
-  targetYaw = Math.max(-maxYaw, Math.min(maxYaw, targetYaw - dx * 0.0035));
-  targetPitch = Math.max(-0.32, Math.min(0.38, targetPitch - dy * 0.0035));
+  const street = document.body.dataset.where === 'street';
+  const rate = street ? 0.00175 : 0.0035, maxYaw = street ? streetYawLimit() : 0.95;   // radians per pixel; radians
+  targetYaw = Math.max(-maxYaw, Math.min(maxYaw, targetYaw - dx * rate));
+  targetPitch = Math.max(PITCH_DOWN, Math.min(PITCH_UP, targetPitch - dy * rate));
 });
 const endDrag = e => { if (drag && e.pointerId === drag.id){ drag = null; document.body.classList.remove('dragging'); } };
 addEventListener('pointerup', endDrag);
@@ -1201,24 +1219,30 @@ function setSkyline(on, keepView){
 }
 $('skyline').onclick = () => setSkyline(!skyline);
 
-// Settings drawer, read-only: the brand card shows the current shop's entry in SHOPS (all of it
-// display data) as the settings file it is. Nothing in it is editable and nothing is stored. The
-// native modal dialog keeps focus inside and closes on Escape; focus then returns to the card.
+// Settings drawer, read-only: the brand card shows the current shop's settings file. Nothing in it
+// is editable and nothing is stored. The native modal dialog keeps focus inside and closes on
+// Escape; focus then returns to the card.
 const settings = $('settings');
-// The entry as JSON, indented two spaces, with an object or list on one line when that line fits
-// in `cols` characters, so a phone shows short clean lines instead of wrapped ones.
-function settingsText(shop, cols){
+// The settings, not the stock: the product names only, as "carries". SHOPS also holds the printed
+// list the canned answers fall back on (in stock or not, when it is back) and the first scene's
+// colours; neither is shown, since stock lives in the stock room, as the line under the file says.
+const settingsOf = s => ({ id:s.id, name:s.name, area:s.area, carries:s.inventory.map(i => i.name),
+                           agents:s.agents, asks:s.asks, look:s.look });
+// The settings as JSON, indented two spaces, with an object or list on one line when that line
+// fits in `cols` characters, so a phone shows short clean lines instead of wrapped ones.
+function settingsText(entry, cols){
   const out = (v, ind, lead) => {                               // lead: characters before v on its line
     if (v === null || typeof v !== 'object') return JSON.stringify(v);
     const arr = Array.isArray(v), inner = ind + '  ';
     const items = arr ? v.map(x => out(x, inner, inner.length))
-      : Object.entries(v).map(([k, x]) => { const key = JSON.stringify(k) + ': '; return key + out(x, inner, inner.length + key.length); });
+      : Object.entries(v).filter(([, x]) => x !== undefined)     // a shop without a field: no line, as in JSON
+        .map(([k, x]) => { const key = JSON.stringify(k) + ': '; return key + out(x, inner, inner.length + key.length); });
     if (!items.length) return arr ? '[]' : '{}';
     const one = arr ? '[' + items.join(', ') + ']' : '{ ' + items.join(', ') + ' }';
     if (!one.includes('\n') && lead + one.length + 1 <= cols) return one;   // + 1 for a comma after it
     return (arr ? '[' : '{') + '\n' + items.map(i => inner + i).join(',\n') + '\n' + ind + (arr ? ']' : '}');
   };
-  return out(shop, '', 0);
+  return out(entry, '', 0);
 }
 function columnsIn(pre){                                       // monospace characters that fit on one line
   const cs = getComputedStyle(pre), pen = document.createElement('canvas').getContext('2d');
@@ -1230,7 +1254,7 @@ $('brand').onclick = () => {
   if (settings.open || typeof settings.showModal !== 'function') return;
   settings.showModal();                                         // first, so the box has its width
   const pre = $('settings-json');
-  pre.textContent = settingsText(current, columnsIn(pre));
+  pre.textContent = settingsText(settingsOf(current), columnsIn(pre));
   pre.scrollTop = 0; $('settings-close').focus();
 };
 $('settings-close').onclick = () => settings.close();
