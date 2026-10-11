@@ -701,6 +701,9 @@ const SHOPS = [
    Endpoint: window.CLERK_ENDPOINT, '/api/clerk' on the same origin by default. Set it (before
    this script, or later from the console) to another URL, or to '' for canned answers only.
    Question: POST { shop: "bakery", text: "do you have croissants?" }   text is 1 to 300 characters
+   Memory:   a question after the first adds history: [{ q, a }], the last three exchanges of
+             this visit (at most 3 pairs, each string trimmed to 300 characters), so "and the
+             sourdough?" resolves. Kept in memory only and dropped by Leave; never stored.
    Greeting: POST { shop: "bakery", greet: true }   sent on the Enter tap, during the walk-in
    200:      { reply, audioUrl, stock }   reply: the clerk's words, always a string;
              audioUrl: an mp3 data URL, or null to use the browser's voice;
@@ -749,9 +752,19 @@ function printedItem(shop, text){
   return shop.inventory.find(i => t.includes(i.name) || t.includes(i.name.replace(/s$/,'')));
 }
 
+// The visit's memory for follow-ups: the last three { q, a } exchanges, each trimmed to 300
+// characters, sent as history with every question after the first. In memory only; Leave
+// clears it, and nothing is stored.
+const HISTORY_PAIRS = 3;
+const history = [];
+function remember(q, a){
+  history.push({ q: q.trim().slice(0, MAX_TEXT), a: a.trim().slice(0, MAX_TEXT) });
+  if (history.length > HISTORY_PAIRS) history.splice(0, history.length - HISTORY_PAIRS);
+}
+
 async function askClerk(text){
   const shop = current, t0 = performance.now();
-  const live = await callClerk({ shop: shop.id, text });
+  const live = await callClerk(history.length ? { shop: shop.id, text, history: history.slice() } : { shop: shop.id, text });
   if (live) return live;                                        // { reply, audioUrl, stock }
   await wait(Math.max(0, 1500 - (performance.now() - t0)));   // canned answers, as before
   const item = printedItem(shop, text);                         // canned: true marks the printed list
@@ -2278,7 +2291,7 @@ $('f').onsubmit = async e => {
   $('q').value = ''; setState('checking'); $('reply').textContent = ''; showStock(null); if (coarse) $('q').blur();
   const reply = await askClerk(text);                           // never throws; canned on failure
   if (here !== visit) return;                                   // the visitor left while we checked
-  lastAnswer = reply; $('replay').hidden = false;
+  lastAnswer = reply; $('replay').hidden = false; remember(text, reply.reply);
   setState('answering'); showStock(reply); await say(reply); setState('listening'); if (!coarse) $('q').focus();
 };
 
@@ -2352,7 +2365,7 @@ $('replay').onclick = async () => {
 
 $('leave').onclick = async () => {
   if (tween) return;
-  visit++; endSay(); silence(); lastAnswer = null; $('replay').hidden = true;
+  visit++; endSay(); silence(); lastAnswer = null; history.length = 0; $('replay').hidden = true;   // the visit's memory goes with it
   $('panel').hidden = true; setState('listening'); setWhere('leaving'); sfx.footsteps();
   if (prefs.calm){ doorTarget = 0; await moveCamera(STREET, 1); }   // Reduce motion: a cut back to the street
   else { await moveCamera(DOOR, 1800); doorTarget = 0; await moveCamera(STREET, 2200); }
