@@ -196,7 +196,7 @@ Environment variables: `GEMINI_API_KEY`, `GEMINI_MODEL` (optional), `ELEVENLABS_
 ### Should have
 - [x] S1. Mic input (Web Speech API in Chrome), with typing kept as the fallback
 - [x] S2. `typicalRestockDays` from `stock_events`, used in the clerk's answer
-- [x] S3. Domain registered and pointed at the app: allyou.select (registered Sun 4:45 am; DNS link in Replit pending)
+- [x] S3. Domain registered and pointed at the app: allyou.select (registered Sun 4:45 am; live over https at 4:54 am)
 - [x] S4. README and docs/ as specified in section 10
 - [x] S5. Two-minute pitch
 
