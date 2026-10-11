@@ -169,9 +169,10 @@
     padding:12px;border-radius:24px;background:rgb(28 25 23/.9);box-shadow:var(--sh-2xl);
     -webkit-backdrop-filter:blur(40px);backdrop-filter:blur(40px);animation:slideUp .4s var(--out) both}
   /* Never taller than the screen under the header (a list's answer with Larger text on a phone): it
-     scrolls instead. Its rows keep their height; without this a flex column would squash them. */
+     scrolls instead. Its rows keep their height; without this a flex column would squash them. The
+     page itself keeps the list's chips still while it scrolls (holdCarry), so no browser anchoring. */
   .panel-card{max-height:calc(100vh - var(--bottom) - 72px);max-height:calc(100dvh - var(--bottom) - 72px);
-    overflow:hidden auto;overscroll-behavior:contain}
+    overflow:hidden auto;overscroll-behavior:contain;overflow-anchor:none}
   .panel-card>*{flex-shrink:0}
   .panel-top{display:flex;align-items:center;justify-content:space-between;gap:6px;padding-bottom:8px;
     border-bottom:1px solid var(--s800)}
@@ -270,8 +271,10 @@
   #no-rush{margin:-4px 0 0;font-size:11px;line-height:16px;font-weight:500;color:var(--s400);text-align:center}
   /* My list (script section 5). What the shop carries: round dashed chips with a plus, unlike the
      question chips; one already on the list shows a tick. The list: the shop's colour, a remove button
-     each, then Check my list. While the clerk checks or answers the whole area steps aside, so the
-     panel is no taller than for a question and the hand-off stays in view. */
+     each, then Check my list. The list sits above the chips: the panel grows upward from the bottom,
+     so a list that appears or wraps moves only what is above it and the chips being tapped stay put.
+     While the clerk checks or answers the whole area steps aside, so the panel is no taller than for
+     a question and the hand-off stays in view. */
   #list-area{display:flex;flex-direction:column;gap:6px}
   body:not([data-state=listening]) #list-area{display:none}
   .list-label{font-size:11px;line-height:16px;font-weight:600;color:var(--s300)}
@@ -581,8 +584,8 @@
     <div id="chips" role="group" aria-label="Questions to try"></div>
     <!-- My list (script section 5): what the shop carries, and the visitor's list, checked all at once -->
     <div id="list-area">
-      <div id="carry" role="group" aria-labelledby="carry-label"><span class="list-label" id="carry-label">What we carry <span class="sub">· tap to add to your list</span></span></div>
       <div id="mylist" role="group" aria-labelledby="mylist-label" hidden><span class="list-label" id="mylist-label">My list</span><button id="check-list" type="button"><svg class="i" aria-hidden="true"><use href="#i-list-checks"/></svg>Check my list</button></div>
+      <div id="carry" role="group" aria-labelledby="carry-label"><span class="list-label" id="carry-label">What we carry <span class="sub">· tap to add to your list</span></span></div>
     </div>
     <form id="f">
       <input id="q" placeholder="Ask for a product" autocomplete="off" maxlength="300" aria-label="Ask the clerk">
@@ -1512,19 +1515,29 @@ function renderList(){
   }
   row.hidden = !items.length;
 }
+// The chip under the visitor's finger must still be the chip they meant. The list sits above the
+// chips and the panel grows upward from the bottom, so a list that appears or wraps moves only what
+// is above it. Once the panel is as tall as the screen allows it scrolls instead (Larger text on a
+// phone) and the change would push the chips down; the scroll takes it up, so they stay put there too.
+function holdCarry(change){
+  const card = $('carry').closest('.panel-card'), was = $('carry').getBoundingClientRect().top;
+  change();
+  const moved = $('carry').getBoundingClientRect().top - was;
+  if (moved) card.scrollTop += moved;
+}
 function addToList(name){
   if (state !== 'listening') return;
   const items = listFor(current);
   if (items.includes(name)) return announce(name + ' is already on your list');
   if (items.length >= MAX_ITEMS) return announce('Your list is full: ' + MAX_ITEMS + ' items');
-  items.push(name); renderList();
+  items.push(name); holdCarry(renderList);
   announce(name + ' added. ' + howMany(items.length) + ' on your list.');
 }
 function removeFromList(name){
   if (state !== 'listening') return;
   const items = listFor(current), at = items.indexOf(name);
   if (at < 0) return;
-  items.splice(at, 1); renderList();
+  items.splice(at, 1); holdCarry(renderList);
   const xs = $('mylist').querySelectorAll('.pick button');   // its button is gone: the next one, else that chip
   (xs[at] || xs[at - 1] || carryChip(name))?.focus();
   announce(name + ' removed. ' + (items.length ? howMany(items.length) + ' on your list.' : 'Your list is empty.'));
