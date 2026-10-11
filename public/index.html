@@ -1231,36 +1231,80 @@ put(register, Box(0.16, 0.1, 0.02), new THREE.MeshBasicMaterial({ map:regDisplay
 put(counter, Sph(0.08, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat('brass', '#f59e0b', { roughness:0.15 }), 0.65, 1.025, 0.15, { cast:true });
 put(counter, Cyl(0.015, 0.015, 0.04, 8), regBrass, 0.65, 1.105, 0.15);
 
-// The clerk faces the street; no legs, the counter hides them.
-const clerk = group(scene, 0, 0.2, -0.6);
-const shirt = mat('cloth', '#ffffff', { roughness:0.8 }), skin = std('#fed7aa', { roughness:0.6 });
-const apronMat = mat('cloth', '#ffffff', { roughness:0.85 });
-put(clerk, Cyl(0.22, 0.24, 0.7, 10), shirt, 0, 1.0, 0, { cast:true });
-put(clerk, Cyl(0.23, 0.25, 0.62, 10, 1, false, 0, Math.PI * 1.5), apronMat, 0, 0.98, 0, { ry:-Math.PI * 0.75 });
-const head = group(clerk, 0, 1.4, 0);
-put(head, Sph(0.18, 14, 14), skin, 0, 0.15, 0, { cast:true });
-put(head, Sph(0.19, 12, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), std('#451a03', { roughness:0.9 }), 0, 0.18, 0);
-const eyeGeo = Sph(0.025, 8, 8), eyeMat = basic('#1c1917');
-put(head, eyeGeo, eyeMat, -0.06, 0.16, 0.16);
-put(head, eyeGeo, eyeMat, 0.06, 0.16, 0.16);
-put(head, new THREE.TorusGeometry(0.04, 0.008, 6, 8, Math.PI), basic('#b91c1c'), 0, 0.08, 0.17, { rx:Math.PI / 2, rz:Math.PI });
-const armL = group(clerk, -0.28, 1.25, 0), armR = group(clerk, 0.28, 1.25, 0), armGeo = Cyl(0.06, 0.05, 0.45, 8);
-put(armL, armGeo, shirt, 0, -0.2, 0);
-put(armR, armGeo, shirt, 0, -0.2, 0);
-put(armR, Sph(0.06, 8, 8), skin, 0, -0.42, 0);
-
-// The stock agent, by the stock-room door; shown only while the clerk checks with it.
-const stocker = group(scene, 2.4, 0.2, -4.2), agentShirt = mat('cloth', '#f8fafc', { roughness:0.8 });
-const vestMat = mat('cloth', '#ffffff', { roughness:0.7 });
-put(stocker, Cyl(0.2, 0.22, 0.65, 8), agentShirt, 0, 0.95, 0, { cast:true });
-put(stocker, Cyl(0.21, 0.23, 0.58, 8), vestMat, 0, 0.95, 0);
-put(stocker, Sph(0.17, 10, 10), skin, 0, 1.48, 0);
-put(stocker, Cyl(0.18, 0.18, 0.1, 10), std('#334155'), 0, 1.58, 0);
-const agentArm = group(stocker, -0.25, 1.2, 0);
-put(agentArm, Cyl(0.05, 0.05, 0.4, 8), agentShirt, 0, -0.18, 0);
-put(agentArm, Box(0.25, 0.35, 0.02), mat('wood', '#78350f'), -0.05, -0.28, 0.15, { rx:-Math.PI / 4 });
-put(agentArm, Box(0.21, 0.3, 0.01), std('#ffffff'), -0.05, -0.28, 0.165, { rx:-Math.PI / 4 });
+// The staff: the clerk at the counter (facing the street; no legs, the counter hides them) and the
+// stock agent by the stock-room door, shown only while the clerk checks with it. Both are dressed
+// again for each shop (dressStaff, from DECOR.staff): a torso group that breathes, a head group
+// with a face drawn on a canvas (two eyes, a small smile, no brows), hair or a cap, and arms.
+// Section 4 animates clerk, head, armL, armR, stocker and agentArm; those groups stay, only what
+// is in them changes.
+const clerk = group(scene, 0, 0.2, -0.6), torso = group(clerk, 0, 1.0, 0), head = group(clerk, 0, 1.4, 0);
+const armL = group(clerk, -0.28, 1.25, 0), armR = group(clerk, 0.28, 1.25, 0);
+const stocker = group(scene, 2.4, 0.2, -4.2), agentTorso = group(stocker, 0, 0.95, 0), agentHead = group(stocker, 0, 1.48, 0), agentArm = group(stocker, -0.25, 1.2, 0);
 stocker.visible = false;
+// A face for a head sphere: the sphere's +z side is u 0.25 and its equator v 0.5. Two eyes a little
+// above the equator with a highlight each, soft cheeks, a small smile below; flour on a cheek for a baker.
+function faceTexture(skin, flour){
+  return canvasTexture(512, 256, (x, w, h) => {
+    x.fillStyle = skin; x.fillRect(0, 0, w, h);
+    x.fillStyle = 'rgba(239,108,100,.3)'; for (const s of [-1, 1]){ x.beginPath(); x.ellipse(128 + s * 36, 146, 13, 7, 0, 0, Math.PI * 2); x.fill(); }
+    if (flour){ x.fillStyle = 'rgba(255,255,255,.75)'; x.beginPath(); x.ellipse(162, 150, 15, 9, 0.4, 0, Math.PI * 2); x.fill(); }
+    x.fillStyle = '#1c1917'; for (const s of [-1, 1]){ x.beginPath(); x.ellipse(128 + s * 24, 112, 6, 9, 0, 0, Math.PI * 2); x.fill(); }
+    x.fillStyle = '#ffffff'; for (const s of [-1, 1]){ x.beginPath(); x.arc(128 + s * 24 - 2, 109, 2.2, 0, Math.PI * 2); x.fill(); }
+    x.strokeStyle = '#9a3412'; x.lineWidth = 3.5; x.lineCap = 'round'; x.beginPath(); x.arc(128, 126, 20, Math.PI * 0.22, Math.PI * 0.78); x.stroke();
+  });
+}
+function dressStaff(shop, anims){
+  const K = decorOf(shop).staff, L = shop.look || SHOPS[0].look;
+  for (const g of [torso, head, armL, armR, agentTorso, agentHead, agentArm]){
+    g.traverse(o => { if (o.isMesh){ o.geometry.dispose(); if (o.material.map) o.material.map.dispose(); o.material.dispose(); } });
+    g.clear(); g.scale.set(1, 1, 1);
+  }
+  const cloth = () => vmat('cloth', { roughness:0.85 });
+  // The clerk: shirt, apron (open at the back) with a bib, overall straps and buttons for the paint
+  // store; the face; a toque, a cap with a pencil behind the ear, or hair; arms with hands or gloves.
+  const TOR = [[Cyl(0.22, 0.24, 0.7, 12), 0, 0, 0, { color:K.shirt }], [Cyl(0.23, 0.25, 0.62, 12, 1, false, 0, Math.PI * 1.5), 0, -0.02, 0, { ry:-Math.PI * 0.75, color:K.apron }],
+    [Box(0.2, 0.26, 0.02), 0, 0.22, 0.228, { color:K.apron }]];
+  if (K.straps) for (const s of [-1, 1]) TOR.push([Box(0.04, 0.26, 0.02), s * 0.08, 0.4, 0.17, { rx:-0.6, color:K.apron }], [Sph(0.016, 6, 6), s * 0.08, 0.34, 0.24, { color:'#f59e0b' }]);
+  solid(torso, cloth(), TOR, 0, 0, 0, { cast:true });
+  put(head, Sph(0.18, 16, 14), std('#ffffff', { map:faceTexture(K.skin, K.cap === 'toque'), roughness:0.6 }), 0, 0.15, 0, { cast:true });
+  const HAT = [];
+  if (K.cap === 'toque') HAT.push([Cyl(0.19, 0.19, 0.09, 14, 1, true), 0, 0.3, 0, { color:L.apron }], [Sph(0.2, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), 0, 0.33, 0, { s:[1.06, 0.8, 1.06], color:'#fafaf9' }],
+    [Box(0.06, 0.04, 0.012), 0.1, 0.3, 0.162, { ry:0.55, color:'#ffffff' }]);
+  else if (K.cap === 'cap') HAT.push([Sph(0.186, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), 0, 0.19, 0, { color:L.apron }], [Cyl(0.21, 0.21, 0.012, 14, 1, false, -Math.PI / 2, Math.PI), 0, 0.2, 0.03, { color:L.apron }],
+    [Sph(0.02, 6, 6), 0, 0.375, 0, { color:L.apron }], [Cyl(0.008, 0.008, 0.16, 6), 0.175, 0.2, -0.01, { rx:Math.PI / 2, color:'#facc15' }], [Sph(0.185, 12, 10, 0, Math.PI * 2, Math.PI * 0.45, Math.PI * 0.12), 0, 0.17, -0.01, { color:K.hair }]);
+  else HAT.push([Sph(0.187, 12, 12, 0, Math.PI * 2, 0, Math.PI * 0.4), 0, 0.17, -0.015, { color:K.hair }], [Sph(0.06, 8, 8), 0, 0.3, -0.14, { color:K.hair }]);
+  solid(head, cloth(), HAT);
+  const hand = K.gloves ? [[Sph(0.06, 8, 8), 0, -0.42, 0, { color:K.gloves }], [Cyl(0.068, 0.06, 0.05, 8), 0, -0.4, 0, { color:K.gloves }]] : [[Sph(0.06, 8, 8), 0, -0.42, 0, { color:K.skin }]];
+  for (const arm of [armL, armR]) solid(arm, cloth(), [[Cyl(0.06, 0.05, 0.45, 8), 0, -0.2, 0, { color:K.shirt }], ...hand]);
+  // The stock agent: shirt and apron, or a vest open at the front, the face, a cap, beanie or straw
+  // hat, and in its arm what it carries: a tray of rolls, the clipboard, or a watering can.
+  const ATOR = [[Cyl(0.2, 0.22, 0.65, 10), 0, 0, 0, { color:K.agentShirt }],
+    [Cyl(0.21, 0.23, 0.58, 10, 1, false, 0, Math.PI * 1.5), 0, 0, 0, { ry:K.vest ? Math.PI * 0.25 : -Math.PI * 0.75, color:K.agentApron }]];
+  if (!K.vest) ATOR.push([Box(0.18, 0.22, 0.02), 0, 0.22, 0.208, { color:K.agentApron }]);
+  solid(agentTorso, cloth(), ATOR, 0, 0, 0, { cast:true });
+  put(agentHead, Sph(0.17, 14, 12), std('#ffffff', { map:faceTexture(K.agentSkin), roughness:0.6 }));
+  const AHAT = [[Sph(0.172, 12, 10, 0, Math.PI * 2, Math.PI * 0.42, Math.PI * 0.14), 0, 0.02, -0.01, { color:K.agentHair }]];
+  if (K.agentHat === 'straw') AHAT.push([Cyl(0.31, 0.31, 0.012, 16), 0, 0.09, 0, { color:'#e9d8a6' }], [Cyl(0.15, 0.165, 0.1, 12), 0, 0.14, 0, { color:'#e9d8a6' }], [Cyl(0.168, 0.168, 0.03, 12, 1, true), 0, 0.11, 0, { color:K.agentApron }]);
+  else if (K.agentHat === 'beanie') AHAT.push([Cyl(0.176, 0.176, 0.08, 12, 1, true), 0, 0.06, 0, { color:'#334155' }], [Sph(0.176, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), 0, 0.06, 0, { color:'#334155' }]);
+  else AHAT.push([Sph(0.175, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), 0, 0.03, 0, { color:'#fafaf9' }], [Cyl(0.2, 0.2, 0.012, 14, 1, false, -Math.PI / 2, Math.PI), 0, 0.04, 0.03, { color:'#fafaf9' }]);
+  solid(agentHead, cloth(), AHAT);
+  const ARM = [[Cyl(0.05, 0.05, 0.4, 8), 0, -0.18, 0, { color:K.agentShirt }], [Sph(0.055, 8, 8), 0, -0.4, 0.02, { color:K.agentSkin }]];
+  if (K.carries === 'tray'){   // held level while the arm swings forward in the checking pose (section 4 turns it -0.3)
+    ARM.push([Box(0.36, 0.015, 0.26), 0.25, -0.4, 0.26, { rx:0.3, color:'#92400e' }]);
+    for (const [dx, dz] of [[-0.1, -0.05], [0.02, 0.05], [0.12, -0.04]]) ARM.push([Sph(0.045, 8, 6), 0.25 + dx, -0.365 - 0.296 * dz, 0.26 + 0.955 * dz, { rx:0.3, s:[1.2, 0.75, 1], color:'#d7a45c' }]);
+  } else if (K.carries === 'can') ARM.push([Cyl(0.08, 0.1, 0.18, 10), 0, -0.56, 0.06, { color:'#9ca3af' }], [Cyl(0.012, 0.022, 0.22, 6), 0.1, -0.5, 0.12, { rz:-1.1, color:'#9ca3af' }], [new THREE.TorusGeometry(0.07, 0.01, 6, 10, Math.PI), 0, -0.47, 0.06, { color:'#9ca3af' }]);
+  else ARM.push([Box(0.25, 0.35, 0.02), -0.05, -0.28, 0.15, { rx:-Math.PI / 4, color:'#78350f' }], [Box(0.21, 0.3, 0.01), -0.05, -0.28, 0.165, { rx:-Math.PI / 4, color:'#ffffff' }], [Box(0.08, 0.03, 0.02), -0.05, -0.17, 0.26, { rx:-Math.PI / 4, color:'#94a3b8' }]);
+  solid(agentArm, cloth(), ARM);
+  // The idle, on both: a slow breath (1.5 percent across the chest at 0.25 Hz) and a small tilt of
+  // the head every nine to eleven seconds, eased in and out; both still under Reduce motion. The
+  // poses section 4 drives (turning to the stock room, the walk over, the answer) are untouched.
+  const tilt = (t, phase) => { const n = Math.floor((t + phase) / 10), u = (t + phase) - n * 10 - (n % 3) * 0.9; return u > 0 && u < 1.8 ? Math.sin(u / 1.8 * Math.PI) * 0.13 : 0; };
+  anims.push(t => {
+    const w = prefs.calm ? 0 : 1, b = 1 + Math.sin(t * Math.PI * 0.5) * 0.015 * w, b2 = 1 + Math.sin(t * Math.PI * 0.5 + 1.9) * 0.015 * w;
+    torso.scale.set(b, 1, b); agentTorso.scale.set(b2, 1, b2);
+    head.rotation.z = tilt(t, 0) * w; agentHead.rotation.z = tilt(t, 4.3) * w;
+  });
+}
 
 // Ceiling fixtures, one kind per shop: brass pendants on cords, fluorescent tubes on chains, or
 // a skylight with a soft shaft of light falling through it.
@@ -1782,7 +1826,7 @@ let propAnims = [];
 function build(shop){
   current = shop;
   const L = shop.look || SHOPS[0].look, D = decorOf(shop);
-  apronMat.color.set(L.apron); vestMat.color.set(L.vest); roomLight.color.set(L.light); roomLight.intensity = D.room;
+  roomLight.color.set(L.light); roomLight.intensity = D.room;
   wallMat.color.set(L.wall); floorMat.map = floorTexture(shop);
   frameMat.color.set(D.frame); doorMat.color.set(D.frame); awningSide.color.set(L.awning[0]);
   counterMat.color.set(D.counter[0]); topMat.color.set(D.counter[1]); counterTrim.color.set(D.counter[2]); trimMat.color.set(D.counter[2]);
@@ -1801,6 +1845,7 @@ function build(shop){
   props.clear();
   propAnims = []; ovenLight.intensity = 0;
   PROPS[shop.id]?.(props, shop, propAnims);
+  dressStaff(shop, propAnims);
   targetYaw = targetPitch = 0;
   document.querySelectorAll('#shops button').forEach(b => b.classList.toggle('on', b.dataset.id === shop.id));
   showShop(shop);
