@@ -21,7 +21,7 @@ Some days I'm also the customer who won't ask. I'll order at a drive-through bef
 3. Ask for a product by typing. The clerk turns to the stock agent; the label reads *Checking with the stock room*.
    ![Checking](docs/screenshots/04-checking.jpg)
 4. Hear the answer, which comes from the database: in stock, or out with the restock date and how long that item usually takes to come back. Under the clerk's words you see the stock room's record itself ("Stock room · croissant · 0 on hand · back Tuesday, October 13 · usually about 3 days"), and a Replay button for loud rooms.
-   ![Answer](docs/screenshots/05-answer.jpg)
+   ![Answer](docs/screenshots/05-answer.png)
 
 What the clerk actually said on the first real run (Oct 10, 3:45 pm):
 

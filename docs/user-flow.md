@@ -70,7 +70,7 @@ This takes one job off the owner: answering "do you have it?" on the phone. In t
 | Tap Enter shop: the doors open | ![Doors opening](screenshots/02-doors.jpg) |
 | The clerk greets you out loud | ![Greeting](screenshots/03-greeting.jpg) |
 | The clerk turns to the stock room | ![Checking](screenshots/04-checking.jpg) |
-| The answer: out of stock, back on a date | ![Answer](screenshots/05-answer.jpg) |
+| The answer: out of stock, back on a date | ![Answer](screenshots/05-answer.png) |
 | A different shop | ![Second shop](screenshots/06-second-shop.jpg) |
 | The same visit on a phone | ![Phone demo](screenshots/07-phone.png) |
 

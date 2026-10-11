@@ -380,7 +380,7 @@ Record how the idea was reached, since judges ask "why this?" Include the concep
 2. `02-doors.jpg`: the doors opening
 3. `03-greeting.jpg`: the clerk greeting the visitor
 4. `04-checking.jpg`: the clerk turned to the stock agent
-5. `05-answer.jpg`: an out-of-stock answer with a restock date
+5. `05-answer.png`: an out-of-stock answer with a restock date
 6. `06-second-shop.jpg`: a different shop template
 7. `07-phone.png`: the app on a phone
 
