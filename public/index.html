@@ -88,6 +88,7 @@
   #shops button.on{background:var(--accent);color:#fff;box-shadow:var(--sh-md)}
   #hint{display:none}
   @media (max-width:429px){#event{display:none}}   /* phones: room for four buttons at the right */
+  @media (max-width:359px){.brand-text{display:none}#brand{padding:6px}}   /* the smallest phones: the icon only */
   @media (min-width:640px){
     #top{padding:max(16px,env(safe-area-inset-top)) 16px 0}
     #skyline{padding:0 12px}
@@ -277,6 +278,10 @@
     #top{grid-template-columns:1fr auto;grid-template-areas:"tabs actions"}
     #shops{justify-self:start}
   }
+  @media (max-height:520px) and (orientation:landscape) and (max-width:619px){   /* the shop tabs scroll beside four buttons */
+    #shops{min-width:0;max-width:100%;overflow-x:auto;scrollbar-width:none}
+    #shops::-webkit-scrollbar{display:none}
+  }
 
   /* Settings drawer, read-only: the brand card opens the shop's settings, drawn from its SHOPS entry.
      The accessibility drawer (#a11y) shares its look. */
@@ -359,7 +364,7 @@
   html.big :is(.duty,.zero){font-size:14px;line-height:20px}
   html.big .zero .i{width:15px;height:15px}
   html.big #enter{font-size:17.5px}
-  html.big #status{font-size:14px;line-height:20px}
+  html.big #status{font-size:14px;line-height:20px;white-space:normal}   /* wraps, never runs under Leave */
   html.big #leave{font-size:14px}
   html.big .who{font-size:15px;line-height:20px}
   html.big #replay{font-size:14px}
