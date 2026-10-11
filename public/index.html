@@ -433,6 +433,17 @@
   html.quiet body .bars{display:none}   /* Clerk voice off (drawer): nothing is spoken, so no sound bars */
   @media (min-width:640px){#cc{left:16px;right:16px}}
   @media (max-height:520px) and (orientation:landscape){#cc{font-size:16px;padding:6px 12px}}
+  /* The guide's words (hands-free, script section 7): the captions' type on its own strip, just above
+     the street dock or the counter panel (the script sets bottom), while a guide line plays with
+     Captions on, or whenever the voice is off. Its own colour and a "Guide" label keep the two voices
+     apart. Eyes only: the guide is heard, and a switch it confirms shows its own state. */
+  #gcc{position:fixed;left:8px;right:8px;bottom:120px;z-index:21;max-width:576px;margin:0 auto;padding:8px 16px 10px;
+    border-radius:16px;background:rgb(0 0 0/.88);border:2px solid #6ee7b7;color:#fff;font-size:20px;line-height:1.35;
+    font-weight:600;text-align:center;overflow-wrap:anywhere;pointer-events:none}
+  #gcc .gcc-who{display:block;font-size:11px;line-height:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6ee7b7}
+  html.hc #gcc{background:#000}
+  @media (min-width:640px){#gcc{left:16px;right:16px}}
+  @media (max-height:520px) and (orientation:landscape){#gcc{font-size:16px;padding:4px 12px 6px}}
 
   /* Larger text (drawer): the street card's and the counter panel's words at 1.25 times */
   html.big #shop-name{font-size:17.5px;line-height:24px}
@@ -596,6 +607,7 @@
 
 <div id="walking" aria-hidden="true"><span class="ping"></span><span class="in">Walking in…</span><span class="out">Stepping outside…</span></div>
 <p id="scene-toast" hidden></p>
+<p id="gcc" aria-hidden="true" hidden><span class="gcc-who">Guide</span><span></span></p>
 <p id="announce" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
 
 <div id="panel" hidden role="region" aria-label="Counter">
@@ -3029,8 +3041,23 @@ async function guideLine(what){
   const text = line?.reply || local;
   if (!voiceOn) await clerkDone();
   dropMic(); hushScene();                     // the mic never hears the guide; a description gives way
-  await playGuide(text, voiceOn ? line?.audioUrl : null, voiceOn);
+  showGuideCaption(text, voiceOn);
+  try { await playGuide(text, voiceOn ? line?.audioUrl : null, voiceOn); }
+  finally { gcc.hidden = true; }
 }
+// The guide's caption (#gcc): with Captions on, or whenever its voice is off, just above the dock or
+// the panel, whichever is showing (clear of the walking pill between the two).
+const gcc = $('gcc');
+function showGuideCaption(text, voiceOn){
+  if (!prefs.captions && voiceOn) return;
+  gcc.lastChild.textContent = text; placeGuideCaption(); gcc.hidden = false;
+}
+function placeGuideCaption(){
+  const where = document.body.dataset.where;
+  const card = where === 'street' ? $('dock').firstElementChild : where === 'inside' && !$('panel').hidden ? $('panel').querySelector('.panel-card') : null;
+  gcc.style.bottom = (card ? Math.round(innerHeight - card.getBoundingClientRect().top + 8) : 80) + 'px';
+}
+addEventListener('resize', () => { if (!gcc.hidden) placeGuideCaption(); });
 function playGuide(text, url, voiceOn){
   return new Promise(res => {
     let done = false, timer = 0;
