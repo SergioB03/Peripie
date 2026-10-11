@@ -44,6 +44,9 @@ The sandbox builder: owners assemble their own shop from ready-made elements and
 
 After that: a photo of the real storefront for the sign and walls, checkout, and the clerk running on the shop's own hardware.
 
+## Video
+https://youtu.be/IzMbntlPwac (3 min)
+
 ## Built with
 JavaScript, Node.js, Express, Three.js, Gemini API, ElevenLabs, Tiger Data (PostgreSQL with TimescaleDB), Replit
 
