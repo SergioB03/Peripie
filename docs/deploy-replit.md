@@ -12,6 +12,7 @@ Steps for Sergio, checked against docs.replit.com on Sat Oct 10, 2026. The repo'
 - `ELEVENLABS_API_KEY`
 - `TIGER_DATABASE_URL`: the Tiger Data URL, ending in `?sslmode=require` (not `DATABASE_URL`: Replit uses that name for its own database, and the server reads `TIGER_DATABASE_URL` first for exactly that reason)
 - `ELEVENLABS_VOICE_ID`: optional, the code has a default voice
+- `GUIDE_VOICE_ID`: optional, the hands-free guide's second voice (the code defaults to ElevenLabs' "Sarah")
 - `GEMINI_MODEL`: optional, leave it out (the code defaults to `gemini-3.5-flash-lite`)
 
 Do not add `PORT`; Replit sets it. Do not add Replit's own database. If a `DATABASE_URL` is already listed and contains `helium` or `neon.tech`, that is Replit's database: leave it alone and make sure `TIGER_DATABASE_URL` is set; the boot log must read `[stock] using TIGER_DATABASE_URL (…timescale.com)`.
@@ -47,7 +48,7 @@ The docs show no off switch for these, so disclose them in the README's Zero Dat
 ## 6. Test on a phone
 1. With Wi-Fi off, open `https://<name>.replit.app/health`: `{"ok":true}`.
 2. Open `https://<name>.replit.app`, pick the bakery, tap **Enter shop**: the greeting plays.
-3. Ask for sourdough (in stock), then croissants (out, back Tuesday, October 13). No sound: check the volume and the iPhone silent switch.
+3. Ask for sourdough (in stock), then croissants (out; the clerk says when the next tray comes out of the oven). No sound: check the volume and the iPhone silent switch.
 
 ## 7. Redeploy after a `git pull`
 Replit does not pull from GitHub by itself. The Git pane's auto-sync is two-way and would push Replit's own edits to `main`, so leave it off.

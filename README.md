@@ -45,7 +45,7 @@ Some days I'm also the customer who won't ask. I'll order at a drive-through bef
 
 Beyond those four steps, all live today:
 
-- **The stock room's record under every answer** ("Stock room · croissant · 0 on hand · back today at 7 am · usually about 3 days"). Why it matters: you see the agent's work, not just the clerk's words.
+- **The stock room's record under every answer** ("Stock room · roller · 0 on hand · back Friday, October 16 · usually about 4.5 days"). Why it matters: you see the agent's work, not just the clerk's words.
 - **Replay** plays the greeting or the last answer again. Why it matters: loud rooms, and it works from memory, so nothing is stored.
 - **The accessibility drawer** (top right): Captions, Larger text, High contrast and Reduce motion, seeded from your phone's own settings and kept for this visit only. **Describe this view** reads out what is on screen in the browser's own voice, without touching the network. Why it matters: the second audience is people the usual shop website leaves out, and saving these settings would break Zero Data.
 - **The mic**: press to talk; typing stays. Why it matters: some people would rather say it than type it, and the browser does the transcribing, so the page only ever sees the words.
@@ -136,6 +136,7 @@ npm start                # http://localhost:3000
 | `GEMINI_MODEL` | optional; default `gemini-3.5-flash-lite` |
 | `ELEVENLABS_API_KEY` | ElevenLabs key |
 | `ELEVENLABS_VOICE_ID` | optional; defaults to their "George" voice |
+| `GUIDE_VOICE_ID` | optional; the hands-free guide's voice, defaults to their "Sarah" voice |
 | `TIGER_DATABASE_URL` | Tiger Data connection string, ending in `?sslmode=require` |
 
 Load the schema and seed with the commands in [db/README.md](db/README.md). Without any of the keys the server still starts: questions get the page's canned answers, the voice is the browser's, and stock comes from the built-in copy of the seed.
