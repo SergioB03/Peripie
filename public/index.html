@@ -1487,7 +1487,7 @@ function announce(text){                    // cleared first, so the same words 
   clearTimeout(announceTimer); $('announce').textContent = '';
   announceTimer = setTimeout(() => { $('announce').textContent = text; }, 80);
 }
-const askButton = $('f').querySelector('button');    // Ask (mic.js adds its own button later)
+const askButton = $('f').querySelector('button:not([type=button])');   // Ask, the submit button (not mic.js's)
 function markBusy(){
   const busy = state !== 'listening';
   for (const b of [...$('chips').children, askButton])
