@@ -1,13 +1,15 @@
-// Peripie server: serves the shop page and answers POST /api/clerk (contract: PLAN.md section 3).
+// Peripie server: serves the shop page and answers POST /api/clerk (contract: PLAN.md section 3)
+// and POST /api/guide (the hands-free guide's voice, guide.js; additive, Oct 11).
 // Zero Data: the visitor's text, a question's conversation history, a list's items, the clerk's
-// reply and request bodies are never logged or stored.
+// reply, a guide line composed on the page and request bodies are never logged or stored.
 // Logs carry method, path, status and milliseconds, plus error types.
 import 'dotenv/config';
 import compression from 'compression';
 import express from 'express';
 import { fileURLToPath } from 'node:url';
+import { allowDynamic, dynamicAudio, dynamicText, phraseAudio, phraseFor, warmGuide } from './guide.js';
 import { SHOPS } from './shops.js';
-import { synthesize, textToSpeech } from './voice.js';
+import { cachedAudio, synthesize, textToSpeech } from './voice.js';
 
 const MAX_TEXT = 300;
 // A question's memory (additive to the contract, Oct 11): up to 3 prior { q, a } pairs.
@@ -87,23 +89,11 @@ async function replyAudio(reply, started) {
   return null;
 }
 
-// Greeting audio per shop, kept in memory to save ElevenLabs credits. The map holds the promise
-// of { url, reason }, so a greeting asked for while the boot warm-up is voicing that shop waits
-// for the same call. A failed attempt is dropped so the next visit tries again.
+// Greeting audio per shop, kept in memory to save ElevenLabs credits (voice.js cachedAudio): a
+// greeting asked for while the boot warm-up is voicing that shop waits for the same call, and a
+// failed attempt is dropped so the next visit tries again.
 const greetings = new Map();
-function greetingAudio(shopId, text) {
-  let audio = greetings.get(shopId);
-  if (!audio) {
-    audio = synthesize(text)
-      .catch((err) => ({ url: null, reason: err?.name || 'Error' }))
-      .then((result) => {
-        if (!result.url) greetings.delete(shopId);
-        return result;
-      });
-    greetings.set(shopId, audio);
-  }
-  return audio;
-}
+const greetingAudio = (shopId, text) => cachedAudio(greetings, shopId, () => synthesize(text));
 
 // After a restart, voice the three greetings one after another, so the first visitor hears
 // the ElevenLabs voice at the door. These are network calls; nothing waits on them.
@@ -191,6 +181,31 @@ app.post('/api/clerk', express.json({ limit: '4kb' }), async (req, res) => {
   res.json({ reply: answer.reply, audioUrl, stock: answer.stock ?? null });
 });
 
+// The guide's voice (guide.js), additive to the contract: { say: <phrase id> } (plus shop for
+// { say: "enter" }) for a fixed phrase, { say: "text", text } for a line the page composed, up
+// to 160 characters. Answers { reply, audioUrl }; audioUrl null means the page speaks the reply
+// in the browser's voice. Anything that is neither is 400 bad_say; the 21st dynamic line in a
+// minute is 429 slow_down. A dynamic line's text is never logged.
+app.post('/api/guide', express.json({ limit: '4kb' }), async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const body = req.body ?? {};
+
+  if (body.say === 'text') {
+    const text = dynamicText(body.text);
+    if (!text) return res.status(400).json({ error: 'bad_say' });
+    if (!allowDynamic()) return res.status(429).json({ error: 'slow_down' });
+    const { url, reason } = await dynamicAudio(text);
+    if (!url) console.warn(`guide: ${reason}`);
+    return res.json({ reply: text, audioUrl: url });
+  }
+
+  const phrase = phraseFor(body.say, body.shop);
+  if (!phrase) return res.status(400).json({ error: 'bad_say' });
+  const { url, reason } = await phraseAudio(phrase.id);
+  if (!url) console.warn(`guide: ${reason}`);
+  res.json({ reply: phrase.text, audioUrl: url });
+});
+
 app.use('/vendor', express.static(vendorDir, { maxAge: '1y', immutable: true }));
 app.use(express.static(publicDir));
 
@@ -199,6 +214,8 @@ app.use(express.static(publicDir));
 app.use((err, req, res, _next) => {
   if (res.headersSent) return res.destroy();
   const status = Number(err?.status ?? err?.statusCode) || 500;
+  // A guide body that could not be read has nothing to say.
+  if (req.path === '/api/guide' && status >= 400 && status < 500) return res.status(400).json({ error: 'bad_say' });
   if (req.path === '/api/clerk' && status >= 400 && status < 500) {
     // The body could not be read. Only the text field can push a valid request past 4 kb (a
     // valid list stays under about 2.5 kb unless its items are sent as escape sequences); any
@@ -223,5 +240,6 @@ app.listen(port, '0.0.0.0', (err) => {
   if (!process.env.GEMINI_API_KEY) console.warn('GEMINI_API_KEY not set: questions about a stocked product get the templated reply, others 502; lists get the templated summary');
   if (!process.env.ELEVENLABS_API_KEY) console.warn('ELEVENLABS_API_KEY not set: audioUrl is null');
   loadClerk().catch(() => {});
-  if (process.env.ELEVENLABS_API_KEY) setTimeout(() => warmGreetings().catch(() => {}), 1_000);
+  // The greetings first (the first visitor's door), then the guide's phrases, all in the background.
+  if (process.env.ELEVENLABS_API_KEY) setTimeout(() => warmGreetings().then(() => warmGuide()).catch(() => {}), 1_000);
 });
