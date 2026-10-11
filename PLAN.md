@@ -191,7 +191,7 @@ Environment variables: `GEMINI_API_KEY`, `GEMINI_MODEL` (optional), `ELEVENLABS_
 - [x] M4. Gemini clerk with `check_stock` as a tool, scoped to the current shop
 - [x] M5. ElevenLabs audio returned as a data URL
 - [x] M6. Page: set `CLERK_ENDPOINT` to `/api/clerk`. `askClerk` tries the endpoint with an AbortController (15 s; timing rule in section 3) and falls through to the canned branch on any throw, non-2xx or timeout (today's catch only prints "couldn't reach the stock room"). Greeting fetched with `{ greet: true }` on the Enter tap. iOS audio unlock: one shared `Audio` element, primed synchronously inside the Enter click handler with a silent mp3 data URL plus an empty `speechSynthesis` utterance, then reused for every later reply; without this iOS Safari silences the greeting and the answers
-- [ ] M7. Deployed on Replit and tested on a phone
+- [x] M7. Deployed on Replit and tested on a phone (live Sun Oct 11: 12:50 am first publish; 9:37 am and 10:54 am republishes from the new Repl, each confirmed from outside; demoed from Sergio's phone at judging)
 
 ### Should have
 - [x] S1. Mic input (Web Speech API in Chrome), with typing kept as the fallback

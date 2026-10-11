@@ -2,7 +2,7 @@
 
 Read at 6 am. Live: https://peripie.replit.app, which opens on the bakery; start there.
 
-## Twenty judge questions
+## Twenty-one judge questions
 
 **1. Why not a chatbot?**
 A chatbot answers from whatever it was told. This clerk cannot answer until it has asked the stock room, and you watch that happen.
@@ -64,7 +64,10 @@ Captions, larger text, high contrast and reduce motion, seeded from the phone's 
 **20. What is My list?**
 Under What we carry you tap what you need, nine items per shop, and press Check my list. The page sends the whole list in one request, the clerk checks it with the stock room and answers all of it in one spoken summary, with one line per item under it: the shop's own sentence, the price, and "2 left" when stock is low. Take this with you shares or copies that as text, ending "via allyou.select"; nothing is stored. It is my own case: the large order I would rather not ask about three times. (On the page since the Sunday 10:35 am merge, after the submission; the Devpost text describes the 8:55 am state.)
 
-## Eleven failure drills
+**21. What is hands-free?**
+A sixth switch in the accessibility drawer, off by default. On, a guide with a second ElevenLabs voice (POST /api/guide, 28 cached phrases) takes spoken commands: enter or leave a shop, every drawer switch, open or close the drawer, describe, re-centre, replay, the list (add, remove, check, clear, read it back, take it with you) and help. It confirms each one out loud, "Walking into Rosa's Bakery." or "Captions are on.", as a caption too with Captions on. Anything that names a product or starts like a question still goes to the clerk, through the stock room as always. The mic listens again after each reply and stops after 15 s of silence, and the page never transcribes its own audio: the mic is stopped whenever anything plays. On an iPhone you tap the mic once per command; the line under the switch says so. (Merged Sunday about 11:55 am, after judging ended at 11:30; on the live site from the next republish.)
+
+## Twelve failure drills
 
 1. **Silent greeting.** Volume, the silent switch, or audio never unlocked because the walk-in did not start from a tap. Volume up, tap Replay. Say: "Loud room, let me have the clerk say that again."
 2. **Flat answer** ("We're out of croissant right now. The next tray of croissants comes out of the oven in about 18 minutes.", with the product in the singular; at the paint store "We're out of roller right now. Our supplier's truck comes Friday, October 16. It usually takes about 5 days."). Both model attempts failed (429, 503 or a hang); the server composed it from the stock record. Nothing to fix; space the next question. Say: "The clerk is being brief; that time is straight from the database."
@@ -77,6 +80,7 @@ Under What we carry you tap what you need, nine items per shop, and press Check 
 9. **Mic trouble:** "Microphone blocked", words that do not send, or a quiet answer. Permission denied; iPhones deliver words only at the end; iOS can switch to the earpiece after the mic. Tap the red mic again, or type; volume up. Say: "Typing works too."
 10. **Flat or canned answers after rehearsing.** The free key allows about six questions a minute, two model calls each, three with the support agent. Pause a minute; the facts stay right. Say: "Busy counter this morning; the stock room still has the answer."
 11. **A tall list card on a phone.** With 6 to 9 items the clerk's summary makes the list card tall enough to scroll over the clerk. Keep the demo list to 3 or 4 items; Edit list trims it, and a reload clears it (Leave shop keeps it). Say: "Three things is a shopping trip; nine is a delivery."
+12. **The guide keeps saying "I didn't catch that."** A noisy room with Hands-free on: the mic listens again after every reply, so a TV or the next table reaches the guide as a command it does not know, and it answers "I didn't catch that. Say help to hear what you can say." Accessibility button, top right: Hands-free off, or say "turn off hands free"; the mic then works tap by tap as before. Say: "Loud room; I'll take the mic back and tap it myself."
 
 ## Pitch timing
 
