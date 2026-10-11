@@ -441,6 +441,17 @@
   html.quiet body .bars{display:none}   /* Clerk voice off (drawer): nothing is spoken, so no sound bars */
   @media (min-width:640px){#cc{left:16px;right:16px}}
   @media (max-height:520px) and (orientation:landscape){#cc{font-size:16px;padding:6px 12px}}
+  /* The guide's words (hands-free, script section 7): the captions' type on its own strip, just above
+     the street dock or the counter panel (the script sets bottom), while a guide line plays with
+     Captions on, or whenever the voice is off. Its own colour and a "Guide" label keep the two voices
+     apart. Eyes only: the guide is heard, and a switch it confirms shows its own state. */
+  #gcc{position:fixed;left:8px;right:8px;bottom:120px;z-index:21;max-width:576px;margin:0 auto;padding:8px 16px 10px;
+    border-radius:16px;background:rgb(0 0 0/.88);border:2px solid #6ee7b7;color:#fff;font-size:20px;line-height:1.35;
+    font-weight:600;text-align:center;overflow-wrap:anywhere;pointer-events:none}
+  #gcc .gcc-who{display:block;font-size:11px;line-height:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6ee7b7}
+  html.hc #gcc{background:#000}
+  @media (min-width:640px){#gcc{left:16px;right:16px}}
+  @media (max-height:520px) and (orientation:landscape){#gcc{font-size:16px;padding:4px 12px 6px}}
 
   /* Larger text (drawer): the street card's and the counter panel's words at 1.25 times */
   html.big #shop-name{font-size:17.5px;line-height:24px}
@@ -604,6 +615,7 @@
 
 <div id="walking" aria-hidden="true"><span class="ping"></span><span class="in">Walking in…</span><span class="out">Stepping outside…</span></div>
 <p id="scene-toast" hidden></p>
+<p id="gcc" aria-hidden="true" hidden><span class="gcc-who">Guide</span><span></span></p>
 <p id="announce" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
 
 <div id="panel" hidden role="region" aria-label="Counter">
@@ -649,7 +661,7 @@
   </div>
 </dialog>
 
-<!-- Accessibility drawer: five switches, kept in memory for this visit only (script section 6) -->
+<!-- Accessibility drawer: six switches, kept in memory for this visit only (script sections 6 and 7) -->
 <dialog id="a11y" aria-labelledby="a11y-title">
   <div class="sheet">
     <h2 id="a11y-title">Accessibility</h2>
@@ -659,6 +671,8 @@
       <button type="button" role="switch" aria-checked="false" data-pref="contrast" aria-labelledby="pf-hc" aria-describedby="pf-hc-d"><span class="pf"><span class="pf-name" id="pf-hc">High contrast</span><span class="pf-hint" id="pf-hc-d">Solid panels, no blur, stronger borders</span></span><span class="sw" aria-hidden="true"></span></button>
       <button type="button" role="switch" aria-checked="false" data-pref="calm" aria-labelledby="pf-calm" aria-describedby="pf-calm-d"><span class="pf"><span class="pf-name" id="pf-calm">Reduce motion</span><span class="pf-hint" id="pf-calm-d">No camera walk, swaying or mist: a cut straight to the counter</span></span><span class="sw" aria-hidden="true"></span></button>
       <button type="button" role="switch" aria-checked="true" data-pref="voice" aria-labelledby="pf-voice" aria-describedby="pf-voice-d"><span class="pf"><span class="pf-name" id="pf-voice">Clerk voice</span><span class="pf-hint" id="pf-voice-d">Off: the clerk's words are shown, never spoken, for a quiet room</span></span><span class="sw" aria-hidden="true"></span></button>
+      <!-- Hands-free (script section 7): the guide's voice answers spoken commands; the line under it is set for the device -->
+      <button type="button" role="switch" aria-checked="false" data-pref="handsfree" aria-labelledby="pf-hf" aria-describedby="pf-hf-d"><span class="pf"><span class="pf-name" id="pf-hf">Hands-free</span><span class="pf-hint" id="pf-hf-d">The mic listens again after every reply</span></span><span class="sw" aria-hidden="true"></span></button>
     </div>
     <div class="tools">
       <button type="button" id="a11y-describe" aria-describedby="a11y-describe-d"><svg class="i" aria-hidden="true"><use href="#i-scan-eye"/></svg>Describe this view</button>
@@ -2091,7 +2105,7 @@ function build(shop){
 // The accessibility drawer's switches (section 6), for this visit only and never stored. They start
 // from the classes the script in <head> set from the system's settings; Clerk voice starts on.
 const prefOn = c => document.documentElement.classList.contains(c);
-const prefs = { captions:prefOn('cc'), big:prefOn('big'), contrast:prefOn('hc'), calm:prefOn('calm'), voice:true };
+const prefs = { captions:prefOn('cc'), big:prefOn('big'), contrast:prefOn('hc'), calm:prefOn('calm'), voice:true, handsfree:false };
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const ease = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(2 - 2 * k, 3) / 2;   // easeInOutCubic, as in AI Studio
 const basePos = new THREE.Vector3(), lookNow = new THREE.Vector3();
@@ -2176,8 +2190,9 @@ function setState(s){
   document.body.dataset.state = s;                  // the CSS keys the dots, bars, chips and My list on it
   $('replay').disabled = s !== 'listening' || !prefs.voice;   // no replay while the clerk checks or talks, or with Clerk voice off
   if (s === 'checking'){ sfx.rustle(); targetYaw = targetPitch = 0; }   // face the hand-off
+  if (s === 'listening') hfTurn();                  // hands-free (section 7): the guide may speak, the mic may listen
 }
-const setWhere = w => { document.body.dataset.where = w; };   // street, entering, inside, leaving
+const setWhere = w => { document.body.dataset.where = w; if (w === 'street') hfTurn(); };   // street, entering, inside, leaving
 
 /* Voice. iOS Safari only lets audio and speech start from a tap, so the Enter tap primes ONE
    shared Audio element and the speech engine, and every later reply plays through that element. */
@@ -2206,7 +2221,7 @@ function unlockAudio(){          // call synchronously inside the tap, before an
     if (hasTTS) speechSynthesis.speak(new SpeechSynthesisUtterance(''));
   } catch {}                     // the walk-in must start even if this fails
 }
-function silence(){ player.pause(); if (hasTTS) speechSynthesis.cancel(); }
+function silence(){ player.pause(); if (hasTTS) speechSynthesis.cancel(); if (guideStop) guideStop(); }   // the guide's line too (section 7)
 
 // Clerk voice off (accessibility drawer): the words stay on screen, and the clerk "answers" for
 // about as long as reading them takes (1.2 s plus 35 ms a character, at most 8 s).
@@ -2214,6 +2229,7 @@ const readingMs = text => Math.min(8000, 1200 + 35 * text.length);
 
 function say(reply){
   $('reply').textContent = reply.reply;
+  if (guideBusy){ const here = visit; return guideBusy.then(() => here === visit ? say(reply) : undefined); }   // the guide finishes its line first (section 7)
   silence();
   return new Promise(res => {
     let done = false, timer;
@@ -2509,6 +2525,7 @@ addEventListener('keydown', e => {                              // Escape on the
 const WALK_IN_MS = 5700;
 async function enterShop(){
   if (document.body.dataset.where !== 'street' || tween) return;
+  hushGuide();                                                  // a guide line still talking ends now (section 7); unlockAudio would orphan its end, and the greeting would wait for it
   unlockAudio();                                                // first, while still inside the tap
   sfx.footsteps();                                              // makes the effects' context in the tap too
   welcome.hidden = true;                                        // the first-visit card has done its job
@@ -2619,7 +2636,7 @@ $('replay').onclick = async () => {
   setState('listening'); if (refocus) btn.focus();              // a disabled button drops focus; give it back
 };
 
-$('leave').onclick = async () => {
+async function leaveShop(){                   // the Leave button, and "leave" said hands-free (section 7)
   if (tween) return;
   visit++; endSay(); silence(); lastAnswer = null; history.length = 0; $('replay').hidden = true;   // the visit's memory goes with it
   $('panel').hidden = true; setState('listening'); setWhere('leaving'); sfx.footsteps();
@@ -2627,7 +2644,8 @@ $('leave').onclick = async () => {
   else { await moveCamera(DOOR, 1800); doorTarget = 0; await moveCamera(STREET, 2200); }
   $('enter').hidden = false; bar.hidden = false; setWhere('street');
   if (focusLost()) $('enter').focus();                          // Leave hid the button that had focus
-};
+}
+$('leave').onclick = leaveShop;
 
 // Look around: drag on the 3D view (AI Studio's controls). A tap on the street walks in only on
 // the door cue or the Enter button; anywhere else on the 3D view it does nothing. On the street a
@@ -2725,12 +2743,13 @@ settings.addEventListener('close', () => $('brand').focus());  // Close, Escape 
 // clerk's voice (the shared Audio element and the browser's voice) is not touched here: a muted
 // greeting would be a failed step 2 of the demo, so only the accessibility drawer's Clerk voice
 // switch, which starts on, turns it off. Pressed means the effects are on.
-$('sound').onclick = () => {
-  effectsOff = !effectsOff;
+function setEffects(off){                     // the button, and "turn off sound effects" said hands-free (section 7)
+  effectsOff = off;
   if (!effectsOff) sfx.unlock();
   $('sound').setAttribute('aria-pressed', !effectsOff);
   $('sound').querySelector('use').setAttribute('href', effectsOff ? '#i-volume-x' : '#i-volume-2');
-};
+}
+$('sound').onclick = () => setEffects(!effectsOff);
 
 /* ---------- 6. ACCESSIBILITY: the AI Studio app's tools, rebuilt for this page ----------
    The header's Accessibility button opens a drawer of five switches: Captions, Larger text, High
@@ -2750,9 +2769,23 @@ function applyPrefs(){
   $('replay').disabled = state !== 'listening' || !prefs.voice;
   $('replay').title = prefs.voice ? 'Hear the clerk again' : 'Clerk voice is off (Accessibility)';
 }
+// One switch, by its key, from a tap or a spoken command (section 7): set, shown, and its side effects.
+function setPref(key, on){
+  if (prefs[key] === on) return;
+  prefs[key] = on; applyPrefs();
+  if (key === 'voice' && !on && state === 'answering'){ silence(); endSay(); }   // stop mid-sentence
+  if (key === 'handsfree') handsFree(on);
+}
 for (const s of switches) s.onclick = () => {
-  prefs[s.dataset.pref] = !prefs[s.dataset.pref]; applyPrefs();
-  if (s.dataset.pref === 'voice' && !prefs.voice && state === 'answering'){ silence(); endSay(); }   // stop mid-sentence
+  const key = s.dataset.pref, on = !prefs[key];
+  if (key === 'handsfree' && on){                                 // the tap itself: see handsFree()
+    if (!micApi()){                                               // no mic button (mic.js): no speech recognition, or not https
+      $('pf-hf-d').textContent = 'Needs a browser with speech recognition, over https';
+      return announce('Hands-free needs a browser with speech recognition, over https');
+    }
+    if (document.body.dataset.where === 'street' && player.paused) unlockAudio();   // iOS: prime the voices in this tap
+  }
+  setPref(key, on);
 };
 applyPrefs();
 $('a11y-open').onclick = () => {
@@ -2891,7 +2924,7 @@ function voiceScene(text){
   const parts = (text.match(/[^.!?]+[.!?]*/g) || [text]).map(p => p.trim()).filter(Boolean);
   parts.forEach((p, i) => {                 // a sentence at a time: Chrome cuts long utterances short
     const u = new SpeechSynthesisUtterance(p);
-    if (i === parts.length - 1) u.onend = u.onerror = () => { if (voiced === run){ voiced = null; holdToast(2500); } };
+    if (i === parts.length - 1) u.onend = u.onerror = () => { if (voiced === run){ voiced = null; holdToast(2500); scheduleArm(); } };   // then the mic's turn (section 7)
     speechSynthesis.speak(u);
   });
   return true;
@@ -2920,7 +2953,7 @@ $('a11y-describe').onclick = () => describeNow(true);
 function recentre(){ if (skyline) setSkyline(false); else targetYaw = targetPitch = 0; }
 $('recentre').onclick = recentre;
 $('a11y-recentre').onclick = () => { recentre(); a11y.close(); };
-$('f').addEventListener('click', e => { if (e.target.closest?.('.pp-mic')) hushScene(); }, true);   // the mic button
+$('f').addEventListener('click', e => { if (e.target.closest?.('.pp-mic')){ hushScene(); hushGuide(); } }, true);   // the mic button: the visitor's turn
 
 // Where and what the clerk is doing: keeps the 3D view's label current and retires a stale description.
 let seenWhere = document.body.dataset.where, seenState = document.body.dataset.state;
@@ -2941,6 +2974,396 @@ new MutationObserver(() => {
 }).observe(document.body, { attributes:true, attributeFilter:['data-where', 'data-state'] });
 new MutationObserver(() => { toast.hidden = true; waiting = null; hushScene(); labelScene(); })   // another shop
   .observe($('shop-name'), { childList:true, characterData:true, subtree:true });
+
+/* ---------- 7. HANDS-FREE: the guide you talk to (TASKS.md HANDSFREE; server/guide.js) ----------
+   The drawer's Hands-free switch, off by default and kept in memory like the others. On, the guide (a
+   second voice: POST /api/guide with { say: <phrase id> } for one of the server's cached phrases, or
+   { say: "text", text } for a line of up to 160 characters; { reply, audioUrl }) says its help line
+   once and the mic starts itself where the browser lets a page do that (desktop and Android Chrome).
+   iOS Safari wants a tap per command, and the line under the switch says so. A guide line plays on the
+   shared Audio element, else in the browser's voice (a failed request, a 429, audio that will not
+   start), else it is only shown; the clerk's say() waits for a guide line in flight, and a guide line
+   waits for the clerk's answer, so the two voices never overlap. Turn-taking: whenever anything plays
+   (the clerk's mp3 or browser voice, a guide line, a description) the mic is cancelled and not armed;
+   when the page is quiet again, and the clerk is listening or the visitor is on the street, the mic
+   starts 300 ms later. Clerk voice off keeps the guide quiet too (its words show instead).
+   Zero Data: nothing is stored; the guide's lines carry the shop's words, never the visitor's. */
+if (window.GUIDE_ENDPOINT === undefined) window.GUIDE_ENDPOINT = '/api/guide';
+const GUIDE_TIMEOUT_MS = 6000, GUIDE_MAX = 160, REARM_MS = 300;
+// iPhone, and iPad (which calls itself a Mac with touch): no starting the recognizer without a tap.
+const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+$('pf-hf-d').textContent = IOS ? 'On an iPhone, tap the mic for each command' : 'The mic listens again after every reply';
+const micApi = () => window.PP_MIC;         // mic.js (loaded after this script); absent without speech recognition or https
+
+// The guide's phrases, as server/guide.js has them, for the browser's voice when the server cannot
+// be reached: the server's reply is what is said whenever it answers.
+const GUIDE_TEXT = {
+  left:'Back on the street.', captions_on:'Captions are on.', captions_off:'Captions are off.',
+  larger_on:'Larger text is on.', larger_off:'Larger text is off.', contrast_on:'High contrast is on.', contrast_off:'High contrast is off.',
+  motion_on:'Reduce motion is on.', motion_off:'Reduce motion is off.', voice_on:'The clerk\'s voice is on.',
+  voice_off:'The clerk\'s voice is off; you\'ll read the answers.', effects_on:'Sound effects are on.', effects_off:'Sound effects are off.',
+  handsfree_on:'Hands-free is on. Say where to go or what to ask; I\'ll keep listening.', handsfree_off:'Hands-free is off.',
+  a11y_open:'Opening the accessibility settings.', a11y_close:'Closing the settings.', recentre:'Looking at the doors again.',
+  replay:'Here it is again.', list_checking:'Checking your list with the stock room.', list_empty:'Your list is empty. Say add, then an item.',
+  list_cleared:'Your list is cleared.', list_shared:'The card is ready to take with you.',
+  help:'You can say: enter the bakery, leave, turn on captions, describe the view, add sourdough to my list, check my list, or just ask the clerk.',
+  unknown:'I didn\'t catch that. Say help to hear what you can say.' };
+for (const s of SHOPS) GUIDE_TEXT['enter_' + s.id] = 'Walking into ' + s.name + '.';
+
+// One POST to the guide: { reply, audioUrl } or null; never throws. A fixed phrase that came with
+// audio is kept in memory for this page load, so "help" and "I didn't catch that" never wait twice.
+const guideKept = new Map();
+async function callGuide(body){
+  if (!window.GUIDE_ENDPOINT) return null;
+  const id = body.say === 'text' ? null : body.say;
+  if (id && guideKept.has(id)) return guideKept.get(id);
+  const abort = new AbortController(), timer = setTimeout(() => abort.abort(), GUIDE_TIMEOUT_MS);
+  let why;
+  try {
+    const r = await fetch(window.GUIDE_ENDPOINT, {
+      method:'POST', headers:{'Content-Type':'application/json'}, credentials:'omit',
+      body: JSON.stringify(body), signal: abort.signal });
+    const data = r.ok ? await r.json() : null;
+    if (typeof data?.reply === 'string' && data.reply.trim()){
+      const line = { reply: data.reply, audioUrl: (typeof data.audioUrl === 'string' && data.audioUrl) || null };
+      if (id && line.audioUrl) guideKept.set(id, line);
+      return line;
+    }
+    why = r.ok ? 'no reply in the body' : 'HTTP ' + r.status;
+  } catch (err){ why = err.name; }
+  finally { clearTimeout(timer); }
+  console.warn('Guide endpoint: ' + why + '; using the browser voice');   // never the line's text
+  return null;
+}
+
+// The guide says a line: a phrase id ('help', 'captions_on', 'enter_bakery'), { text } of up to 160
+// characters, or { id, force } for the one line said even with Clerk voice off (that it is off).
+// Fetched while the clerk finishes talking, then played with the mic cancelled. Resolves when the
+// line is over, and the mic may listen again; never throws. guideBusy is the line in flight.
+let guideBusy = null, guideStop = null;
+function guideSay(what){
+  clearTimeout(armTimer);
+  const run = guideBusy = guideLine(what).catch(() => {}).then(() => { if (guideBusy === run) guideBusy = null; scheduleArm(); });
+  return run;
+}
+async function guideLine(what){
+  const id = typeof what === 'string' ? what : what.id || null;
+  const local = id ? GUIDE_TEXT[id] || '' : String(what.text || '').trim().slice(0, GUIDE_MAX);
+  if (!local) return;
+  const voiceOn = prefs.voice || what.force === true;
+  const line = voiceOn ? (await Promise.all([callGuide(id ? { say: id } : { say: 'text', text: local }), clerkDone()]))[0] : null;
+  const text = line?.reply || local;
+  if (!voiceOn) await clerkDone();
+  dropMic(); hushScene();                     // the mic never hears the guide; a description gives way
+  showGuideCaption(text, voiceOn);
+  try { await playGuide(text, voiceOn ? line?.audioUrl : null, voiceOn); }
+  finally { gcc.hidden = true; }
+}
+// The guide's caption (#gcc): with Captions on, or whenever its voice is off, just above the dock or
+// the panel, whichever is showing (clear of the walking pill between the two).
+const gcc = $('gcc');
+function showGuideCaption(text, voiceOn){
+  if (!prefs.captions && voiceOn) return;
+  gcc.lastChild.textContent = text; placeGuideCaption(); gcc.hidden = false;
+}
+function placeGuideCaption(){
+  const where = document.body.dataset.where;
+  const card = where === 'street' ? $('dock').firstElementChild : where === 'inside' && !$('panel').hidden ? $('panel').querySelector('.panel-card') : null;
+  gcc.style.bottom = (card ? Math.round(innerHeight - card.getBoundingClientRect().top + 8) : 80) + 'px';
+}
+addEventListener('resize', () => { if (!gcc.hidden) placeGuideCaption(); });
+function playGuide(text, url, voiceOn){
+  return new Promise(res => {
+    let done = false, timer = 0;
+    const finish = () => { if (done) return; done = true; clearTimeout(timer); if (guideStop === finish) guideStop = null; res(); };
+    const cap = ms => { clearTimeout(timer); timer = setTimeout(finish, ms); };
+    const speak = () => {                     // the browser's voice
+      if (done) return;
+      if (!hasTTS) return cap(readingMs(text));
+      const u = new SpeechSynthesisUtterance(text); u.onend = finish; u.onerror = finish;
+      try { speechSynthesis.speak(u); } catch { return cap(readingMs(text)); }
+      cap(12000);
+    };
+    guideStop = finish;                       // silence() (Leave, Clerk voice off) ends the line
+    if (!voiceOn) return cap(readingMs(text));   // shown only
+    if (!url) return speak();
+    let started = false;
+    const fail = () => { if (done) return; started ? finish() : speak(); };   // audio that will not start: the browser's voice
+    player.onended = finish; player.onerror = fail;
+    player.src = url;
+    player.play().then(() => { started = true; }, fail);
+    cap(20000);
+  });
+}
+// A tap on the mic while the guide talks cuts the line short: the visitor's turn, and the mic must
+// not hear the guide. Only the guide's own audio or utterance is playing then (say() waits for it).
+function hushGuide(){ if (!guideStop) return; player.pause(); if (hasTTS) speechSynthesis.cancel(); guideStop(); }
+// The clerk's answer first: a guide line asked for while the clerk talks waits for 'listening'.
+const idle = [];
+const clerkDone = () => state === 'answering' ? new Promise(r => { idle.push(r); setTimeout(r, 25000); }) : Promise.resolve();
+function wakeIdle(){ while (idle.length) idle.shift()(); }
+
+/* The mic's turn. armMic starts it (through mic.js, as a tap would) only with Hands-free on, not on
+   iOS, with no camera walk under way, on the street or at the counter with the clerk listening, and
+   with nothing playing; scheduleArm asks for that 300 ms from now, and anything that starts to play
+   cancels the mic and the request. Every quiet moment asks: the clerk back to listening, arriving on
+   the street, a guide line's end, a description's end, the Audio element's ended, error or pause. */
+let armTimer = 0, armTries = 0, hfHold = 0;   // hfHold: a walk between shops in progress (section 7's goTo)
+const pageQuiet = () => player.paused && !guideBusy && !voiced;
+const micReady = () => prefs.handsfree && !IOS && !tween && !hfHold &&
+  (document.body.dataset.where === 'street' || (document.body.dataset.where === 'inside' && state === 'listening'));
+function scheduleArm(ms = REARM_MS){ clearTimeout(armTimer); armTries = 0; if (prefs.handsfree) armTimer = setTimeout(armMic, ms); }
+function armMic(){
+  const mic = micApi();
+  if (!mic || !micReady() || !pageQuiet()) return;
+  if (mic.live()){                            // still closing after its last words: a moment more, a few times
+    if (armTries++ < 4) armTimer = setTimeout(armMic, 500);
+    return;
+  }
+  mic.start();
+}
+function dropMic(){ clearTimeout(armTimer); micApi()?.cancel(); }
+function hfTurn(){ wakeIdle(); scheduleArm(); }   // the clerk is done, or the street is reached (setState, setWhere)
+player.addEventListener('play', dropMic);
+for (const ev of ['ended', 'error', 'pause']) player.addEventListener(ev, () => scheduleArm());
+
+// The switch (setPref): on, the router is in place and the help line plays, then the mic's turn;
+// off, the router is gone (mic.js submits as it always has) and the mic stops and stays off.
+function handsFree(on){
+  if (on){ window.PP_ROUTE = route; guideSay('help'); }
+  else { delete window.PP_ROUTE; dropMic(); }
+}
+
+/* The grammar, on every final transcript while Hands-free is on (route, as window.PP_ROUTE; mic.js
+   calls it before it would submit, never on interim words): lowercase, punctuation and apostrophes
+   dropped, "&" read as "and", a leading "hey", "ok" or "please" and a trailing "please" ignored.
+   Matched in this order, first hit wins; true means the page acted and nothing is submitted:
+     a  enter | go (in | into | to) | walk (in | into) | open | take me to | visit  (the)? <shop>;
+        <shop> alone, on the street; enter | go in | walk in | enter the shop (the one in front of you)
+        <shop>: bakery | rosa's | paint (store | shop | supply)? | southside | plant(s) (shop)? | fern (& pot)?
+     b  leave | leave the shop | go outside | go out | step outside | back to the street | exit
+     c  turn on | turn off | enable | disable | switch on | switch off  (the)? <switch>;
+        (turn | switch)? (the)? <switch> (on | off)
+        <switch>: captions | larger text | big text | high contrast | reduce motion | clerk voice |
+        sound effects | sounds | hands-free
+     d  open | show  (the)? accessibility | settings (menu | drawer)?;  close | hide  (the)? ...;  close
+     e  describe (this | the)? (view | scene | screen)? | what do i see | what's on screen |
+        what am i looking at | where am i
+     f  re-centre | recenter | centre the view | reset the view | look at the (doors | counter | clerk)
+     g  replay | say that again | repeat (that)? | say it again | again | one more time
+     h  add | put <item> (to | on | in my list)?;  remove | delete <item> (from my list)?;
+        take | drop <item> off my list;  check my list;  clear | empty my list;  what's on my list;
+        take this with me | share the card | copy the card
+     i  help | what can i say | what can i do
+     j  a product name or alias of this shop in the words, or a question opener (do you, have you,
+        how long, how much, how many, when, which, what do you, what kind, what time, any, is there,
+        are there, got any, can i, could i, i need, i'd like, i would like, looking for, what about,
+        and the): the clerk's; false, so mic.js submits it exactly as it always has
+     k  anything else: "I didn't catch that"
+   A shop in the way (walking in or out) means nothing is done; the clerk busy means a command is
+   dropped and a question waits in the box, as mic.js has it. */
+const normalize = s => s.toLowerCase().replace(/['’]/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9 ]+/g, ' ')
+  .replace(/\s+/g, ' ').trim().replace(/^(?:(?:hey|ok|okay|please|um|uh|so) )+/, '').replace(/ please$/, '');
+const SHOP_WORDS = {
+  bakery: 'ros(?:a|e)s?(?: bakery)?|bakery',
+  paint: 'south ?side(?: paint(?: supply| store| shop)?)?|paint(?: supply| store| shop)?',
+  plants: 'fern(?: (?:and|in|n|the) pot| pot)?|plants?(?: shop| store)?' };
+const SHOP_ALT = Object.entries(SHOP_WORDS).map(([id, re]) => '(?<' + id + '>' + re + ')').join('|');
+const ENTER_RE = new RegExp('^(?:enter|go (?:in|into|in to|to)|walk (?:in|into|in to)|open|take me (?:to|into|in to)|visit|lets go (?:to|into)|head (?:to|into)) (?:the )?(?:' + SHOP_ALT + ')$');
+const BARE_SHOP_RE = new RegExp('^(?:the )?(?:' + SHOP_ALT + ')$');
+const ENTER_HERE_RE = /^(?:enter|go in|go inside|walk in|(?:enter|go into|go in to|walk into|walk in to) (?:the |this )?shop)$/;
+const shopFrom = m => SHOPS.find(s => m.groups[s.id] !== undefined);
+const LEAVE_RE = /^(?:leave|leave (?:the |this )?shop|go outside|go out|go back outside|go back out|step outside|step out|back to the street|exit|exit the shop|get out)$/;
+const SWITCH_VERB_RE = /^(turn on|turn off|enable|disable|switch on|switch off) (?:the )?(.+)$/;
+const SWITCH_TAIL_RE = /^(?:turn|switch|put|set)? ?(?:the )?(.+?) (on|off)$/;
+const SWITCHES = [
+  [/^captions?$/, 'captions'], [/^(?:larger|large|big|bigger) (?:text|type|words|font)$/, 'big'], [/^(?:high )?contrast$/, 'contrast'],
+  [/^(?:reduced?|less|low) motion$/, 'calm'], [/^(?:the )?(?:clerks? )?voice$/, 'voice'], [/^sounds?(?: effects)?$/, 'effects'],
+  [/^effects$/, 'effects'], [/^hands ?free(?: mode)?$/, 'handsfree'] ];
+const switchOf = words => (SWITCHES.find(([re]) => re.test(words)) || [])[1] || null;
+const A11Y_WORDS = '(?:accessibility|settings|a11y|accessibility (?:settings|menu|drawer|options)|settings (?:menu|drawer)|menu|drawer|options)';
+const OPEN_RE = new RegExp('^(?:open|show|open up) (?:the )?' + A11Y_WORDS + '$');
+const CLOSE_RE = new RegExp('^(?:close|hide|dismiss)(?: (?:the )?' + A11Y_WORDS + ')?$');
+const DESCRIBE_RE = /^(?:describe(?: (?:this|the|my))?(?: (?:view|scene|screen|room|shop|place))?|what do i see|whats on (?:the )?screen|what am i looking at|where am i|whats (?:here|this)|what is (?:here|this))$/;
+const RECENTRE_RE = /^(?:re ?cent(?:er|re)(?: (?:the |my )?view)?|cent(?:er|re) (?:the |my )?view|reset (?:the |my )?view|look at the (?:doors?|counter|clerk|shop|front)|face the (?:doors?|counter|clerk)|look straight(?: ahead)?|look forward)$/;
+const REPLAY_RE = /^(?:replay(?: (?:that|it|the answer|the last answer))?|say that again|say it again|repeat(?: that| it)?|again|one more time|play (?:that|it) again|what did (?:you|the clerk|she|he) say)$/;
+const TAKE_RE = /^(?:take (?:this|it|that|the card|the list) with (?:me|you)|share (?:the |this |that |my )?(?:card|list|answer)|copy (?:the |this |that |my )?(?:card|list|answer)|share (?:it|this|that)|copy (?:it|this|that)|save (?:the |this |that |my )?(?:card|list))$/;
+const CHECK_RE = /^(?:check (?:my|the) (?:list|items)|check it|check everything|check them all|check all of it|check the whole list)$/;
+const CLEAR_RE = /^(?:clear|empty|reset|delete|remove) (?:my |the )?(?:whole )?list$|^(?:clear|empty) (?:it|everything)$/;
+const READ_LIST_RE = /^(?:whats on my list|what is on my list|whats in my list|read (?:me )?(?:my|the) list|read it back|my list|show (?:me )?my list|what have i got)$/;
+const ADD_RE = /^(?:add|put) (.+?)(?: (?:to|on|onto|in|into) (?:my |the )?list)?$/;
+const REMOVE_RE = /^(?:remove|delete|cross off|cross out) (.+?)(?: (?:from|off|off of|on) (?:my |the )?list)?$/;
+const DROP_RE = /^(?:take|drop) (.+?) (?:off|from|off of) (?:my |the )?list$/;
+const HELP_RE = /^(?:help|help me|what can i say|what can i do|what can you do|what do i say|commands)$/;
+const QUESTION_RE = /^(?:do you|have you|how long|how much|how many|when|which|what do you|what kind|what time|any|is there|are there|got any|can i|could i|i need|id like|i would like|looking for|im looking for|how about|what about|and the|do yall|you got|do u|have u)\b/;
+
+// Other words for a product (db/seed-data.js has the same, plus a few short forms), so "add bread to
+// my list" finds the sourdough. Matching: the words of a name or alias, in order, among the words
+// heard, each with a trailing s forgiven; the longest wins, and one already on the list wins a tie
+// when the list is given (remove). Names only, never stock.
+const ALIASES = {
+  sourdough:['bread', 'loaf', 'loaves', 'sourdough loaf', 'sourdough bread'], croissant:['pastry', 'pastries'], concha:['pan dulce', 'sweet bread'],
+  baguette:['french bread'], 'gluten-free loaf':['gluten free', 'gf bread', 'gluten free bread'], 'cinnamon roll':['cinnamon bun'],
+  coffee:['latte', 'espresso', 'drip coffee'], 'birthday cake':['cake'],
+  primer:['undercoat'], 'eggshell white':['white paint', 'eggshell'], roller:['paint roller', 'roller cover'],
+  'painter\'s tape':['masking tape', 'blue tape', 'tape'], 'drop cloth':['tarp'], 'paint brush set':['brushes', 'brush', 'paint brush', 'paintbrush'],
+  'ceiling white':['ceiling paint'], 'deck stain':['stain'], sandpaper:['sand paper'],
+  monstera:['swiss cheese plant'], pothos:['devil\'s ivy'], 'snake plant':['sansevieria'], 'terracotta pot':['pot', 'planter', 'clay pot', 'terracotta'],
+  'fiddle-leaf fig':['fiddle leaf', 'fig tree', 'fig'], succulent:['succulents', 'cactus'], 'potting soil':['soil', 'dirt'], basil:['herbs'] };
+const stem = w => w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w;
+function findProduct(text, preferred){
+  const words = text.split(' ').map(stem);
+  const has = phrase => {
+    const p = normalize(phrase).split(' ').map(stem);
+    for (let i = 0; i + p.length <= words.length; i++){
+      let j = 0; while (j < p.length && words[i + j] === p[j]) j++;
+      if (j === p.length) return true;
+    }
+    return false;
+  };
+  let best = null, bestScore = 0;
+  for (const { name } of current.inventory) for (const phrase of [name, ...(ALIASES[name] || [])]){
+    if (!has(phrase)) continue;
+    const score = phrase.length + (preferred?.includes(name) ? 100 : 0);
+    if (score > bestScore){ best = name; bestScore = score; }
+  }
+  return best;
+}
+
+// Guard rails: a stray letter from a re-armed recognizer is ignored, and so is the same final twice
+// within 2 s (a recognizer that reports it again). Interim words never reach here (mic.js), a question
+// keeps mic.js's 300-character cap, and nothing heard is ever logged.
+const DEDUP_MS = 2000;
+let lastHeard = '', lastHeardAt = 0;
+function route(raw){
+  if (!prefs.handsfree) return false;
+  const text = normalize(String(raw || ''));
+  const now = performance.now();
+  if (text.length < 2 || (text === lastHeard && now - lastHeardAt < DEDUP_MS)){ $('q').value = ''; return true; }
+  lastHeard = text; lastHeardAt = now;
+  const where = document.body.dataset.where, street = where === 'street', inside = where === 'inside';
+  const took = p => { $('q').value = ''; Promise.resolve(p).catch(() => {}); return true; };   // a command: the words leave the ask box
+  if (!street && !inside) return took(null);                     // walking in or out: nothing is done
+  const idle = state === 'listening' && !tween;
+  let m, key;
+  if ((m = text.match(ENTER_RE)) || (street && (m = text.match(BARE_SHOP_RE)))) return took(goTo(shopFrom(m)));
+  if (street && ENTER_HERE_RE.test(text)) return took(goTo(current));
+  if (LEAVE_RE.test(text)) return took(inside ? (idle ? leaveByVoice() : null) : guideSay({ text: 'You\'re on the street already. Say enter, then a shop.' }));
+  if ((m = text.match(SWITCH_VERB_RE)) && (key = switchOf(m[2]))) return took(setSwitch(key, /on$|^enable$/.test(m[1])));
+  if ((m = text.match(SWITCH_TAIL_RE)) && (key = switchOf(m[1]))) return took(setSwitch(key, m[2] === 'on'));
+  if (OPEN_RE.test(text)) return took(openDrawer());
+  if (CLOSE_RE.test(text)) return took(closeDrawer());
+  if (DESCRIBE_RE.test(text)) return took(describeByVoice());
+  if (RECENTRE_RE.test(text)) return took(recentreByVoice());
+  if (REPLAY_RE.test(text)) return took(replayByVoice());
+  if (TAKE_RE.test(text)) return took(takeByVoice());
+  if (CHECK_RE.test(text)) return took(checkByVoice());
+  if (CLEAR_RE.test(text)) return took(clearByVoice());
+  if (READ_LIST_RE.test(text)) return took(readListByVoice());
+  if ((m = text.match(ADD_RE))) return took(addByVoice(m[1]));
+  if ((m = text.match(DROP_RE)) || (m = text.match(REMOVE_RE))) return took(removeByVoice(m[1]));
+  if (HELP_RE.test(text)) return took(guideSay('help'));
+  if (findProduct(text) || QUESTION_RE.test(text)){               // the clerk's question
+    if (inside) return false;                                     // mic.js submits it, with its own state guard
+    return took(guideSay({ text: 'Walk into a shop first: say enter, then its name.' }));
+  }
+  return took(guideSay('unknown'));
+}
+
+// a. On the street: that shop's card, then the Enter tap's own path (audio unlock, the greeting POST,
+// the walk), with the guide's "Walking into" over the first steps. Inside another shop: out, then in.
+async function goTo(shop){
+  if (!shop) return;
+  const where = document.body.dataset.where;
+  if (where === 'street'){
+    if (tween) return;
+    if (current.id !== shop.id) build(shop);
+    const walk = enterShop();
+    guideSay('enter_' + shop.id);
+    await walk;
+  } else if (where === 'inside' && state === 'listening' && !tween){
+    if (current.id === shop.id) return guideSay({ text: 'You\'re already in ' + shop.name + '.' });
+    hfHold++;                                                     // no mic on the street between the two
+    try { await leaveShop(); } finally { hfHold--; }
+    if (!prefs.handsfree || document.body.dataset.where !== 'street') return;
+    build(shop);
+    const walk = enterShop(); guideSay('enter_' + shop.id); await walk;
+  }
+}
+async function leaveByVoice(){ await leaveShop(); if (prefs.handsfree) await guideSay('left'); }
+// c. The drawer's switches through setPref (the tap's path), the header's Sound effects through its own.
+function setSwitch(key, on){
+  if (key === 'effects'){ setEffects(!on); return guideSay(on ? 'effects_on' : 'effects_off'); }
+  if (key === 'handsfree'){
+    if (!on) setPref('handsfree', false);                         // the mic stops; the line below is the last
+    return guideSay(on ? 'handsfree_on' : 'handsfree_off');
+  }
+  setPref(key, on);
+  const id = { captions:'captions', big:'larger', contrast:'contrast', calm:'motion', voice:'voice' }[key] + (on ? '_on' : '_off');
+  return guideSay(key === 'voice' && !on ? { id, force:true } : id);   // said even though the voice is now off
+}
+function openDrawer(){ if (!a11y.open) $('a11y-open').onclick(); return guideSay('a11y_open'); }
+function closeDrawer(){
+  if (a11y.open || settings.open){ a11y.close(); settings.close(); return guideSay('a11y_close'); }
+  if (!welcome.hidden && document.body.dataset.where === 'street'){ closeWelcome(); return guideSay({ text: 'The welcome card is closed.' }); }
+  return guideSay({ text: 'Nothing is open right now.' });
+}
+// e. The description, in the browser's voice as from the button; the mic is cancelled first, since
+// voiceScene() will not speak while it listens. Not spoken (no browser voice): the mic's turn anyway.
+function describeByVoice(){ dropMic(); describeNow(false); if (!voiced) scheduleArm(); }
+function recentreByVoice(){ recentre(); return guideSay(document.body.dataset.where === 'street' ? 'recentre' : { text: 'Facing the clerk again.' }); }
+async function replayByVoice(){
+  if (document.body.dataset.where !== 'inside' || !lastAnswer) return guideSay({ text: 'Nothing to replay yet.' });
+  if (!prefs.voice) return guideSay({ text: 'The clerk\'s voice is off; turn it on to hear that again.' });
+  await guideSay('replay');
+  if (state === 'listening' && lastAnswer && !$('panel').hidden) $('replay').onclick();
+}
+// h. The list, through the same functions as the chips and buttons; the guide names the product as
+// the shop spells it, never the words heard.
+const atCounter = () => document.body.dataset.where === 'inside' && state === 'listening';
+function addByVoice(words){
+  if (!atCounter()) return guideSay({ text: 'Walk into a shop first, then add to your list.' });
+  const name = findProduct(normalize(words));
+  if (!name) return guideSay({ text: 'I don\'t see that in what this shop carries.' });
+  const items = listFor(current);
+  if (items.includes(name)) return guideSay({ text: cap(name) + ' is already on your list.' });
+  if (items.length >= MAX_ITEMS) return guideSay({ text: 'Your list is full at ' + MAX_ITEMS + ' items.' });
+  unfoldList(); addToList(name);
+  return guideSay({ text: cap(name) + ' is on your list.' });
+}
+function removeByVoice(words){
+  if (!atCounter()) return guideSay({ text: 'Walk into a shop first.' });
+  const items = listFor(current), name = findProduct(normalize(words), items);
+  if (!name) return guideSay({ text: 'I didn\'t find that on your list.' });
+  if (!items.includes(name)) return guideSay({ text: cap(name) + ' isn\'t on your list.' });
+  unfoldList(); removeFromList(name);
+  return guideSay({ text: cap(name) + ' is off your list.' });
+}
+async function checkByVoice(){
+  if (!atCounter()) return guideSay({ text: 'Walk into a shop first, then check your list.' });
+  if (!listFor(current).length) return guideSay('list_empty');
+  await guideSay('list_checking');
+  if (atCounter() && listFor(current).length){ unfoldList(); $('check-list').onclick(); }
+}
+function clearByVoice(){
+  if (!atCounter()) return guideSay({ text: 'Walk into a shop first.' });
+  const items = listFor(current);
+  if (!items.length) return guideSay('list_empty');
+  items.length = 0; folded = false; holdCarry(renderList); announce('Your list is cleared.');
+  return guideSay('list_cleared');
+}
+function readListByVoice(){
+  if (document.body.dataset.where !== 'inside') return guideSay({ text: 'Walk into a shop first.' });
+  const items = listFor(current);
+  if (!items.length) return guideSay('list_empty');
+  const line = 'On your list: ' + listOf(items) + '.';
+  return guideSay({ text: line.length <= GUIDE_MAX ? line : 'Your list has ' + howMany(items.length) + '.' });
+}
+function takeByVoice(){
+  if (document.body.dataset.where !== 'inside' || !lastAnswer?.list) return guideSay({ text: 'Check your list first; then say take this with me.' });
+  $('take').onclick();
+  return guideSay('list_shared');
+}
 
 build(SHOPS[0]);
 </script>
