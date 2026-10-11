@@ -928,6 +928,36 @@ function brickTexture(tones, mortar){   // a metre square: four bricks across, t
     for (let i = 0; i < 40; i++){ x.fillStyle = pick(PAINT); x.globalAlpha = R(0.5, 0.9); x.beginPath(); x.ellipse(rnd() * w, rnd() * h, R(6, 40), R(5, 28), rnd() * 3, 0, Math.PI * 2); x.fill(); }
     x.globalAlpha = 1;
   }));
+  // The plant shop's: four leaves on one atlas, drawn as cut-outs: a heart (pothos, its stem end at
+  // the bottom), a split monstera leaf, a snake plant's blade and a fern frond.
+  TEX.leaves = shared(canvasTexture(512, 512, (x, w, h) => {
+    x.clearRect(0, 0, w, h);
+    const tile = (ox, oy, draw) => { x.save(); x.translate(ox, oy); draw(); x.restore(); };
+    tile(0, 0, () => {
+      x.fillStyle = '#2f9e44'; x.beginPath(); x.moveTo(128, 14); x.bezierCurveTo(10, 120, 30, 236, 128, 196); x.bezierCurveTo(226, 236, 246, 120, 128, 14); x.fill();
+      x.strokeStyle = '#a7f3d0'; x.lineWidth = 4; x.beginPath(); x.moveTo(128, 196); x.lineTo(128, 30); x.stroke();
+      x.fillStyle = '#fde68a'; x.globalAlpha = 0.5;
+      for (const [px, py, r] of [[90, 120, 12], [160, 160, 9], [110, 80, 7]]){ x.beginPath(); x.arc(px, py, r, 0, Math.PI * 2); x.fill(); }
+      x.globalAlpha = 1;
+    });
+    tile(256, 0, () => {
+      x.fillStyle = '#1f7a3a'; x.beginPath(); x.ellipse(128, 130, 110, 120, 0, 0, Math.PI * 2); x.fill();
+      x.globalCompositeOperation = 'destination-out'; x.lineWidth = 16; x.lineCap = 'round'; x.strokeStyle = '#000';
+      for (const [py, len] of [[60, 70], [100, 90], [140, 95], [180, 80]]) for (const s of [-1, 1]){ x.beginPath(); x.moveTo(128 + s * 112, py); x.lineTo(128 + s * (112 - len), py + 18); x.stroke(); }
+      for (const [px, py] of [[80, 120], [176, 150], [100, 170]]){ x.beginPath(); x.ellipse(px, py, 14, 8, 0, 0, Math.PI * 2); x.fill(); }
+      x.globalCompositeOperation = 'source-over'; x.strokeStyle = '#86efac'; x.lineWidth = 3; x.beginPath(); x.moveTo(128, 250); x.lineTo(128, 16); x.stroke();
+    });
+    tile(0, 256, () => {
+      x.fillStyle = '#facc15'; x.beginPath(); x.moveTo(40, 256); x.lineTo(128, 6); x.lineTo(216, 256); x.closePath(); x.fill();
+      x.fillStyle = '#15803d'; x.beginPath(); x.moveTo(62, 256); x.lineTo(128, 34); x.lineTo(194, 256); x.closePath(); x.fill();
+      x.fillStyle = '#166534'; x.globalAlpha = 0.6; for (let py = 70; py < 256; py += 36) x.fillRect(70, py, 116, 12); x.globalAlpha = 1;
+    });
+    tile(256, 256, () => {
+      x.strokeStyle = '#3f6212'; x.lineWidth = 5; x.beginPath(); x.moveTo(128, 250); x.lineTo(128, 10); x.stroke();
+      x.fillStyle = '#4ade80';
+      for (let i = 0; i < 14; i++){ const py = 240 - i * 16, len = 76 - i * 4.6; for (const s of [-1, 1]){ x.beginPath(); x.ellipse(128 + s * len / 2, py, len / 2, 7, 0, 0, Math.PI * 2); x.fill(); } }
+    });
+  }));
 })();
 // Each shop's floor, drawn on its first visit from the shop's floor colour: tile, concrete or quarry.
 const floorTex = {};
@@ -1473,45 +1503,131 @@ function paintProps(g, shop, anims){
   solid(g, vmat('plastic'), CHIPS);
 }
 
+// Plants as cut-out leaves: four shapes on one atlas (heart, monstera, blade, frond), each leaf a
+// small plane pivoting at its stem end, all of a shop's foliage one merged mesh. A product's name
+// picks its plant; a name nothing matches is a fern.
+const LEAF = { heart:[0, 0.5], monstera:[0.5, 0.5], blade:[0, 0], fern:[0.5, 0] };
+const leafPart = (kind, w, h, x, y, z, o) => [new THREE.PlaneGeometry(w, h).translate(0, h / 2, 0), x, y, z, { ...o, uv:[0.5, 0.5, ...LEAF[kind]] }];
+const GREENS = ['#22c55e', '#16a34a', '#15803d', '#4ade80'], CLAYS = ['#c2410c', '#b45309', '#9a3412', '#c05621'];
+const KIND = [[/monstera|philodendron|split/, 'monstera'], [/pothos|ivy|vine|trail/, 'pothos'], [/snake|sansevieria|aloe|agave|dracaena/, 'snake'],
+  [/fern|palm|frond|calathea/, 'fern'], [/\bpots?\b|terracotta|planter|saucer/, 'pots'], [/cact|succulent|echeveria|jade|haworthia/, 'succulent'], [/./, 'fern']];
+const kindOf = name => KIND.find(([re]) => re.test(name.toLowerCase()))[1];
+function plant(F, S, kind, x, y, z, k = 1){        // a cluster growing from (x, y, z), at size k
+  const n = kind === 'snake' ? 7 : kind === 'fern' ? 8 : kind === 'monstera' ? 5 : 6;
+  for (let i = 0; i < n; i++){
+    const a = i / n * Math.PI * 2 + rnd() * 0.5;
+    if (kind === 'snake') F.push(leafPart('blade', 0.07 * k, R(0.4, 0.65) * k, x + Math.cos(a) * 0.04 * k, y, z + Math.sin(a) * 0.04 * k,
+      { ry:a, rx:R(-0.15, 0.15), rz:R(-0.15, 0.15), color:pick(['#15803d', '#166534', '#4d7c0f']) }));
+    else if (kind === 'fern') F.push(leafPart('fern', 0.3 * k, 0.4 * k, x, y, z, { ry:a, rx:-R(0.6, 1.1), color:pick(['#16a34a', '#15803d', '#65a30d']) }));
+    else if (kind === 'monstera'){
+      const l = R(0.25, 0.4) * k;
+      S.push([Cyl(0.008 * k, 0.01 * k, l, 6), x + Math.cos(a) * 0.08 * k, y + l * 0.45, z + Math.sin(a) * 0.08 * k, { rx:Math.sin(a) * 0.45, rz:-Math.cos(a) * 0.45, color:'#3f6212' }]);
+      F.push(leafPart('monstera', 0.34 * k, 0.34 * k, x + Math.cos(a) * 0.2 * k, y + l * 0.85, z + Math.sin(a) * 0.2 * k, { ry:a + Math.PI / 2, rx:-R(0.5, 0.9), color:pick(['#15803d', '#166534']) }));
+    } else if (kind === 'succulent') F.push(leafPart('heart', 0.07 * k, 0.07 * k, x + Math.cos(a) * 0.02 * k, y, z + Math.sin(a) * 0.02 * k, { ry:a, rx:-R(0.3, 0.8), color:pick(['#86efac', '#a3e635', '#bbf7d0']) }));
+    else F.push(leafPart('heart', 0.12 * k, 0.12 * k, x + Math.cos(a) * 0.05 * k, y, z + Math.sin(a) * 0.05 * k, { ry:a, rx:-R(0.6, 1.2), color:pick(GREENS) }));
+  }
+}
+function vine(F, S, x, y, z, len, a){               // a pothos runner hanging from (x, y, z), leaves alternating
+  S.push([Cyl(0.006, 0.006, len, 5), x, y - len / 2, z, { color:'#4d7c0f' }]);
+  for (let i = 0; i < Math.round(len / 0.11); i++)
+    F.push(leafPart('heart', 0.1, 0.1, x, y - 0.06 - i * 0.11, z, { ry:a + (i % 2) * Math.PI, rx:R(1.4, 2.0), rz:(i % 2 ? -0.4 : 0.4), color:pick(GREENS) }));
+}
+function potted(P, D, F, S, name, x, y, z, k = 1){    // a product in a terracotta pot standing on y
+  const kind = kindOf(name), r = 0.14 * k, h = 0.24 * k, clay = pick(CLAYS);
+  if (kind === 'pots'){ for (let i = 0; i < 3; i++) P.push([Cyl(r, r * 0.78, h, 12, 1, true), x, y + h / 2 + i * 0.06 * k, z, { color:pick(CLAYS) }]); return; }
+  P.push([Cyl(r, r * 0.78, h, 12), x, y + h / 2, z, { color:clay }], [Cyl(r * 1.07, r * 1.07, 0.035 * k, 12), x, y + h - 0.0175 * k, z, { color:clay }]);
+  D.push([Cyl(r * 0.92, r * 0.92, 0.01, 12), x, y + h - 0.004, z]);
+  const top = y + h - 0.01;
+  if (kind === 'pothos'){ plant(F, S, 'pothos', x, top, z, k); vine(F, S, x + r * 0.8, top, z, 0.35 * k, 0); vine(F, S, x - r * 0.8, top, z, 0.3 * k, Math.PI); }
+  else plant(F, S, kind, x, top, z, kind === 'succulent' ? k * 0.8 : k);
+}
+function crate(W, x, y, z, w = 0.5, d = 0.4, h = 0.3){   // a slatted wooden crate standing on y
+  for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) W.push([Box(0.035, h, 0.035), x + dx * (w / 2 - 0.02), y + h / 2, z + dz * (d / 2 - 0.02)]);
+  for (let i = 0; i < 3; i++){
+    const sy = y + 0.05 + i * (h - 0.1) / 2;
+    W.push([Box(w, 0.06, 0.015), x, sy, z - d / 2 + 0.008], [Box(w, 0.06, 0.015), x, sy, z + d / 2 - 0.008], [Box(0.015, 0.06, d), x - w / 2 + 0.008, sy, z], [Box(0.015, 0.06, d), x + w / 2 - 0.008, sy, z]);
+  }
+  W.push([Box(w - 0.04, 0.015, d - 0.04), x, y + 0.03, z]);
+}
+
+// Fern & Pot: green and clay, soft light. A tiered stand of the shop's plants against a trellis,
+// pothos trailing from pots hung on a pipe, crates of plants along the walls, in the window and on
+// the pavement, a potting bench with soil, pots and a trowel, a hose reel, the mister in the
+// back-left corner, a watering can and a flat of seedlings on the counter, a painted sign behind
+// the clerk, string lights along the pipe, and a skylight with a shaft of light.
 function plantsProps(g, shop, anims){
   fixtures(g, 'skylight');
-  const stand = group(g, -1.2, 0.2, -3.8), wood = std('#78350f', { roughness:0.75 });
-  for (const x of [-1.2, 1.2]) put(stand, Box(0.08, 3.2, 0.5), wood, x, 1.6, 0);
-  const slat = Box(2.4, 0.05, 0.5);
-  for (const y of [0.7, 1.5, 2.3]) put(stand, slat, wood, 0, y, 0);
-  const pot = Cyl(0.24, 0.18, 0.35, 10), clay = std('#c2410c', { roughness:0.8 }), leaf = std('#15803d', { roughness:0.6 });
-  for (const px of [-0.8, -0.2]){
-    put(stand, pot, clay, px, 0.88, 0);
-    [-0.08, 0, 0.08].forEach((lx, li) => put(stand, Box(0.04, 0.45 + li * 0.08, 0.08), leaf, px + lx, 1.15, 0, { rz:(li - 1) * 0.15 }));
+  const W = [], WV = [], P = [], D = [], F = [], S = [], STEEL = [], names = shop.inventory.map(i => i.name);
+  // The stand (x -2.4 to 0) with a trellis behind it: three tiers, the products in order, cycling.
+  const hx = -1.2, hz = -3.8;
+  WV.push([Box(0.08, 2.7, 0.5), hx - 1.2, 1.55, hz], [Box(0.08, 2.7, 0.5), hx + 1.2, 1.55, hz]);
+  for (const y of [0.9, 1.7, 2.5]) W.push([Box(2.4, 0.05, 0.5), hx, y, hz]);
+  for (let i = 0; i < 7; i++) for (const s of [-1, 1]) W.push([Box(0.03, 2.2, 0.012), hx + (i - 3) * 0.4, 1.75, -4.62, { rz:s * Math.PI / 4 }]);
+  const spots = [[-0.85, 0.93], [-0.3, 0.93], [0.25, 0.93], [0.8, 0.93], [-0.75, 1.73], [0, 1.73], [0.75, 1.73], [-0.8, 2.53], [-0.1, 2.53], [0.6, 2.53], [0.95, 1.73]];
+  spots.forEach(([dx, y], i) => potted(P, D, F, S, names[i % names.length] || 'fern', hx + dx, y, hz, y > 2 ? 0.8 : 1));
+  // Pothos hung from a pipe across the shop (clear of the line of sight to the stock room), with a
+  // string of bulbs along it.
+  STEEL.push([Cyl(0.025, 0.025, 5.2, 10), 0, 3.3, -2.2, { rz:Math.PI / 2, color:'#1c1917' }], [Box(0.04, 0.9, 0.04), -2.0, 3.75, -2.2, { color:'#1c1917' }], [Box(0.04, 0.9, 0.04), 2.0, 3.75, -2.2, { color:'#1c1917' }]);
+  for (const x of [-2.0, -0.9, 0.3, 2.3]){
+    STEEL.push([Cyl(0.006, 0.006, 0.95, 4), x, 2.85, -2.2, { color:'#d6c9a8' }]);
+    P.push([Cyl(0.13, 0.1, 0.2, 12), x, 2.3, -2.2, { color:pick(CLAYS) }]); D.push([Cyl(0.12, 0.12, 0.01, 12), x, 2.396, -2.2]);
+    plant(F, S, 'pothos', x, 2.39, -2.2, 0.8);
+    for (const a of [0.3, 2.4, 4.4]) vine(F, S, x + Math.cos(a) * 0.11, 2.38, -2.2 + Math.sin(a) * 0.11, R(0.45, 0.6), a);
   }
-  put(stand, Box(0.45, 0.22, 0.35), std('#15803d', { roughness:0.9 }), 0.65, 0.82, 0);
-  put(stand, Cyl(0.26, 0.2, 0.38, 12), std('#f8fafc', { roughness:0.3 }), -0.4, 1.7, 0);
-  const stem = Cyl(0.015, 0.015, 0.4, 6), stemMat = std('#16a34a'), blade = Sph(0.18, 6, 6), bladeMat = std('#15803d', { roughness:0.5 });
-  for (let l = 0; l < 5; l++){
-    const a = l / 5 * Math.PI * 2;
-    put(stand, stem, stemMat, -0.4 + Math.cos(a) * 0.1, 1.95, Math.sin(a) * 0.1, { rx:Math.sin(a) * 0.5, rz:Math.cos(a) * 0.5 });
-    put(stand, blade, bladeMat, -0.4 + Math.cos(a) * 0.25, 2.12, Math.sin(a) * 0.25, { ry:a, s:[1, 0.08, 1.4] });
+  solid(g, basic('#fef3c7'), Array.from({ length:11 }, (_, i) => [Sph(0.025, 8, 6), -2.4 + i * 0.48, 3.22, -2.2]));
+  // Crates of plants: along the right wall and the left, two stacked in the window, two outside.
+  for (const [x, z, a, b] of [[2.7, -0.3, 'fern', 'snake'], [2.7, 0.45, 'pothos', 'monstera'], [-2.6, 0.6, 'snake', 'fern'], [-2.6, 1.4, 'monstera', 'succulent'], [-2.4, 4.7, 'fern', 'pothos'], [1.9, 4.8, 'snake', 'monstera']]){
+    crate(W, x, 0.21, z); potted(P, D, F, S, a, x - 0.12, 0.24, z - 0.05, 0.75); potted(P, D, F, S, b, x + 0.13, 0.24, z + 0.08, 0.75);
   }
-  const hanger = Cyl(0.15, 0.12, 0.16, 8), vine = Cyl(0.015, 0.015, 0.55, 6), vineMat = std('#4ade80');
-  for (const hx of [-0.7, 0.5]){
-    put(stand, hanger, wood, hx, 2.39, 0);
-    for (let v = 0; v < 3; v++) put(stand, vine, vineMat, hx + (v - 1) * 0.08, 2.15, 0.15);
-  }
+  crate(W, -1.6, 0.21, 3.2, 0.7, 0.5, 0.3); crate(W, -1.6, 0.51, 3.2, 0.7, 0.5, 0.3);
+  potted(P, D, F, S, 'monstera', -1.75, 0.81, 3.2, 0.9); potted(P, D, F, S, 'fern', -1.4, 0.81, 3.3, 0.8);
+  STEEL.push([Cyl(0.006, 0.006, 0.4, 4), -3.2, 2.5, 6.55, { color:'#d6c9a8' }]);
+  P.push([Cyl(0.13, 0.1, 0.2, 12), -3.2, 2.2, 6.55, { color:pick(CLAYS) }]); D.push([Cyl(0.12, 0.12, 0.01, 12), -3.2, 2.296, 6.55]);
+  for (const a of [0.5, 2.6, 4.6]) vine(F, S, -3.2 + Math.cos(a) * 0.11, 2.28, 6.55 + Math.sin(a) * 0.11, 0.5, a);
+  // The potting bench along the right wall: soil, a trowel, a stack of pots, bags of compost; a
+  // hose reel on the wall by it.
+  W.push([Box(0.6, 0.05, 1.2), 2.9, 1.1, -2.4], [Box(0.6, 0.03, 1.2), 2.9, 0.5, -2.4], [Box(0.03, 0.5, 1.2), 3.2, 1.4, -2.4]);
+  for (const [dx, dz] of [[-0.25, -0.55], [0.25, -0.55], [-0.25, 0.55], [0.25, 0.55]]) WV.push([Box(0.06, 0.9, 0.06), 2.9 + dx, 0.65, -2.4 + dz]);
+  D.push([Sph(0.2, 10, 8), 2.9, 1.14, -2.6, { s:[1.4, 0.5, 1] }]);
+  STEEL.push([Box(0.05, 0.01, 0.12), 2.85, 1.14, -2.15, { ry:0.4, color:'#94a3b8' }], [Cyl(0.012, 0.012, 0.12, 6), 2.78, 1.14, -2.07, { rz:Math.PI / 2, ry:0.4, color:'#7c4a2a' }]);
+  for (let i = 0; i < 3; i++) P.push([Cyl(0.11, 0.085, 0.2, 12, 1, true), 2.75, 1.23 + i * 0.06, -1.95, { color:pick(CLAYS) }]);
+  solid(g, mat('cloth', '#3f2a1a'), [[Box(0.35, 0.5, 0.2), 2.9, 0.77, -2.6, { rx:0.2 }], [Box(0.35, 0.5, 0.2), 2.9, 0.45, -1.4, { rz:Math.PI / 2, ry:0.3 }]]);
+  STEEL.push([Box(0.1, 0.25, 0.25), 3.18, 1.0, -1.2, { color:'#1c1917' }], [Cyl(0.08, 0.08, 0.3, 10), 3.05, 1.0, -1.2, { rz:Math.PI / 2, color:'#334155' }]);
+  solid(g, mat('plastic', '#15803d'), [[new THREE.TorusGeometry(0.18, 0.012, 6, 20), 3.0, 1.0, -1.2, { ry:Math.PI / 2 }], [new THREE.TorusGeometry(0.18, 0.012, 6, 20), 3.04, 1.0, -1.2, { ry:Math.PI / 2 }],
+    [new THREE.TorusGeometry(0.18, 0.012, 6, 20), 3.08, 1.0, -1.2, { ry:Math.PI / 2 }], [new THREE.TorusGeometry(0.18, 0.012, 6, 20), 3.12, 1.0, -1.2, { ry:Math.PI / 2 }],
+    [Cyl(0.012, 0.012, 0.6, 6), 2.98, 0.52, -1.0, { rx:0.15 }]]);
+  // The mister, as before: a barrel, a green dome, rings of mist that rise (not under Reduce motion).
   const mister = group(g, -2.4, 0.2, -2.8);
-  put(mister, Cyl(0.35, 0.4, 1.0, 12), std('#78350f', { roughness:0.7 }), 0, 0.5, 0);
-  put(mister, Sph(0.32, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.6), std('#047857', { roughness:0.2 }), 0, 1.05, 0);
+  put(mister, Cyl(0.35, 0.4, 1.0, 12), mat('wood', '#78350f', { map:TEX.woodUp }), 0, 0.5, 0);
+  put(mister, Sph(0.32, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.6), mat('ceramic', '#047857'), 0, 1.05, 0);
   const ring = new THREE.RingGeometry(0.08, 0.18, 12), mist = [];
   for (let r = 0; r < 4; r++) mist.push(put(mister, ring,
     new THREE.MeshBasicMaterial({ color:'#e0f2fe', transparent:true, opacity:0.4, side:THREE.DoubleSide }), 0, 1.25 + r * 0.2, 0, { rx:-Math.PI / 2 }));
-  anims.push(t => mist.forEach((m, i) => {     // rings of mist rise, widen and fade; none under Reduce motion
+  anims.push(t => mist.forEach((m, i) => {
     m.visible = !prefs.calm;
     const o = (t * 0.8 + i * 0.4) % 1.2, s = 1 + o * 0.8;
     m.position.y = 1.15 + o; m.scale.set(s, s, 1); m.material.opacity = Math.max(0, 0.45 * (1 - o / 1.2));
   }));
+  // The sign behind the clerk, the board on the left wall.
+  hanging(g, shop, { frame:'#4a3220', bg:'#f5f0e1', border:'#86a35a', title:'#166534', text:'#1c1917', rule:'#86a35a', heading:'IN THE SHOP THIS WEEK', weight:'600',
+    note:'ask what\'s in stock today', noteColor:'#4d7c0f', rough:0.9 });
   board(g, shop, { frame:'#064e3b', bg:'#064e3b', title:'#a7f3d0', text:'#ffffff', note:'#6ee7b7' });
-  const can = group(g, 0.9, 1.23, 0.2), canBrass = std('#d97706', { metalness:0.85, roughness:0.2 });
-  put(can, Cyl(0.12, 0.14, 0.24, 10), canBrass, 0, 0.12, 0);
-  put(can, Cyl(0.02, 0.02, 0.32, 8), canBrass, -0.16, 0.24, 0, { rz:Math.PI / 3 });
+  // On the counter: a galvanised watering can at the left, a succulent in the middle, a flat of
+  // seedlings at the right end (low, clear of the line of sight to the stock room).
+  STEEL.push([Cyl(0.1, 0.12, 0.2, 12), -1.1, 1.325, 0.1, { color:'#9ca3af' }], [Cyl(0.015, 0.022, 0.3, 8), -0.93, 1.38, 0.1, { rz:-1.0, color:'#9ca3af' }],
+    [Cyl(0.03, 0.035, 0.03, 8), -0.81, 1.47, 0.1, { rz:-1.0, color:'#9ca3af' }], [new THREE.TorusGeometry(0.09, 0.012, 6, 12, Math.PI), -1.1, 1.43, 0.1, { color:'#9ca3af' }]);
+  potted(P, D, F, S, 'succulent', 0.2, 1.225, 0.3, 0.6);
+  crate(W, 1.25, 1.225, 0.2, 0.42, 0.3, 0.1);
+  for (const [dx, dz] of [[-0.12, -0.07], [0, -0.07], [0.12, -0.07], [-0.12, 0.07], [0, 0.07], [0.12, 0.07]]){
+    P.push([Cyl(0.04, 0.03, 0.07, 8), 1.25 + dx, 1.29, 0.2 + dz, { color:pick(CLAYS) }]); plant(F, S, 'succulent', 1.25 + dx, 1.32, 0.2 + dz, 0.35);
+  }
+  solid(g, mat('wood', '#8a5a2b', { map:TEX.wood }), W, 0, 0, 0, { cast:true });
+  solid(g, mat('wood', '#8a5a2b', { map:TEX.woodUp }), WV, 0, 0, 0, { cast:true });
+  solid(g, vmat('stone', { roughness:0.85 }), P);
+  solid(g, mat('stone', '#2b1d12'), D);
+  solid(g, vmat('leaf', { map:TEX.leaves, alphaTest:0.5, side:THREE.DoubleSide }), F);
+  solid(g, vmat('leaf'), S);
+  solid(g, vmat('steel'), STEEL);
 }
 
 const PROPS = { bakery:bakeryProps, paint:paintProps, plants:plantsProps };
