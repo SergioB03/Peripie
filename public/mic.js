@@ -9,6 +9,9 @@
    the page's own handler (a submit event on #f), but only if the clerk was listening at the tap and
    still is, so the clerk's own voice picked up mid-answer is never sent; otherwise the words wait
    in #q for Ask. Tap again to finish early. Typing, Ask, a suggestion chip or Leave cancels it.
+   Hands-free (the page's section 7): while that switch is on the page defines window.PP_ROUTE, which
+   sees every final transcript first and answers true for a command it has acted on (nothing is then
+   submitted); and window.PP_MIC lets the page start the mic as a tap would, or cancel it.
 
    Zero Data: nothing is stored or logged; the words leave only through the page's own submit. The
    browser does the transcribing: Chrome sends the audio to Google's speech service (MDN: a
@@ -101,7 +104,16 @@ function attach(form, input){
 
   function send(s){                                // through the page's own submit handler, never the clerk directly
     s.sent = true;
-    if (!s.text || !s.armed || !listening() || !inShop()) return;   // the words wait in #q for Ask
+    if (!s.text) return;
+    // Hands-free (the page's router, window.PP_ROUTE, which exists only while that switch is on): a
+    // final transcript goes to it first, and true means it was a command the page has acted on, so
+    // nothing is submitted. With the switch off there is no function and nothing below changes.
+    if (typeof window.PP_ROUTE === 'function'){
+      let routed = false;
+      try { routed = window.PP_ROUTE(s.text) === true; } catch {}
+      if (routed) return;
+    }
+    if (!s.armed || !listening() || !inShop()) return;   // the words wait in #q for Ask
     ours = true;
     try { form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); }
     finally { ours = false; }

@@ -2613,7 +2613,7 @@ $('replay').onclick = async () => {
   setState('listening'); if (refocus) btn.focus();              // a disabled button drops focus; give it back
 };
 
-$('leave').onclick = async () => {
+async function leaveShop(){                   // the Leave button, and "leave" said hands-free (section 7)
   if (tween) return;
   visit++; endSay(); silence(); lastAnswer = null; history.length = 0; $('replay').hidden = true;   // the visit's memory goes with it
   $('panel').hidden = true; setState('listening'); setWhere('leaving'); sfx.footsteps();
@@ -2621,7 +2621,8 @@ $('leave').onclick = async () => {
   else { await moveCamera(DOOR, 1800); doorTarget = 0; await moveCamera(STREET, 2200); }
   $('enter').hidden = false; bar.hidden = false; setWhere('street');
   if (focusLost()) $('enter').focus();                          // Leave hid the button that had focus
-};
+}
+$('leave').onclick = leaveShop;
 
 // Look around: drag on the 3D view (AI Studio's controls). A tap on the street walks in only on
 // the door cue or the Enter button; anywhere else on the 3D view it does nothing. On the street a
@@ -2719,12 +2720,13 @@ settings.addEventListener('close', () => $('brand').focus());  // Close, Escape 
 // clerk's voice (the shared Audio element and the browser's voice) is not touched here: a muted
 // greeting would be a failed step 2 of the demo, so only the accessibility drawer's Clerk voice
 // switch, which starts on, turns it off. Pressed means the effects are on.
-$('sound').onclick = () => {
-  effectsOff = !effectsOff;
+function setEffects(off){                     // the button, and "turn off sound effects" said hands-free (section 7)
+  effectsOff = off;
   if (!effectsOff) sfx.unlock();
   $('sound').setAttribute('aria-pressed', !effectsOff);
   $('sound').querySelector('use').setAttribute('href', effectsOff ? '#i-volume-x' : '#i-volume-2');
-};
+}
+$('sound').onclick = () => setEffects(!effectsOff);
 
 /* ---------- 6. ACCESSIBILITY: the AI Studio app's tools, rebuilt for this page ----------
    The header's Accessibility button opens a drawer of five switches: Captions, Larger text, High
@@ -2896,7 +2898,7 @@ function voiceScene(text){
   const parts = (text.match(/[^.!?]+[.!?]*/g) || [text]).map(p => p.trim()).filter(Boolean);
   parts.forEach((p, i) => {                 // a sentence at a time: Chrome cuts long utterances short
     const u = new SpeechSynthesisUtterance(p);
-    if (i === parts.length - 1) u.onend = u.onerror = () => { if (voiced === run){ voiced = null; holdToast(2500); } };
+    if (i === parts.length - 1) u.onend = u.onerror = () => { if (voiced === run){ voiced = null; holdToast(2500); scheduleArm(); } };   // then the mic's turn (section 7)
     speechSynthesis.speak(u);
   });
   return true;
@@ -3081,10 +3083,235 @@ function hfTurn(){ wakeIdle(); scheduleArm(); }   // the clerk is done, or the s
 player.addEventListener('play', dropMic);
 for (const ev of ['ended', 'error', 'pause']) player.addEventListener(ev, () => scheduleArm());
 
-// The switch (setPref): on, the help line, then the mic's turn; off, the mic stops and stays off.
+// The switch (setPref): on, the router is in place and the help line plays, then the mic's turn;
+// off, the router is gone (mic.js submits as it always has) and the mic stops and stays off.
 function handsFree(on){
-  if (on) guideSay('help');
-  else dropMic();
+  if (on){ window.PP_ROUTE = route; guideSay('help'); }
+  else { delete window.PP_ROUTE; dropMic(); }
+}
+
+/* The grammar, on every final transcript while Hands-free is on (route, as window.PP_ROUTE; mic.js
+   calls it before it would submit, never on interim words): lowercase, punctuation and apostrophes
+   dropped, "&" read as "and", a leading "hey", "ok" or "please" and a trailing "please" ignored.
+   Matched in this order, first hit wins; true means the page acted and nothing is submitted:
+     a  enter | go (in | into | to) | walk (in | into) | open | take me to | visit  (the)? <shop>;
+        <shop> alone, on the street; enter | go in | walk in | enter the shop (the one in front of you)
+        <shop>: bakery | rosa's | paint (store | shop | supply)? | southside | plant(s) (shop)? | fern (& pot)?
+     b  leave | leave the shop | go outside | go out | step outside | back to the street | exit
+     c  turn on | turn off | enable | disable | switch on | switch off  (the)? <switch>;
+        (turn | switch)? (the)? <switch> (on | off)
+        <switch>: captions | larger text | big text | high contrast | reduce motion | clerk voice |
+        sound effects | sounds | hands-free
+     d  open | show  (the)? accessibility | settings (menu | drawer)?;  close | hide  (the)? ...;  close
+     e  describe (this | the)? (view | scene | screen)? | what do i see | what's on screen |
+        what am i looking at | where am i
+     f  re-centre | recenter | centre the view | reset the view | look at the (doors | counter | clerk)
+     g  replay | say that again | repeat (that)? | say it again | again | one more time
+     h  add | put <item> (to | on | in my list)?;  remove | delete <item> (from my list)?;
+        take | drop <item> off my list;  check my list;  clear | empty my list;  what's on my list;
+        take this with me | share the card | copy the card
+     i  help | what can i say | what can i do
+     j  a product name or alias of this shop in the words, or a question opener (do you, have you,
+        how long, how much, how many, when, which, what do you, what kind, what time, any, is there,
+        are there, got any, can i, could i, i need, i'd like, i would like, looking for, what about,
+        and the): the clerk's; false, so mic.js submits it exactly as it always has
+     k  anything else: "I didn't catch that"
+   A shop in the way (walking in or out) means nothing is done; the clerk busy means a command is
+   dropped and a question waits in the box, as mic.js has it. */
+const normalize = s => s.toLowerCase().replace(/['’]/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9 ]+/g, ' ')
+  .replace(/\s+/g, ' ').trim().replace(/^(?:(?:hey|ok|okay|please|um|uh|so) )+/, '').replace(/ please$/, '');
+const SHOP_WORDS = {
+  bakery: 'ros(?:a|e)s?(?: bakery)?|bakery',
+  paint: 'south ?side(?: paint(?: supply| store| shop)?)?|paint(?: supply| store| shop)?',
+  plants: 'fern(?: (?:and|in|n|the) pot| pot)?|plants?(?: shop| store)?' };
+const SHOP_ALT = Object.entries(SHOP_WORDS).map(([id, re]) => '(?<' + id + '>' + re + ')').join('|');
+const ENTER_RE = new RegExp('^(?:enter|go (?:in|into|in to|to)|walk (?:in|into|in to)|open|take me (?:to|into|in to)|visit|lets go (?:to|into)|head (?:to|into)) (?:the )?(?:' + SHOP_ALT + ')$');
+const BARE_SHOP_RE = new RegExp('^(?:the )?(?:' + SHOP_ALT + ')$');
+const ENTER_HERE_RE = /^(?:enter|go in|go inside|walk in|(?:enter|go into|go in to|walk into|walk in to) (?:the |this )?shop)$/;
+const shopFrom = m => SHOPS.find(s => m.groups[s.id] !== undefined);
+const LEAVE_RE = /^(?:leave|leave (?:the |this )?shop|go outside|go out|go back outside|go back out|step outside|step out|back to the street|exit|exit the shop|get out)$/;
+const SWITCH_VERB_RE = /^(turn on|turn off|enable|disable|switch on|switch off) (?:the )?(.+)$/;
+const SWITCH_TAIL_RE = /^(?:turn|switch|put|set)? ?(?:the )?(.+?) (on|off)$/;
+const SWITCHES = [
+  [/^captions?$/, 'captions'], [/^(?:larger|large|big|bigger) (?:text|type|words|font)$/, 'big'], [/^(?:high )?contrast$/, 'contrast'],
+  [/^(?:reduced?|less|low) motion$/, 'calm'], [/^(?:the )?(?:clerks? )?voice$/, 'voice'], [/^sounds?(?: effects)?$/, 'effects'],
+  [/^effects$/, 'effects'], [/^hands ?free(?: mode)?$/, 'handsfree'] ];
+const switchOf = words => (SWITCHES.find(([re]) => re.test(words)) || [])[1] || null;
+const A11Y_WORDS = '(?:accessibility|settings|a11y|accessibility (?:settings|menu|drawer|options)|settings (?:menu|drawer)|menu|drawer|options)';
+const OPEN_RE = new RegExp('^(?:open|show|open up) (?:the )?' + A11Y_WORDS + '$');
+const CLOSE_RE = new RegExp('^(?:close|hide|dismiss)(?: (?:the )?' + A11Y_WORDS + ')?$');
+const DESCRIBE_RE = /^(?:describe(?: (?:this|the|my))?(?: (?:view|scene|screen|room|shop|place))?|what do i see|whats on (?:the )?screen|what am i looking at|where am i|whats (?:here|this)|what is (?:here|this))$/;
+const RECENTRE_RE = /^(?:re ?cent(?:er|re)(?: (?:the |my )?view)?|cent(?:er|re) (?:the |my )?view|reset (?:the |my )?view|look at the (?:doors?|counter|clerk|shop|front)|face the (?:doors?|counter|clerk)|look straight(?: ahead)?|look forward)$/;
+const REPLAY_RE = /^(?:replay(?: (?:that|it|the answer|the last answer))?|say that again|say it again|repeat(?: that| it)?|again|one more time|play (?:that|it) again|what did (?:you|the clerk|she|he) say)$/;
+const TAKE_RE = /^(?:take (?:this|it|that|the card|the list) with (?:me|you)|share (?:the |this |that |my )?(?:card|list|answer)|copy (?:the |this |that |my )?(?:card|list|answer)|share (?:it|this|that)|copy (?:it|this|that)|save (?:the |this |that |my )?(?:card|list))$/;
+const CHECK_RE = /^(?:check (?:my|the) (?:list|items)|check it|check everything|check them all|check all of it|check the whole list)$/;
+const CLEAR_RE = /^(?:clear|empty|reset|delete|remove) (?:my |the )?(?:whole )?list$|^(?:clear|empty) (?:it|everything)$/;
+const READ_LIST_RE = /^(?:whats on my list|what is on my list|whats in my list|read (?:me )?(?:my|the) list|read it back|my list|show (?:me )?my list|what have i got)$/;
+const ADD_RE = /^(?:add|put) (.+?)(?: (?:to|on|onto|in|into) (?:my |the )?list)?$/;
+const REMOVE_RE = /^(?:remove|delete|cross off|cross out) (.+?)(?: (?:from|off|off of|on) (?:my |the )?list)?$/;
+const DROP_RE = /^(?:take|drop) (.+?) (?:off|from|off of) (?:my |the )?list$/;
+const HELP_RE = /^(?:help|help me|what can i say|what can i do|what can you do|what do i say|commands)$/;
+const QUESTION_RE = /^(?:do you|have you|how long|how much|how many|when|which|what do you|what kind|what time|any|is there|are there|got any|can i|could i|i need|id like|i would like|looking for|im looking for|how about|what about|and the|do yall|you got|do u|have u)\b/;
+
+// Other words for a product (db/seed-data.js has the same, plus a few short forms), so "add bread to
+// my list" finds the sourdough. Matching: the words of a name or alias, in order, among the words
+// heard, each with a trailing s forgiven; the longest wins, and one already on the list wins a tie
+// when the list is given (remove). Names only, never stock.
+const ALIASES = {
+  sourdough:['bread', 'loaf', 'loaves', 'sourdough loaf', 'sourdough bread'], croissant:['pastry', 'pastries'], concha:['pan dulce', 'sweet bread'],
+  baguette:['french bread'], 'gluten-free loaf':['gluten free', 'gf bread', 'gluten free bread'], 'cinnamon roll':['cinnamon bun'],
+  coffee:['latte', 'espresso', 'drip coffee'], 'birthday cake':['cake'],
+  primer:['undercoat'], 'eggshell white':['white paint', 'eggshell'], roller:['paint roller', 'roller cover'],
+  'painter\'s tape':['masking tape', 'blue tape', 'tape'], 'drop cloth':['tarp'], 'paint brush set':['brushes', 'brush', 'paint brush', 'paintbrush'],
+  'ceiling white':['ceiling paint'], 'deck stain':['stain'], sandpaper:['sand paper'],
+  monstera:['swiss cheese plant'], pothos:['devil\'s ivy'], 'snake plant':['sansevieria'], 'terracotta pot':['pot', 'planter', 'clay pot', 'terracotta'],
+  'fiddle-leaf fig':['fiddle leaf', 'fig tree', 'fig'], succulent:['succulents', 'cactus'], 'potting soil':['soil', 'dirt'], basil:['herbs'] };
+const stem = w => w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w;
+function findProduct(text, preferred){
+  const words = text.split(' ').map(stem);
+  const has = phrase => {
+    const p = normalize(phrase).split(' ').map(stem);
+    for (let i = 0; i + p.length <= words.length; i++){
+      let j = 0; while (j < p.length && words[i + j] === p[j]) j++;
+      if (j === p.length) return true;
+    }
+    return false;
+  };
+  let best = null, bestScore = 0;
+  for (const { name } of current.inventory) for (const phrase of [name, ...(ALIASES[name] || [])]){
+    if (!has(phrase)) continue;
+    const score = phrase.length + (preferred?.includes(name) ? 100 : 0);
+    if (score > bestScore){ best = name; bestScore = score; }
+  }
+  return best;
+}
+
+function route(raw){
+  if (!prefs.handsfree) return false;
+  const text = normalize(String(raw || ''));
+  if (!text) return true;
+  const where = document.body.dataset.where, street = where === 'street', inside = where === 'inside';
+  const took = p => { $('q').value = ''; Promise.resolve(p).catch(() => {}); return true; };   // a command: the words leave the ask box
+  if (!street && !inside) return took(null);                     // walking in or out: nothing is done
+  const idle = state === 'listening' && !tween;
+  let m, key;
+  if ((m = text.match(ENTER_RE)) || (street && (m = text.match(BARE_SHOP_RE)))) return took(goTo(shopFrom(m)));
+  if (street && ENTER_HERE_RE.test(text)) return took(goTo(current));
+  if (LEAVE_RE.test(text)) return took(inside ? (idle ? leaveByVoice() : null) : guideSay({ text: 'You\'re on the street already. Say enter, then a shop.' }));
+  if ((m = text.match(SWITCH_VERB_RE)) && (key = switchOf(m[2]))) return took(setSwitch(key, /on$|^enable$/.test(m[1])));
+  if ((m = text.match(SWITCH_TAIL_RE)) && (key = switchOf(m[1]))) return took(setSwitch(key, m[2] === 'on'));
+  if (OPEN_RE.test(text)) return took(openDrawer());
+  if (CLOSE_RE.test(text)) return took(closeDrawer());
+  if (DESCRIBE_RE.test(text)) return took(describeByVoice());
+  if (RECENTRE_RE.test(text)) return took(recentreByVoice());
+  if (REPLAY_RE.test(text)) return took(replayByVoice());
+  if (TAKE_RE.test(text)) return took(takeByVoice());
+  if (CHECK_RE.test(text)) return took(checkByVoice());
+  if (CLEAR_RE.test(text)) return took(clearByVoice());
+  if (READ_LIST_RE.test(text)) return took(readListByVoice());
+  if ((m = text.match(ADD_RE))) return took(addByVoice(m[1]));
+  if ((m = text.match(DROP_RE)) || (m = text.match(REMOVE_RE))) return took(removeByVoice(m[1]));
+  if (HELP_RE.test(text)) return took(guideSay('help'));
+  if (findProduct(text) || QUESTION_RE.test(text)){               // the clerk's question
+    if (inside) return false;                                     // mic.js submits it, with its own state guard
+    return took(guideSay({ text: 'Walk into a shop first: say enter, then its name.' }));
+  }
+  return took(guideSay('unknown'));
+}
+
+// a. On the street: that shop's card, then the Enter tap's own path (audio unlock, the greeting POST,
+// the walk), with the guide's "Walking into" over the first steps. Inside another shop: out, then in.
+async function goTo(shop){
+  if (!shop) return;
+  const where = document.body.dataset.where;
+  if (where === 'street'){
+    if (tween) return;
+    if (current.id !== shop.id) build(shop);
+    const walk = enterShop();
+    guideSay('enter_' + shop.id);
+    await walk;
+  } else if (where === 'inside' && state === 'listening' && !tween){
+    if (current.id === shop.id) return guideSay({ text: 'You\'re already in ' + shop.name + '.' });
+    hfHold++;                                                     // no mic on the street between the two
+    try { await leaveShop(); } finally { hfHold--; }
+    if (!prefs.handsfree || document.body.dataset.where !== 'street') return;
+    build(shop);
+    const walk = enterShop(); guideSay('enter_' + shop.id); await walk;
+  }
+}
+async function leaveByVoice(){ await leaveShop(); if (prefs.handsfree) await guideSay('left'); }
+// c. The drawer's switches through setPref (the tap's path), the header's Sound effects through its own.
+function setSwitch(key, on){
+  if (key === 'effects'){ setEffects(!on); return guideSay(on ? 'effects_on' : 'effects_off'); }
+  if (key === 'handsfree'){
+    if (!on) setPref('handsfree', false);                         // the mic stops; the line below is the last
+    return guideSay(on ? 'handsfree_on' : 'handsfree_off');
+  }
+  setPref(key, on);
+  const id = { captions:'captions', big:'larger', contrast:'contrast', calm:'motion', voice:'voice' }[key] + (on ? '_on' : '_off');
+  return guideSay(key === 'voice' && !on ? { id, force:true } : id);   // said even though the voice is now off
+}
+function openDrawer(){ if (!a11y.open) $('a11y-open').onclick(); return guideSay('a11y_open'); }
+function closeDrawer(){
+  if (a11y.open || settings.open){ a11y.close(); settings.close(); return guideSay('a11y_close'); }
+  if (!welcome.hidden && document.body.dataset.where === 'street'){ closeWelcome(); return guideSay({ text: 'The welcome card is closed.' }); }
+  return guideSay({ text: 'Nothing is open right now.' });
+}
+// e. The description, in the browser's voice as from the button; the mic is cancelled first, since
+// voiceScene() will not speak while it listens. Not spoken (no browser voice): the mic's turn anyway.
+function describeByVoice(){ dropMic(); describeNow(false); if (!voiced) scheduleArm(); }
+function recentreByVoice(){ recentre(); return guideSay(document.body.dataset.where === 'street' ? 'recentre' : { text: 'Facing the clerk again.' }); }
+async function replayByVoice(){
+  if (document.body.dataset.where !== 'inside' || !lastAnswer) return guideSay({ text: 'Nothing to replay yet.' });
+  if (!prefs.voice) return guideSay({ text: 'The clerk\'s voice is off; turn it on to hear that again.' });
+  await guideSay('replay');
+  if (state === 'listening' && lastAnswer && !$('panel').hidden) $('replay').onclick();
+}
+// h. The list, through the same functions as the chips and buttons; the guide names the product as
+// the shop spells it, never the words heard.
+const atCounter = () => document.body.dataset.where === 'inside' && state === 'listening';
+function addByVoice(words){
+  if (!atCounter()) return guideSay({ text: 'Walk into a shop first, then add to your list.' });
+  const name = findProduct(normalize(words));
+  if (!name) return guideSay({ text: 'I don\'t see that in what this shop carries.' });
+  const items = listFor(current);
+  if (items.includes(name)) return guideSay({ text: cap(name) + ' is already on your list.' });
+  if (items.length >= MAX_ITEMS) return guideSay({ text: 'Your list is full at ' + MAX_ITEMS + ' items.' });
+  unfoldList(); addToList(name);
+  return guideSay({ text: cap(name) + ' is on your list.' });
+}
+function removeByVoice(words){
+  if (!atCounter()) return guideSay({ text: 'Walk into a shop first.' });
+  const items = listFor(current), name = findProduct(normalize(words), items);
+  if (!name) return guideSay({ text: 'I didn\'t find that on your list.' });
+  if (!items.includes(name)) return guideSay({ text: cap(name) + ' isn\'t on your list.' });
+  unfoldList(); removeFromList(name);
+  return guideSay({ text: cap(name) + ' is off your list.' });
+}
+async function checkByVoice(){
+  if (!atCounter()) return guideSay({ text: 'Walk into a shop first, then check your list.' });
+  if (!listFor(current).length) return guideSay('list_empty');
+  await guideSay('list_checking');
+  if (atCounter() && listFor(current).length){ unfoldList(); $('check-list').onclick(); }
+}
+function clearByVoice(){
+  if (!atCounter()) return guideSay({ text: 'Walk into a shop first.' });
+  const items = listFor(current);
+  if (!items.length) return guideSay('list_empty');
+  items.length = 0; folded = false; holdCarry(renderList); announce('Your list is cleared.');
+  return guideSay('list_cleared');
+}
+function readListByVoice(){
+  if (document.body.dataset.where !== 'inside') return guideSay({ text: 'Walk into a shop first.' });
+  const items = listFor(current);
+  if (!items.length) return guideSay('list_empty');
+  const line = 'On your list: ' + listOf(items) + '.';
+  return guideSay({ text: line.length <= GUIDE_MAX ? line : 'Your list has ' + howMany(items.length) + '.' });
+}
+function takeByVoice(){
+  if (document.body.dataset.where !== 'inside' || !lastAnswer?.list) return guideSay({ text: 'Check your list first; then say take this with me.' });
+  $('take').onclick();
+  return guideSay('list_shared');
 }
 
 build(SHOPS[0]);
