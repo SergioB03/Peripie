@@ -17,6 +17,15 @@ Everything a judge sees runs from `main`. The laptop server is on `http://192.16
 9. **Submission draft**: paste [docs/drafts/submission.md](drafts/submission.md) into the form, add the live URL and the video, save as draft. Confirm the video length and host the form asks for.
 10. `git tag demo-ok` once step 6 passes, so there is a known-good point.
 
+## Replit after tonight: what happened and how to redeploy
+
+The live site at https://peripie.replit.app was republished from `3029b6d` and is current. The Replit **workspace**, though, was rewritten by Replit's Agent (it turned the project into a pnpm monorepo with `artifacts/`, changed `package.json` and edited server files), and it re-applied those changes once after a reset. The live deployment is a separate snapshot and is unaffected until the next Republish.
+
+Rules from here:
+- Never open or answer the Agent pane; decline every "fix" it offers.
+- **Do not press Republish** unless the workspace has first been reset to GitHub, or you will deploy the Agent's scaffold. Reset recipe, typed one line at a time in the Shell: `git fetch origin` · `git reset --hard origin/main` · `git clean -fdx -e node_modules` · `rm -rf artifacts .agents pnpm-workspace.yaml pnpm-lock.yaml` · `npm ci` · `npm start` (expect `listening`, `using TIGER_DATABASE_URL`, `greetings warmed (3/3)`; Ctrl+C) · check Publishing > Adjust settings still says `npm start`, Web server, Reserved VM · Republish.
+- If the workspace fights back again, re-import instead: shut down the current deployment in Publishing (frees the `peripie` name), delete the Repl, open `https://replit.com/github.com/SergioB03/Peripie`, choose "Leave it as imported", add the four secrets, `npm ci`, Publish with the same name. Ten minutes; the Agent is never touched.
+
 ## Sunday morning (6:00 to 8:30)
 
 1. Re-run `db/seed.sql` against Tiger (the second Docker command in db/README.md) so "tomorrow" moves to Monday and the history ends today.
