@@ -110,6 +110,7 @@
     color:#fff;font-size:12px;font-weight:600;letter-spacing:.025em;white-space:nowrap;box-shadow:var(--sh-xl);
     transform:translate(-50%,-50%);transition:opacity .3s,border-color .3s,transform .3s}
   #door-cue:hover{border-color:#fbbf24;transform:translate(-50%,-50%) scale(1.05)}
+  #door-cue::after{content:"";position:absolute;inset:-8px -6px}   /* the street's tap target: about 47 px tall */
   #door-cue .i{width:14px;height:14px}
   #door-cue.off{opacity:0;pointer-events:none}
   body:not([data-where=street]) :is(#dock,#door-cue,#skyline,#hint){display:none}
@@ -1031,7 +1032,8 @@ function askChip(text){          // through the form, so the trim, the cap and t
   $('f').dispatchEvent(new Event('submit', { cancelable:true }));
 }
 
-// Every way in (the button, the door cue, a tap on the street) runs this inside the tap.
+// Both ways in (the Enter button and the door cue on the doors) run this inside the tap: a click
+// event, so iOS counts it as a tap.
 async function enterShop(){
   if (document.body.dataset.where !== 'street' || tween) return;
   unlockAudio();                                                // first, while still inside the tap
@@ -1071,7 +1073,8 @@ $('leave').onclick = async () => {
   $('enter').hidden = false; bar.hidden = false; setWhere('street');
 };
 
-// Look around: drag on the 3D view (AI Studio's controls). A tap without a drag, on the street, walks in.
+// Look around: drag on the 3D view (AI Studio's controls). A tap on the street walks in only on
+// the door cue or the Enter button; anywhere else on the 3D view it does nothing.
 let drag = null, dragged = false;
 canvas.addEventListener('pointerdown', e => {
   if (drag) return;                                             // one pointer looks; a second finger is ignored
@@ -1091,7 +1094,6 @@ addEventListener('pointermove', e => {
 const endDrag = e => { if (drag && e.pointerId === drag.id){ drag = null; document.body.classList.remove('dragging'); } };
 addEventListener('pointerup', endDrag);
 addEventListener('pointercancel', endDrag);
-canvas.addEventListener('click', () => { if (!dragged) enterShop(); });   // a click, so iOS counts it as a tap
 
 // Skyline: tilt up toward Bank of America Plaza, on the street only.
 let skyline = false;
